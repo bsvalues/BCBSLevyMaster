@@ -10,6 +10,7 @@ from datetime import datetime
 from enum import Enum, auto
 from typing import List, Optional, Dict, Any, Union
 
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Boolean, ForeignKey, 
     Text, UniqueConstraint, Index, JSON, Enum as SQLEnum, CheckConstraint
@@ -70,13 +71,17 @@ class AuditMixin:
     
     @declared_attr
     def created_by(cls):
+        """Create relationship with User model for created_by."""
+        name = cls.__name__.lower() if hasattr(cls, '__name__') else 'item'
         return relationship('User', foreign_keys=[cls.created_by_id], backref=backref(
-            f'{cls.__name__.lower()}_created', lazy='dynamic'))
+            name + '_created', lazy='dynamic'))
     
     @declared_attr
     def updated_by(cls):
+        """Create relationship with User model for updated_by."""
+        name = cls.__name__.lower() if hasattr(cls, '__name__') else 'item'
         return relationship('User', foreign_keys=[cls.updated_by_id], backref=backref(
-            f'{cls.__name__.lower()}_updated', lazy='dynamic'))
+            name + '_updated', lazy='dynamic'))
 
 
 class YearMixin:
@@ -288,7 +293,7 @@ class ImportLog(AuditMixin, db.Model):
     error_details = Column(Text)
     processing_time = Column(Float)  # Time in seconds
     year = Column(Integer, nullable=False, index=True)
-    metadata = Column(JSON)
+    import_metadata = Column(JSON)  # Renamed from metadata (reserved name)
     
     # Relationship
     user = relationship('User', backref=backref('imports', lazy='dynamic'))
@@ -312,7 +317,7 @@ class ExportLog(AuditMixin, db.Model):
     error_details = Column(Text)
     processing_time = Column(Float)  # Time in seconds
     year = Column(Integer, nullable=False, index=True)
-    metadata = Column(JSON)
+    export_metadata = Column(JSON)  # Renamed from metadata (reserved name)
     
     # Relationship
     user = relationship('User', backref=backref('exports', lazy='dynamic'))
@@ -579,7 +584,7 @@ class AIAnalysisRequest(AuditMixin, db.Model):
     prompt = Column(Text, nullable=False)
     parameters = Column(JSON)
     response = Column(Text)
-    response_metadata = Column(JSON)
+    ai_response_metadata = Column(JSON)  # Renamed from response_metadata (reserved name)
     processing_time = Column(Float)  # Time in seconds
     status = Column(String(32), default='PENDING')
     error_details = Column(Text)

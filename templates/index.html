@@ -1,233 +1,61 @@
-{% extends 'base.html' %}
+{% extends "simple_base.html" %}
 
 {% block title %}Home - Levy Calculation System{% endblock %}
 
-{% block page_title %}Washington Levy Calculation System{% endblock %}
-{% block page_subtitle %}Property Tax Administration Suite for Benton County Assessor's Office{% endblock %}
-
-{% block header_actions %}
-    <a href="{{ url_for('levy.calculator') }}" class="btn btn-primary">
-        <i class="bi bi-calculator me-2"></i>Start Calculating
-    </a>
-{% endblock %}
-
 {% block content %}
-<div class="row mb-5">
-    <div class="col-md-6">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-body">
-                <h2 class="card-title h3 mb-4">
-                    <i class="bi bi-speedometer2 text-primary me-2"></i>Levy Administration Dashboard
-                </h2>
-                <p class="lead">Welcome to the Levy Calculation System, your comprehensive platform for property tax levy administration.</p>
-                <p>This suite of tools helps you calculate, analyze, and manage property tax levies in compliance with Washington state requirements.</p>
-                
-                {% if current_user.is_authenticated %}
-                <div class="mt-4">
-                    <h5>Your Recent Activity</h5>
-                    <ul class="list-group list-group-flush">
-                        {% for activity in recent_activities|default([
-                            {'icon': 'calculator', 'action': 'Levy Calculation', 'time': '3 hours ago', 'district': 'Kennewick School District'},
-                            {'icon': 'file-earmark-arrow-up', 'action': 'Data Import', 'time': 'Yesterday', 'district': 'Benton County'},
-                            {'icon': 'graph-up', 'action': 'Forecast Analysis', 'time': '2 days ago', 'district': 'City of Richland'}
-                        ]) %}
-                        <li class="list-group-item px-0 py-2 d-flex align-items-center border-0">
-                            <span class="bg-light rounded-circle p-2 me-3">
-                                <i class="bi bi-{{ activity.icon }} text-primary"></i>
-                            </span>
-                            <div>
-                                <strong>{{ activity.action }}</strong>
-                                <div class="small text-muted">{{ activity.time }} • {{ activity.district }}</div>
-                            </div>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-                
-                <div class="d-grid gap-2 d-md-flex justify-content-md-start mt-4">
-                    <a href="{{ url_for('levy.calculator') }}" class="btn btn-primary">
-                        <i class="bi bi-calculator me-2"></i>Calculate Levy
-                    </a>
-                    <a href="{{ url_for('data_management.import_data') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-cloud-upload me-2"></i>Import Data
-                    </a>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold mb-4">Levy Calculation System</h1>
+                <p class="lead mb-4">A comprehensive property tax levy calculation and management system for Washington state.</p>
+                <div class="d-grid gap-2 d-md-block">
+                    <button type="button" class="btn btn-primary btn-lg me-md-2" disabled>
+                        <i class="bi bi-calculator me-2"></i>Open Levy Calculator
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-lg" disabled>
+                        <i class="bi bi-file-earmark-text me-2"></i>View Reports
+                    </button>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-header bg-primary text-white py-3">
-                <h3 class="card-title h5 mb-0">
-                    <i class="bi bi-calendar-check me-2"></i>{{ current_year|default('2025') }} Levy Overview
-                </h3>
-            </div>
-            <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-sm-6 mb-3 mb-sm-0">
-                        <div class="stat-card bg-light">
-                            <div class="stat-title">Total Levy Amount</div>
-                            <div class="stat-value">${{ total_levy_amount|default('145,732,850') }}</div>
-                            <div class="stat-change text-success">
-                                <i class="bi bi-arrow-up me-1"></i>{{ levy_amount_change|default('3.2') }}% from prior year
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6">
-                        <div class="stat-card bg-light">
-                            <div class="stat-title">Districts Processed</div>
-                            <div class="stat-value">{{ districts_processed|default('32') }}/{{ total_districts|default('35') }}</div>
-                            <div class="progress" style="height: 8px;">
-                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ (districts_processed|default(32) / total_districts|default(35) * 100)|round|int }}%" aria-valuenow="{{ districts_processed|default(32) }}" aria-valuemin="0" aria-valuemax="{{ total_districts|default(35) }}"></div>
-                            </div>
+            
+            <div class="row mt-5">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 bg-dark">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-calculator display-4 text-primary mb-3"></i>
+                            <h3 class="card-title h5">Levy Calculation</h3>
+                            <p class="card-text">Calculate property tax levies with statutory compliance checks.</p>
                         </div>
                     </div>
                 </div>
-                
-                <h5 class="mb-3">Top Tax Districts</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>District</th>
-                                <th class="text-end">Levy Amount</th>
-                                <th class="text-end">Rate (per $1,000)</th>
-                                <th class="text-end">Change</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for district in top_districts|default([
-                                {'name': 'Kennewick School District', 'amount': '$42,153,420', 'rate': '$2.31', 'change': '+2.4%'},
-                                {'name': 'City of Richland', 'amount': '$23,827,650', 'rate': '$1.92', 'change': '+1.8%'},
-                                {'name': 'Benton County', 'amount': '$17,658,230', 'rate': '$1.45', 'change': '+0.5%'},
-                                {'name': 'Fire District #1', 'amount': '$12,354,790', 'rate': '$1.28', 'change': '-0.2%'},
-                                {'name': 'Port of Benton', 'amount': '$8,765,430', 'rate': '$0.87', 'change': '+1.2%'}
-                            ]) %}
-                            <tr>
-                                <td>{{ district.name }}</td>
-                                <td class="text-end">{{ district.amount }}</td>
-                                <td class="text-end">{{ district.rate }}</td>
-                                <td class="text-end">
-                                    <span class="badge {% if '-' in district.change %}bg-danger{% else %}bg-success{% endif %}">
-                                        {{ district.change }}
-                                    </span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 bg-dark">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-graph-up-arrow display-4 text-success mb-3"></i>
+                            <h3 class="card-title h5">Data Analysis</h3>
+                            <p class="card-text">Perform historical analysis and forecasting of levy rates.</p>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="text-center mt-3">
-                    <a href="{{ url_for('reports.levy_summary') }}" class="btn btn-sm btn-outline-primary">
-                        View Complete Report <i class="bi bi-arrow-right ms-1"></i>
-                    </a>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 border-0 bg-dark">
+                        <div class="card-body text-center py-4">
+                            <i class="bi bi-file-earmark-text display-4 text-warning mb-3"></i>
+                            <h3 class="card-title h5">Reports</h3>
+                            <p class="card-text">Generate comprehensive reports for various stakeholders.</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
+            
+            <div class="alert alert-info mt-5" role="alert">
+                <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>System Status</h4>
+                <p>The Levy Calculation System is currently in setup mode. Database tables and initial configuration are being prepared.</p>
+                <hr>
+                <p class="mb-0">Please check back soon for full functionality.</p>
             </div>
         </div>
     </div>
 </div>
-
-<div class="row">
-    <div class="col-12">
-        <h2 class="h3 mb-4">Key Features</h2>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card h-100 border-0 shadow-sm card-hover-primary">
-            <div class="card-body">
-                <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded mb-3">
-                    <i class="bi bi-calculator-fill"></i>
-                </div>
-                <h3 class="h5 card-title">Levy Calculation</h3>
-                <p class="card-text">Calculate property tax levies with statutory limit enforcement and automatic validation checks.</p>
-                <ul class="list-unstyled">
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Statutory limit validation</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Multi-year calculations</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Rate and amount calculations</li>
-                </ul>
-                <a href="{{ url_for('levy.calculator') }}" class="btn btn-sm btn-primary mt-2">
-                    Start Calculating <i class="bi bi-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card h-100 border-0 shadow-sm card-hover-info">
-            <div class="card-body">
-                <div class="stat-icon bg-info bg-opacity-10 text-info rounded mb-3">
-                    <i class="bi bi-graph-up"></i>
-                </div>
-                <h3 class="h5 card-title">Analysis & Forecasting</h3>
-                <p class="card-text">Analyze historical data and generate forecasts for future levy planning.</p>
-                <ul class="list-unstyled">
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Historical trend analysis</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Multi-model forecasting</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>AI-powered insights</li>
-                </ul>
-                <a href="{{ url_for('forecasting.index') }}" class="btn btn-sm btn-info mt-2 text-white">
-                    Explore Analysis <i class="bi bi-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card h-100 border-0 shadow-sm card-hover-success">
-            <div class="card-body">
-                <div class="stat-icon bg-success bg-opacity-10 text-success rounded mb-3">
-                    <i class="bi bi-database-check"></i>
-                </div>
-                <h3 class="h5 card-title">Data Management</h3>
-                <p class="card-text">Import, export, and manage levy data with comprehensive validation.</p>
-                <ul class="list-unstyled">
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Multiple file format support</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Automatic data validation</li>
-                    <li><i class="bi bi-check-circle-fill text-success me-2"></i>Historical data archiving</li>
-                </ul>
-                <a href="{{ url_for('data_management.import_data') }}" class="btn btn-sm btn-success mt-2">
-                    Manage Data <i class="bi bi-arrow-right ms-1"></i>
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% if not current_user.is_authenticated %}
-<div class="card bg-light border-0 p-4 mb-5 mt-2">
-    <div class="card-body">
-        <h3 class="h4 mb-3">Get Started Today</h3>
-        <p>Log in to access all features and start managing your property tax levy calculations.</p>
-        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
-            <i class="bi bi-box-arrow-in-right me-2"></i>Log In
-        </a>
-        <a href="{{ url_for('help.user_guide') }}" class="btn btn-link ms-2">
-            Learn More <i class="bi bi-arrow-right ms-1"></i>
-        </a>
-    </div>
-</div>
-{% endif %}
-
-{% if ai_insights|default(True) %}
-<div class="ai-insights mt-3">
-    <div class="ai-insights-header">
-        <div class="ai-insights-icon">
-            <i class="bi bi-robot"></i>
-        </div>
-        <h3 class="ai-insights-title">AI Insights</h3>
-    </div>
-    <div class="ai-recommendation">
-        <p><strong>Assessed Value Trend:</strong> Based on historical data, we're detecting a 5.8% average increase in assessed property values across Benton County. This may impact levy rates to stay within statutory limits.</p>
-        <p class="mb-0"><strong>Recommendation:</strong> Consider reviewing statutory limit calculations for affected districts, especially those approaching their maximum levy rate.</p>
-    </div>
-    <div class="ai-recommendation">
-        <p><strong>Data Consistency:</strong> There appears to be a 2.3% variance in assessed values reported between county and district records for West Richland area. This may require reconciliation.</p>
-        <p class="mb-0"><strong>Recommendation:</strong> Validate imported assessment data for the affected tax codes before finalizing calculations.</p>
-    </div>
-    <div class="d-flex justify-content-end mt-3">
-        <a href="{{ url_for('analysis.ai_insights') }}" class="btn btn-sm btn-outline-primary">
-            View All Insights <i class="bi bi-arrow-right ms-1"></i>
-        </a>
-    </div>
-</div>
-{% endif %}
 {% endblock %}

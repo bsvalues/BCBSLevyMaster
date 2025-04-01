@@ -9,7 +9,7 @@ import os
 import logging
 from datetime import datetime
 
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
@@ -59,9 +59,6 @@ def create_app(config_name=None):
     # Initialize extensions with the app
     db.init_app(app)
     
-    # Register blueprints
-    register_blueprints(app)
-    
     # Register error handlers
     register_error_handlers(app)
     
@@ -74,32 +71,6 @@ def create_app(config_name=None):
     return app
 
 
-def register_blueprints(app):
-    """
-    Register Flask blueprints for modular routes.
-    
-    Args:
-        app: The Flask application instance
-    """
-    # Import blueprints here to avoid circular imports
-    from routes import main_bp
-    from routes_data_management import data_management_bp
-    from routes_forecasting import forecasting_bp
-    from routes_historical_analysis import historical_analysis_bp
-    from routes_reports import reports_bp
-    from routes_public import public_bp
-    from routes_glossary import glossary_bp
-    
-    # Register each blueprint with a URL prefix
-    app.register_blueprint(main_bp)
-    app.register_blueprint(data_management_bp, url_prefix='/data')
-    app.register_blueprint(forecasting_bp, url_prefix='/forecasting')
-    app.register_blueprint(historical_analysis_bp, url_prefix='/historical')
-    app.register_blueprint(reports_bp, url_prefix='/reports')
-    app.register_blueprint(public_bp, url_prefix='/public')
-    app.register_blueprint(glossary_bp, url_prefix='/glossary')
-
-
 def register_error_handlers(app):
     """
     Register custom error handlers for the application.
@@ -109,11 +80,18 @@ def register_error_handlers(app):
     """
     @app.errorhandler(404)
     def page_not_found(error):
-        return render_template('404.html'), 404
+        if request.path.startswith('/api/'):
+            return jsonify(error="Not found"), 404
+        return render_template('simple_404.html'), 404
     
     @app.errorhandler(500)
     def internal_server_error(error):
-        return render_template('500.html'), 500
+        if request.path.startswith('/api/'):
+            return jsonify(error="Internal server error"), 500
+        return render_template('simple_404.html', 
+                              error_code=500, 
+                              error_title="Internal Server Error",
+                              error_message="The server encountered an error processing your request."), 500
 
 
 def register_template_filters(app):
@@ -170,15 +148,6 @@ def configure_logging(app):
     if not os.path.exists('logs'):
         os.makedirs('logs')
     
-    # Configure file handler for errors
-    if not app.debug:
-        file_handler = logging.FileHandler('logs/application.log')
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        app.logger.addHandler(file_handler)
-    
     app.logger.setLevel(log_level)
     app.logger.info('Levy Calculation System startup')
 
@@ -186,16 +155,19 @@ def configure_logging(app):
 # Create the Flask application instance
 app = create_app()
 
-
+# Root route with welcome page
 @app.route('/')
 def index():
-    """Redirect root URL to main index page."""
-    return redirect(url_for('main.index'))
+    """Render welcome page with system status"""
+    return render_template('index.html')
 
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():
-    import models
-    
     # Create tables if they don't exist
-    db.create_all()
+    try:
+        from models import User, TaxDistrict, TaxCode, Property, ImportLog, ExportLog
+        db.create_all()
+        app.logger.info("Database tables created successfully")
+    except Exception as e:
+        app.logger.error(f"Error creating database tables: {str(e)}")
