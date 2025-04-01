@@ -1,13 +1,15 @@
 import os
 import logging
 from app import app
-import routes
 
-# Configure logging
+# Configure logging first
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+# Import routes here to ensure routes are registered with the Flask app
+import routes
 
 # Initialize MCP if enabled
 MCP_ENABLED = os.environ.get('ENABLE_MCP', 'true').lower() in ('true', '1', 'yes')

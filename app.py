@@ -31,6 +31,3 @@ with app.app_context():
     # Import models here
     import models
     db.create_all()
-    
-    # Import routes
-    import routes
