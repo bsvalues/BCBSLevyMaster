@@ -6,6 +6,7 @@ This module includes routes for tax levy forecasting and analysis:
 - Visualization of forecast results
 - Scenario comparison
 - AI-enhanced forecasting and insights
+- Interactive visualizations and dashboards
 """
 
 import logging
@@ -16,6 +17,7 @@ from app import app, db
 from models import TaxCode, TaxCodeHistoricalRate
 from utils import forecasting_utils
 from utils import ai_forecasting_utils
+from utils import interactive_visualization_utils
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -398,6 +400,110 @@ def generate_forecast_recommendations():
     except Exception as e:
         logger.exception(f"Error generating recommendations: {str(e)}")
         flash(f"Error generating recommendations: {str(e)}", 'danger')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/interactive', methods=['GET'])
+def interactive_forecasting_dashboard():
+    """
+    Interactive dashboard for property tax forecasting with enhanced visualizations.
+    
+    Provides an interface with advanced filtering, drill-down capabilities, and comparative analysis.
+    """
+    # Get all tax codes for selector
+    tax_codes = TaxCode.query.order_by(TaxCode.code).all()
+    
+    # Get current year for context
+    current_year = datetime.now().year
+    
+    return render_template('forecasting/interactive_dashboard.html',
+                         tax_codes=tax_codes,
+                         current_year=current_year)
+
+
+@app.route('/forecasting/interactive/chart-config', methods=['POST'])
+def get_interactive_chart_config():
+    """
+    Get interactive chart configuration for a specific chart type.
+    
+    Returns enhanced chart configuration with interactive features.
+    """
+    # Get parameters
+    chart_type = request.form.get('chart_type', 'line')
+    data = request.json or {}
+    
+    try:
+        # Get chart configuration
+        chart_config = interactive_visualization_utils.create_interactive_chart(data, chart_type)
+        return jsonify(chart_config)
+    except Exception as e:
+        logger.exception(f"Error generating chart config: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/interactive/comparison', methods=['POST'])
+def get_comparative_visualization():
+    """
+    Generate an enhanced comparative visualization for different scenarios.
+    
+    Returns visualization configuration with interactive features.
+    """
+    # Get parameters
+    scenarios = request.json
+    
+    if not scenarios:
+        return jsonify({'error': 'Scenario data is required'}), 400
+    
+    try:
+        # Generate comparative visualization
+        visualization = interactive_visualization_utils.create_comparative_visualization(scenarios)
+        return jsonify(visualization)
+    except Exception as e:
+        logger.exception(f"Error generating comparative visualization: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/interactive/dashboard-config', methods=['POST'])
+def get_dynamic_dashboard_config():
+    """
+    Generate a configuration for a dynamic dashboard with multiple visualizations.
+    
+    Returns dashboard configuration with panels, filters, and interaction settings.
+    """
+    # Get parameters
+    datasets = request.json
+    
+    if not datasets:
+        return jsonify({'error': 'Dataset information is required'}), 400
+    
+    try:
+        # Generate dashboard configuration
+        dashboard_config = interactive_visualization_utils.create_dynamic_dashboard(datasets)
+        return jsonify(dashboard_config)
+    except Exception as e:
+        logger.exception(f"Error generating dashboard configuration: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/districts/map', methods=['POST'])
+def get_tax_district_map():
+    """
+    Generate a map visualization for tax districts.
+    
+    Returns a map with tax districts colored by levy rates.
+    """
+    # Get parameters
+    district_data = request.json
+    
+    if not district_data:
+        return jsonify({'error': 'District data is required'}), 400
+    
+    try:
+        # Generate map visualization
+        map_config = interactive_visualization_utils.create_tax_district_map(district_data)
+        return jsonify(map_config)
+    except Exception as e:
+        logger.exception(f"Error generating district map: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
