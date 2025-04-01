@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -9,6 +10,9 @@ from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
 from utils.district_utils import import_district_text_file, import_district_xml_file, import_district_excel_file, get_linked_levy_codes
 from sqlalchemy import func
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 @app.route('/')
 def index():
@@ -270,6 +274,7 @@ def property_lookup():
     Look up property tax details by property ID.
     """
     property_data = None
+    mcp_insights = None
     
     if request.method == 'POST':
         property_id = request.form.get('property_id')
@@ -296,12 +301,45 @@ def property_lookup():
                         'calculated_tax': calculated_tax,
                         'linked_levy_codes': linked_levy_codes
                     }
+                    
+                    # Add AI-powered insights using MCP if enabled
+                    try:
+                        from utils.anthropic_utils import get_claude_service
+                        
+                        claude_service = get_claude_service()
+                        if claude_service:
+                            # Generate AI insights
+                            insights = claude_service.analyze_property_data(property_data)
+                            
+                            # Check for successful analysis
+                            if insights and not insights.get('error'):
+                                property_data['mcp_insights'] = insights
+                                
+                                # Also add to general MCP insights for the template
+                                mcp_insights = {
+                                    'narrative': f"""
+                                        <p>AI analysis for property {property_obj.property_id}:</p>
+                                        <ul>
+                                            <li>{insights.get('summary', 'No summary available')}</li>
+                                            <li>{insights.get('recommendations', 'No recommendations available')}</li>
+                                        </ul>
+                                    """,
+                                    'data': {
+                                        'property_id': property_obj.property_id,
+                                        'tax_code': property_obj.tax_code,
+                                        'analysis_generated': 'Yes'
+                                    }
+                                }
+                        else:
+                            logger.info("Claude service not available for property analysis")
+                    except Exception as e:
+                        logger.error(f"Error generating property insights: {str(e)}")
                 else:
                     flash("Tax code information or levy rate not found for this property", 'warning')
             else:
                 flash("Property not found", 'danger')
     
-    return render_template('property_lookup.html', property_data=property_data)
+    return render_template('property_lookup.html', property_data=property_data, mcp_insights=mcp_insights)
 
 @app.route('/api/tax-codes')
 def api_tax_codes():
@@ -343,3 +381,47 @@ def api_district_summary():
     }
     
     return jsonify(data)
+
+@app.route('/mcp-insights')
+def mcp_insights():
+    """
+    Display Model Content Protocol (MCP) insights and AI capabilities.
+    """
+    # Get statistical insights
+    property_count = Property.query.count()
+    tax_code_count = TaxCode.query.count()
+    district_count = TaxDistrict.query.count()
+    
+    # Get recent import/export activity
+    recent_imports = ImportLog.query.order_by(ImportLog.import_date.desc()).limit(5).all()
+    recent_exports = ExportLog.query.order_by(ExportLog.export_date.desc()).limit(5).all()
+    
+    # Assemble MCP insights data for the template
+    # This will be enhanced by the MCP route enhancement in utils/mcp_integration.py
+    mcp_insights = {
+        'narrative': """
+            <p>The Model Content Protocol (MCP) integration provides intelligent insights
+            into your property tax data. Here are some key observations:</p>
+            <ul>
+                <li>Analysis of levy rates and assessed values across districts</li>
+                <li>Trend identification in property valuations</li>
+                <li>Compliance verification with statutory limits</li>
+                <li>Tax burden distribution analysis across property types</li>
+            </ul>
+        """,
+        'data': {
+            'property_count': property_count,
+            'tax_code_count': tax_code_count,
+            'district_count': district_count,
+            'import_activity': len(recent_imports),
+            'export_activity': len(recent_exports)
+        }
+    }
+    
+    return render_template('mcp_insights.html', 
+                          mcp_insights=mcp_insights,
+                          property_count=property_count,
+                          tax_code_count=tax_code_count,
+                          district_count=district_count,
+                          recent_imports=recent_imports,
+                          recent_exports=recent_exports)

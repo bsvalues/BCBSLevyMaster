@@ -1,4 +1,34 @@
+import os
+import logging
 from app import app
+from utils.mcp_integration import init_mcp, init_mcp_api_routes, enhance_routes_with_mcp
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Initialize MCP if enabled
+MCP_ENABLED = os.environ.get('ENABLE_MCP', 'true').lower() in ('true', '1', 'yes')
+
+if MCP_ENABLED:
+    try:
+        # Initialize MCP integration
+        mcp_components = init_mcp()
+        
+        # Initialize MCP API routes
+        init_mcp_api_routes(app)
+        
+        # Enhance existing routes with MCP intelligence
+        enhance_routes_with_mcp(app)
+        
+        logging.info("MCP integration successfully initialized and enabled")
+    except Exception as e:
+        logging.error(f"Failed to initialize MCP integration: {str(e)}")
+        logging.error("Application will run without MCP features")
+else:
+    logging.info("MCP integration disabled by environment configuration")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

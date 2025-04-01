@@ -62,6 +62,11 @@
                             <i class="fas fa-search me-1"></i> Property Lookup
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == url_for('mcp_insights') %}active{% endif %}" href="{{ url_for('mcp_insights') }}">
+                            <i class="fas fa-brain me-1"></i> AI Insights
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -91,6 +96,9 @@
         
         <!-- Page Content -->
         {% block content %}{% endblock %}
+        
+        <!-- MCP Insights -->
+        {% block mcp_insights %}{% endblock %}
     </div>
     
     <!-- Footer -->

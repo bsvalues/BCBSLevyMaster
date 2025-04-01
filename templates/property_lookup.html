@@ -87,6 +87,50 @@
                         </div>
                     </div>
                     {% endif %}
+                    
+                    <!-- AI-Powered Property Insights (MCP) -->
+                    {% if property_data.mcp_insights %}
+                    <div class="card mt-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-brain me-2"></i> AI-Powered Property Insights</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if property_data.mcp_insights.summary %}
+                            <div class="mb-3">
+                                <h6>Summary</h6>
+                                <p>{{ property_data.mcp_insights.summary }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if property_data.mcp_insights.comparisons %}
+                            <div class="mb-3">
+                                <h6>Comparisons</h6>
+                                <p>{{ property_data.mcp_insights.comparisons }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if property_data.mcp_insights.factors %}
+                            <div class="mb-3">
+                                <h6>Key Factors</h6>
+                                <p>{{ property_data.mcp_insights.factors }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            {% if property_data.mcp_insights.recommendations %}
+                            <div class="mb-3">
+                                <h6>Recommendations</h6>
+                                <p>{{ property_data.mcp_insights.recommendations }}</p>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="text-end mt-2">
+                                <small class="text-muted">
+                                    Analysis powered by Model Content Protocol (MCP) and Claude AI
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -143,4 +187,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block mcp_insights %}
+{% include 'partials/mcp_insights.html' %}
 {% endblock %}

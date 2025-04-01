@@ -218,6 +218,10 @@
 </div>
 {% endblock %}
 
+{% block mcp_insights %}
+{% include 'partials/mcp_insights.html' %}
+{% endblock %}
+
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 {% endblock %}

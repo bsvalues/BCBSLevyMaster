@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}AI Insights - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}AI Insights & Analytics{% endblock %}
+{% block page_subtitle %}Powered by Model Content Protocol (MCP){% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-brain me-2"></i> MCP Intelligence Overview</h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    The Model Content Protocol (MCP) integration provides advanced AI capabilities to enhance the Levy Calculator application.
+                    This system leverages large language models and specialized autonomous agents to provide intelligent insights and automation.
+                </p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-4 mb-3">
+                        <div class="card text-center h-100">
+                            <div class="card-body">
+                                <i class="fas fa-chart-line fa-3x mb-3 text-primary"></i>
+                                <h5 class="card-title">Advanced Analytics</h5>
+                                <p class="card-text">Trend analysis and pattern recognition across levy data</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card text-center h-100">
+                            <div class="card-body">
+                                <i class="fas fa-robot fa-3x mb-3 text-primary"></i>
+                                <h5 class="card-title">Autonomous Agents</h5>
+                                <p class="card-text">Specialized AI agents for analysis, prediction, and coordination</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card text-center h-100">
+                            <div class="card-body">
+                                <i class="fas fa-comment-dots fa-3x mb-3 text-primary"></i>
+                                <h5 class="card-title">Natural Language Understanding</h5>
+                                <p class="card-text">Interpret user requests and generate human-like explanations</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-cogs me-2"></i> MCP Agent System</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="card-subtitle mb-3">Specialized AI Agents</h6>
+                
+                <div class="list-group mb-3">
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Levy Analysis Agent</h6>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                        <p class="mb-1">Analyzes levy rates and assessed values across districts</p>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Levy Prediction Agent</h6>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                        <p class="mb-1">Predicts future levy rates and assessed values</p>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Workflow Coordinator Agent</h6>
+                            <span class="badge bg-success">Active</span>
+                        </div>
+                        <p class="mb-1">Coordinates complex multi-agent workflows</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-project-diagram me-2"></i> MCP Function Registry</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="card-subtitle mb-3">Available AI-Enhanced Functions</h6>
+                
+                <div class="list-group mb-3">
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">analyze_tax_distribution</h6>
+                        </div>
+                        <p class="mb-1">Analyze distribution of tax burden across properties</p>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">analyze_historical_trends</h6>
+                        </div>
+                        <p class="mb-1">Analyze historical trends in levy rates and assessed values</p>
+                    </div>
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">predict_levy_rates</h6>
+                        </div>
+                        <p class="mb-1">Predict future levy rates based on historical data</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> MCP Data Analysis</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <h5>Levy Rate Distribution</h5>
+                        <div class="chart-container">
+                            <canvas id="mcpLevyRateChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <h5>Assessed Value Distribution</h5>
+                        <div class="chart-container">
+                            <canvas id="mcpAssessedValueChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-code me-2"></i> MCP API Access</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    The Model Content Protocol (MCP) API provides programmatic access to AI capabilities.
+                    Use these endpoints to integrate MCP intelligence with other systems.
+                </p>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Endpoint</th>
+                                <th>Description</th>
+                                <th>Method</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>/api/mcp/functions</code></td>
+                                <td>List all available MCP functions</td>
+                                <td><span class="badge bg-success">GET</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/mcp/workflows</code></td>
+                                <td>List all available MCP workflows</td>
+                                <td><span class="badge bg-success">GET</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/mcp/agents</code></td>
+                                <td>List all available MCP agents</td>
+                                <td><span class="badge bg-success">GET</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/mcp/function/execute</code></td>
+                                <td>Execute an MCP function</td>
+                                <td><span class="badge bg-primary">POST</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/mcp/workflow/execute</code></td>
+                                <td>Execute an MCP workflow</td>
+                                <td><span class="badge bg-primary">POST</span></td>
+                            </tr>
+                            <tr>
+                                <td><code>/api/mcp/agent/request</code></td>
+                                <td>Send a request to an MCP agent</td>
+                                <td><span class="badge bg-primary">POST</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block mcp_insights %}
+{% include 'partials/mcp_insights.html' %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sample data for charts - this would ideally come from API endpoints
+    
+    // Levy Rate Distribution Chart
+    const levyRateCtx = document.getElementById('mcpLevyRateChart').getContext('2d');
+    const levyRateChart = new Chart(levyRateCtx, {
+        type: 'bar',
+        data: {
+            labels: ['0-5', '5-10', '10-15', '15-20', '20+'],
+            datasets: [{
+                label: 'Levy Rate Distribution (per $1000 assessed value)',
+                data: [12, 19, 15, 8, 5],
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(54, 162, 235, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(54, 162, 235, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Tax Codes'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Levy Rate Range'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Assessed Value Distribution Chart
+    const assessedValueCtx = document.getElementById('mcpAssessedValueChart').getContext('2d');
+    const assessedValueChart = new Chart(assessedValueCtx, {
+        type: 'bar',
+        data: {
+            labels: ['<100K', '100K-250K', '250K-500K', '500K-1M', '>1M'],
+            datasets: [{
+                label: 'Assessed Value Distribution',
+                data: [25, 35, 20, 15, 5],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(75, 192, 192, 0.5)',
+                    'rgba(75, 192, 192, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(75, 192, 192, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Properties'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Assessed Value Range'
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
