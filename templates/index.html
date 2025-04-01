@@ -1,398 +1,512 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Dashboard - Levy Calculation System{% endblock %}
+{% block title %}Home - Levy Calculation System{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom page-header">
-    <h1 class="h2">Dashboard</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-share"></i> Export
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-printer"></i> Print
-            </button>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-primary d-flex align-items-center" id="refreshDashboard">
-            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-        </button>
-    </div>
-</div>
-
-<!-- Stats Cards -->
-<div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-4 mb-4">
-    <div class="col">
-        <div class="card stat-card h-100 bg-dark hover-grow">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="stat-icon bg-primary">
-                        <i class="bi bi-house-door"></i>
-                    </div>
-                    <h5 class="card-title mb-0 text-end">Properties</h5>
-                </div>
-                <h2 class="card-subtitle mb-1">124,682</h2>
-                <p class="card-text text-muted">Total assessed properties</p>
-                <div class="progress progress-thin">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
+<div class="container py-5">
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto text-center">
+            <h1 class="display-4 mb-3">Levy Calculation System</h1>
+            <p class="lead mb-4">Advanced property tax levy calculation and analytics platform for county assessors.</p>
+            <div class="d-flex justify-content-center gap-2">
+                <a href="#dashboard" class="btn btn-primary">
+                    <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                </a>
+                <a href="#getting-started" class="btn btn-outline-secondary">
+                    <i class="bi bi-info-circle me-1"></i> Getting Started
+                </a>
             </div>
         </div>
     </div>
-    <div class="col">
-        <div class="card stat-card h-100 bg-dark hover-grow">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="stat-icon bg-success">
-                        <i class="bi bi-cash-stack"></i>
+    
+    <!-- Dashboard Section -->
+    <section id="dashboard" class="mb-5">
+        <div class="row mb-4">
+            <div class="col">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2><i class="bi bi-speedometer2 me-2"></i> Dashboard</h2>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-repeat me-1"></i> Refresh
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-gear me-1"></i> Settings
+                        </button>
                     </div>
-                    <h5 class="card-title mb-0 text-end">Assessed Value</h5>
                 </div>
-                <h2 class="card-subtitle mb-1">$19.8B</h2>
-                <p class="card-text text-muted">Total assessed value</p>
-                <div class="progress progress-thin">
-                    <div class="progress-bar bg-success" role="progressbar" style="width: 82%" aria-valuenow="82" aria-valuemin="0" aria-valuemax="100"></div>
+                <hr>
+            </div>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3 mb-md-0">
+                <div class="card dashboard-card stat-card bg-dark fade-in">
+                    <div class="card-body">
+                        <div class="stat-icon text-primary">
+                            <i class="bi bi-buildings"></i>
+                        </div>
+                        <div class="stat-value">{{ tax_districts_count|default('42') }}</div>
+                        <div class="stat-label">Tax Districts</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3 mb-md-0">
+                <div class="card dashboard-card stat-card bg-dark fade-in">
+                    <div class="card-body">
+                        <div class="stat-icon text-info">
+                            <i class="bi bi-tags"></i>
+                        </div>
+                        <div class="stat-value">{{ tax_codes_count|default('218') }}</div>
+                        <div class="stat-label">Tax Codes</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3 mb-md-0">
+                <div class="card dashboard-card stat-card bg-dark fade-in">
+                    <div class="card-body">
+                        <div class="stat-icon text-success">
+                            <i class="bi bi-house-check"></i>
+                        </div>
+                        <div class="stat-value">{{ properties_count|default('82,543') }}</div>
+                        <div class="stat-label">Properties</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-3 mb-md-0">
+                <div class="card dashboard-card stat-card bg-dark fade-in">
+                    <div class="card-body">
+                        <div class="stat-icon text-warning">
+                            <i class="bi bi-calendar-check"></i>
+                        </div>
+                        <div class="stat-value">{{ current_tax_year|default('2025') }}</div>
+                        <div class="stat-label">Current Tax Year</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col">
-        <div class="card stat-card h-100 bg-dark hover-grow">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="stat-icon bg-info">
-                        <i class="bi bi-geo-alt"></i>
+        
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Levy Rates by District Type</h5>
+                        <span class="badge bg-info">{{ selected_year|default('2025') }}</span>
                     </div>
-                    <h5 class="card-title mb-0 text-end">Tax Districts</h5>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <div class="chart-wrapper">
+                                <canvas id="levyRatesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <h2 class="card-subtitle mb-1">48</h2>
-                <p class="card-text text-muted">Active taxing districts</p>
-                <div class="progress progress-thin">
-                    <div class="progress-bar bg-info" role="progressbar" style="width: 65%" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Assessed Value Distribution</h5>
+                        <span class="badge bg-info">{{ selected_year|default('2025') }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <div class="chart-wrapper">
+                                <canvas id="valueDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col">
-        <div class="card stat-card h-100 bg-dark hover-grow">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="stat-icon bg-warning">
-                        <i class="bi bi-flag"></i>
-                    </div>
-                    <h5 class="card-title mb-0 text-end">Tax Codes</h5>
-                </div>
-                <h2 class="card-subtitle mb-1">215</h2>
-                <p class="card-text text-muted">Unique tax codes</p>
-                <div class="progress progress-thin">
-                    <div class="progress-bar bg-warning" role="progressbar" style="width: 54%" aria-valuenow="54" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Main Content Row -->
-<div class="row g-4">
-    <!-- Historical Levy Rates Chart -->
-    <div class="col-lg-8">
-        <div class="card bg-dark mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Historical Levy Rates</h5>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-gear"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#">Last 5 Years</a></li>
-                        <li><a class="dropdown-item" href="#">Last 10 Years</a></li>
-                        <li><a class="dropdown-item" href="#">All Available Data</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#">Filter by District</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="historicalRatesChart"></canvas>
-                </div>
-            </div>
-            <div class="card-footer text-muted">
-                <small>Data shown for primary taxing districts. Last updated Jan 15, 2025.</small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tax Distribution & AI Insights -->
-    <div class="col-lg-4">
-        <!-- Tax Distribution -->
-        <div class="card bg-dark mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">Tax Distribution</h5>
-            </div>
-            <div class="card-body">
-                <div class="tax-distribution-item">
-                    <div class="tax-distribution-label">
-                        <span>Schools (K-12 & Higher Ed)</span>
-                        <span>56.4%</span>
-                    </div>
-                    <div class="tax-distribution-bar">
-                        <div class="progress-bar bg-primary" role="progressbar" style="width: 56.4%" aria-valuenow="56.4" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-                <div class="tax-distribution-item">
-                    <div class="tax-distribution-label">
-                        <span>County Government</span>
-                        <span>17.2%</span>
-                    </div>
-                    <div class="tax-distribution-bar">
-                        <div class="progress-bar bg-success" role="progressbar" style="width: 17.2%" aria-valuenow="17.2" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-                <div class="tax-distribution-item">
-                    <div class="tax-distribution-label">
-                        <span>Cities & Towns</span>
-                        <span>12.8%</span>
-                    </div>
-                    <div class="tax-distribution-bar">
-                        <div class="progress-bar bg-info" role="progressbar" style="width: 12.8%" aria-valuenow="12.8" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-                <div class="tax-distribution-item">
-                    <div class="tax-distribution-label">
-                        <span>Hospital Districts</span>
-                        <span>7.3%</span>
-                    </div>
-                    <div class="tax-distribution-bar">
-                        <div class="progress-bar bg-warning" role="progressbar" style="width: 7.3%" aria-valuenow="7.3" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-                <div class="tax-distribution-item">
-                    <div class="tax-distribution-label">
-                        <span>Other Districts</span>
-                        <span>6.3%</span>
-                    </div>
-                    <div class="tax-distribution-bar">
-                        <div class="progress-bar bg-secondary" role="progressbar" style="width: 6.3%" aria-valuenow="6.3" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-                <div class="text-center mt-3">
-                    <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#taxDistributionModal">
-                        <i class="bi bi-pie-chart me-1"></i> View Details
-                    </button>
-                </div>
-            </div>
-        </div>
-
+        
         <!-- AI Insights -->
-        <div class="card bg-dark">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">AI Insights</h5>
-                <button class="btn btn-sm btn-outline-info ai-refresh-btn" onclick="refreshAIInsights()">
-                    <i class="bi bi-stars"></i> Generate
-                </button>
-            </div>
-            <div id="aiInsights" class="card-body p-0">
-                <div class="p-3">
-                    <h6 class="text-muted">Trends & Anomalies</h6>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item bg-dark border-secondary ai-insight">
-                            Property values in the eastern region have increased by 4.1% this quarter, outpacing the county average of 2.7%.
-                            <span class="ai-badge">Trend</span>
-                        </li>
-                        <li class="list-group-item bg-dark border-secondary ai-insight">
-                            School District 312 shows an unusual drop in assessed value despite increased property development.
-                            <span class="ai-badge">Anomaly</span>
-                        </li>
-                    </ul>
-                </div>
-                <div class="p-3">
-                    <h6 class="text-muted">Recommendations</h6>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item bg-dark border-secondary ai-insight">
-                            Consider reviewing current levy rates for Fire District #3 as they approach statutory limits.
-                            <span class="ai-badge">Recommendation</span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            <div class="card-footer text-muted">
-                <small>AI-powered insights based on current and historical data.</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Recent Activity Table -->
-<div class="card bg-dark mt-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0">Recent Activity</h5>
-        <a href="#" class="btn btn-sm btn-outline-secondary">View All</a>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-dark table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th scope="col" style="width: 15%">Date</th>
-                        <th scope="col" style="width: 15%">User</th>
-                        <th scope="col" style="width: 20%">Activity</th>
-                        <th scope="col">Details</th>
-                        <th scope="col" style="width: 10%">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Mar 31, 2025</td>
-                        <td>John Smith</td>
-                        <td>Data Import</td>
-                        <td>Imported 2025 assessed values for Residential District 5</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                    </tr>
-                    <tr>
-                        <td>Mar 28, 2025</td>
-                        <td>Mary Johnson</td>
-                        <td>Levy Calculation</td>
-                        <td>Calculated estimated 2025 levy rates for all districts</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                    </tr>
-                    <tr>
-                        <td>Mar 26, 2025</td>
-                        <td>Robert Chen</td>
-                        <td>Compliance Check</td>
-                        <td>Performed statutory limit check for School Districts</td>
-                        <td><span class="badge bg-warning">Warning</span></td>
-                    </tr>
-                    <tr>
-                        <td>Mar 25, 2025</td>
-                        <td>Sarah Williams</td>
-                        <td>Data Export</td>
-                        <td>Exported 2024 levy data for annual reporting</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                    </tr>
-                    <tr>
-                        <td>Mar 23, 2025</td>
-                        <td>James Taylor</td>
-                        <td>District Update</td>
-                        <td>Updated boundaries for Irrigation District #4</td>
-                        <td><span class="badge bg-success">Completed</span></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Tax Distribution Modal -->
-<div class="modal fade" id="taxDistributionModal" tabindex="-1" aria-labelledby="taxDistributionModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-dark">
-            <div class="modal-header">
-                <h5 class="modal-title" id="taxDistributionModalLabel">Tax Distribution Details</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="chart-container">
-                    <canvas id="taxDistributionChart"></canvas>
-                </div>
-                <div class="mt-4">
-                    <h6>Distribution Breakdown</h6>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Category</th>
-                                    <th>Percent</th>
-                                    <th>Amount ($M)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Schools (K-12 & Higher Ed)</td>
-                                    <td>56.4%</td>
-                                    <td>$112.8</td>
-                                </tr>
-                                <tr>
-                                    <td>County Government</td>
-                                    <td>17.2%</td>
-                                    <td>$34.4</td>
-                                </tr>
-                                <tr>
-                                    <td>Cities & Towns</td>
-                                    <td>12.8%</td>
-                                    <td>$25.6</td>
-                                </tr>
-                                <tr>
-                                    <td>Hospital Districts</td>
-                                    <td>7.3%</td>
-                                    <td>$14.6</td>
-                                </tr>
-                                <tr>
-                                    <td>Other Districts</td>
-                                    <td>6.3%</td>
-                                    <td>$12.6</td>
-                                </tr>
-                            </tbody>
-                            <tfoot>
-                                <tr class="fw-bold">
-                                    <td>Total</td>
-                                    <td>100%</td>
-                                    <td>$200.0</td>
-                                </tr>
-                            </tfoot>
-                        </table>
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-robot me-1"></i> AI Insights
+                        </h5>
+                        <span class="ai-badge">
+                            <i class="bi bi-stars me-1"></i> Claude 3.5 Sonnet
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <div class="ai-insight trend p-3 h-100">
+                                    <h6 class="d-flex align-items-center">
+                                        <i class="bi bi-graph-up-arrow me-2 text-info"></i>
+                                        Trend Analysis
+                                    </h6>
+                                    <p class="mb-0 small">
+                                        {{ ai_trend_insight|default('Analysis shows a 2.3% average increase in property values across all districts, with the highest growth in the Northeast sector at 3.7%. This trend aligns with regional economic indicators.') }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <div class="ai-insight warning p-3 h-100">
+                                    <h6 class="d-flex align-items-center">
+                                        <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+                                        Compliance Alert
+                                    </h6>
+                                    <p class="mb-0 small">
+                                        {{ ai_compliance_alert|default('Two districts are approaching statutory levy rate limits: Fire District #3 (99.2% of limit) and School District #12 (97.8% of limit). Consider reviewing their assessment policies.') }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="ai-insight forecast p-3 h-100">
+                                    <h6 class="d-flex align-items-center">
+                                        <i class="bi bi-calendar-event me-2 text-primary"></i>
+                                        Forecast
+                                    </h6>
+                                    <p class="mb-0 small">
+                                        {{ ai_forecast|default('Based on current trends and economic factors, our AI model predicts a 3.1-3.4% increase in overall tax revenue for the next fiscal year, with potential growth in commercial property values.') }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary">Export Data</button>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-activity me-1"></i> Recent Activity
+                        </h5>
+                        <a href="#" class="btn btn-sm btn-outline-secondary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover data-table">
+                                <thead>
+                                    <tr>
+                                        <th data-sort="date">Date</th>
+                                        <th data-sort="text">Activity</th>
+                                        <th data-sort="text">User</th>
+                                        <th data-sort="text">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for activity in recent_activities|default([
+                                        {'date': '2025-04-01 09:32', 'activity': 'Assessed Value Import', 'user': 'System', 'status': 'Completed'},
+                                        {'date': '2025-04-01 08:45', 'activity': 'Tax District Update', 'user': 'Admin', 'status': 'Completed'},
+                                        {'date': '2025-03-31 16:18', 'activity': 'Levy Rate Calculation', 'user': 'Admin', 'status': 'Completed'},
+                                        {'date': '2025-03-30 14:05', 'activity': 'Compliance Report', 'user': 'System', 'status': 'Completed'},
+                                        {'date': '2025-03-29 11:22', 'activity': 'Property Data Import', 'user': 'Admin', 'status': 'Completed'}
+                                    ]) %}
+                                    <tr>
+                                        <td>{{ activity.date }}</td>
+                                        <td>{{ activity.activity }}</td>
+                                        <td>{{ activity.user }}</td>
+                                        <td>
+                                            <span class="badge {% if activity.status == 'Completed' %}bg-success{% elif activity.status == 'In Progress' %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {{ activity.status }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+    </section>
+    
+    <!-- Getting Started Section -->
+    <section id="getting-started" class="mb-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h2><i class="bi bi-info-circle me-2"></i> Getting Started</h2>
+                <hr>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-1-circle me-2"></i> Import Your Data</h5>
+                        <p class="card-text">Start by importing your property data, tax districts, and tax codes. The system supports multiple file formats including XML, XLS, XLSX, and CSV.</p>
+                        <a href="#" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i> Import Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-2-circle me-2"></i> Calculate Levy Rates</h5>
+                        <p class="card-text">Use the levy calculation tools to determine property tax rates for each district based on assessed values and requested levies.</p>
+                        <a href="#" class="btn btn-primary">
+                            <i class="bi bi-calculator me-1"></i> Calculate Rates
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-3-circle me-2"></i> Review Compliance</h5>
+                        <p class="card-text">Ensure your levy rates comply with statutory limits and requirements. The system automatically checks for compliance issues.</p>
+                        <a href="#" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Compliance Check
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-4-circle me-2"></i> Generate Reports</h5>
+                        <p class="card-text">Create comprehensive reports for different stakeholders including summary reports, district-specific reports, and compliance documentation.</p>
+                        <a href="#" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-text me-1"></i> Reports
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Quick Links -->
+    <section>
+        <div class="row mb-4">
+            <div class="col">
+                <h2><i class="bi bi-link-45deg me-2"></i> Quick Links</h2>
+                <hr>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card dashboard-card bg-dark fade-in">
+                    <div class="card-body">
+                        <div class="row g-4">
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-building me-2 text-primary"></i>
+                                        <span>Tax Districts</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-tags me-2 text-info"></i>
+                                        <span>Tax Codes</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-houses me-2 text-success"></i>
+                                        <span>Properties</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-graph-up-arrow me-2 text-warning"></i>
+                                        <span>Analysis</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-calendar3 me-2 text-danger"></i>
+                                        <span>History</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-file-earmark-spreadsheet me-2 text-primary"></i>
+                                        <span>Export Data</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-book me-2 text-info"></i>
+                                        <span>Glossary</span>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3 col-sm-6">
+                                <div class="d-grid">
+                                    <a href="#" class="btn btn-outline-light text-start p-3">
+                                        <i class="bi bi-question-circle me-2 text-success"></i>
+                                        <span>Help</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-// Sample data for the charts
-window.historicalData = {
-    years: [2020, 2021, 2022, 2023, 2024, 2025],
-    datasets: [
-        {
-            label: 'County Average',
-            data: [9.68, 9.72, 9.85, 10.12, 10.24, 10.38],
-            borderColor: '#3498db',
-            backgroundColor: 'rgba(52, 152, 219, 0.2)',
-            tension: 0.3
-        },
-        {
-            label: 'School Districts',
-            data: [12.83, 12.92, 13.05, 13.21, 13.38, 13.52],
-            borderColor: '#2ecc71',
-            backgroundColor: 'rgba(46, 204, 113, 0.2)',
-            tension: 0.3
-        },
-        {
-            label: 'Cities & Towns',
-            data: [6.92, 7.05, 7.18, 7.32, 7.45, 7.58],
-            borderColor: '#e74c3c',
-            backgroundColor: 'rgba(231, 76, 60, 0.2)',
-            tension: 0.3
-        },
-        {
-            label: 'Fire Districts',
-            data: [4.82, 4.95, 5.12, 5.28, 5.35, 5.42],
-            borderColor: '#f39c12',
-            backgroundColor: 'rgba(243, 156, 18, 0.2)',
-            tension: 0.3
-        }
-    ]
-};
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-window.taxDistData = {
-    labels: ['Schools (K-12 & Higher Ed)', 'County Government', 'Cities & Towns', 'Hospital Districts', 'Other Districts'],
-    values: [56.4, 17.2, 12.8, 7.3, 6.3]
-};
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize charts
+        initCharts();
+    });
+    
+    /**
+     * Initialize dashboard charts
+     */
+    function initCharts() {
+        // Levy Rates Chart
+        const levyRatesCtx = document.getElementById('levyRatesChart').getContext('2d');
+        const levyRatesChart = new Chart(levyRatesCtx, {
+            type: 'bar',
+            data: {
+                labels: ['School', 'City', 'County', 'Fire', 'Hospital', 'Library', 'Transit'],
+                datasets: [{
+                    label: 'Average Levy Rate',
+                    data: [3.54, 2.12, 1.76, 1.28, 0.86, 0.42, 0.32],
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.7)',
+                        'rgba(124, 77, 255, 0.7)',
+                        'rgba(52, 211, 153, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(45, 212, 191, 0.7)',
+                        'rgba(249, 115, 22, 0.7)',
+                        'rgba(234, 179, 8, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(99, 102, 241, 1)',
+                        'rgba(124, 77, 255, 1)',
+                        'rgba(52, 211, 153, 1)',
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(45, 212, 191, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(234, 179, 8, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Levy Rate: ${context.raw}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Rate ($ per $1,000 assessed value)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'District Type'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Value Distribution Chart
+        const valueDistributionCtx = document.getElementById('valueDistributionChart').getContext('2d');
+        const valueDistributionChart = new Chart(valueDistributionCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Residential', 'Commercial', 'Industrial', 'Agricultural', 'Other'],
+                datasets: [{
+                    data: [65, 20, 10, 4, 1],
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.7)',
+                        'rgba(124, 77, 255, 0.7)',
+                        'rgba(52, 211, 153, 0.7)',
+                        'rgba(239, 68, 68, 0.7)',
+                        'rgba(45, 212, 191, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(99, 102, 241, 1)',
+                        'rgba(124, 77, 255, 1)',
+                        'rgba(52, 211, 153, 1)',
+                        'rgba(239, 68, 68, 1)',
+                        'rgba(45, 212, 191, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.raw}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 </script>
 {% endblock %}

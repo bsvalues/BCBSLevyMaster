@@ -3,194 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Levy Calculation System{% endblock %}</title>
-    <!-- Bootstrap CSS (Replit-themed dark) -->
-    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <title>{{ title | default('Levy Calculation System') }}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    {% block head %}{% endblock %}
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/logo-light.svg') }}">
+
+    <!-- Optional JavaScript includes -->
+    {% block extra_head %}{% endblock %}
 </head>
-<body class="d-flex flex-column min-vh-100">
-    <!-- Navigation Bar -->
-    <header class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='images/logo-light.svg') }}" alt="Levy Calc Logo" height="40" class="me-2">
-            </a>
-            <button class="navbar-toggler" type="button" id="sidebarToggle" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav ms-auto mb-2 mb-md-0">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle me-1"></i>
-                            Administrator
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-2"></i>Sign out</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <button class="btn nav-link" id="themeToggle">
-                            <i class="bi bi-moon-stars"></i>
-                        </button>
-                    </li>
-                </ul>
+<body>
+    <!-- Navigation Header -->
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+                    <img src="{{ url_for('static', filename='images/logo-light.svg') }}" alt="Logo" width="40" height="40" class="me-2">
+                    <span>Levy Calculation System</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" href="{{ url_for('main.index') }}">
+                                <i class="bi bi-house-door"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="dataManagementDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-database"></i> Data Management
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="dataManagementDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('data_management.import_data') }}">Import Data</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('data_management.export_data') }}">Export Data</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('data_management.manage_tax_districts') }}">Tax Districts</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('data_management.manage_tax_codes') }}">Tax Codes</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('data_management.manage_properties') }}">Properties</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="levyCalculationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-calculator"></i> Levy Calculation
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="levyCalculationDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('forecasting.levy_forecasting') }}">Levy Forecasting</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('forecasting.scenario_analysis') }}">Scenario Analysis</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('forecasting.bill_impact') }}">Bill Impact Analysis</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('forecasting.statutory_compliance') }}">Statutory Compliance</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="analysisReportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-graph-up"></i> Analysis & Reports
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="analysisReportsDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('historical_analysis.historical_trends') }}">Historical Trends</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('historical_analysis.comparison_analysis') }}">Comparison Analysis</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports.generate_reports') }}">Generate Reports</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('reports.scheduled_reports') }}">Scheduled Reports</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint.startswith('glossary.') %}active{% endif %}" href="{{ url_for('glossary.index') }}">
+                                <i class="bi bi-book"></i> Glossary
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.about' %}active{% endif %}" href="{{ url_for('main.about') }}">
+                                <i class="bi bi-info-circle"></i> About
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.help_page' %}active{% endif %}" href="{{ url_for('main.help_page') }}">
+                                <i class="bi bi-question-circle"></i> Help
+                            </a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('main.profile') }}">Profile</a></li>
+                                {% if current_user.is_admin %}
+                                <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">Admin Panel</a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('main.logout') }}">Logout</a></li>
+                            </ul>
+                        </li>
+                        {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.login' %}active{% endif %}" href="{{ url_for('main.login') }}">
+                                <i class="bi bi-box-arrow-in-right"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.register' %}active{% endif %}" href="{{ url_for('main.register') }}">
+                                <i class="bi bi-person-plus"></i> Register
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
             </div>
-        </div>
+        </nav>
     </header>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            {% block sidebar %}
-            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar">
-                <div class="position-sticky sidebar-sticky pt-3">
-                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted text-uppercase">
-                        <span>Main</span>
-                    </h6>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
-                                <i class="bi bi-speedometer2"></i>
-                                Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-calculator"></i>
-                                Levy Calculator
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-search"></i>
-                                Property Lookup
-                            </a>
-                        </li>
-                    </ul>
-
-                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted text-uppercase">
-                        <span>Data</span>
-                    </h6>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-cloud-arrow-up"></i>
-                                Import Data
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-cloud-arrow-down"></i>
-                                Export Data
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-database"></i>
-                                Tax Code Management
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-building"></i>
-                                Districts
-                            </a>
-                        </li>
-                    </ul>
-
-                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted text-uppercase">
-                        <span>Analysis</span>
-                    </h6>
-                    <ul class="nav flex-column">
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-graph-up"></i>
-                                Historical Trends
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-calendar-check"></i>
-                                Compliance Checks
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-bar-chart"></i>
-                                Reports
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-stars"></i>
-                                AI Insights
-                            </a>
-                        </li>
-                    </ul>
-
-                    <h6 class="sidebar-heading px-3 mt-4 mb-1 text-muted text-uppercase">
-                        <span>Help</span>
-                    </h6>
-                    <ul class="nav flex-column mb-2">
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-question-circle"></i>
-                                Documentation
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-book"></i>
-                                Glossary
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="bi bi-info-circle"></i>
-                                About
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-            {% endblock %}
-
-            <!-- Main Content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
-                {% block content %}
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">Default Content</h1>
-                </div>
-                <p>This is the default content of the base template. It should be overridden by child templates.</p>
-                {% endblock %}
-            </main>
-        </div>
+    <!-- Flash Messages -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
     </div>
 
+    <!-- Main Content -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
     <!-- Footer -->
-    <footer class="footer mt-auto py-3 bg-dark">
-        <div class="container-fluid">
-            <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted">&copy; 2025 Benton County Assessor's Office</span>
-                <span class="text-muted">Levy Calculation System v1.0.0</span>
+    <footer class="footer mt-auto py-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="text-muted">&copy; {{ now.year }} Levy Calculation System. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="text-muted">
+                        <a href="{{ url_for('public.index') }}" class="text-muted text-decoration-none">Public Portal</a> |
+                        <a href="{{ url_for('main.about') }}" class="text-muted text-decoration-none">About</a> |
+                        <a href="{{ url_for('main.help_page') }}" class="text-muted text-decoration-none">Help</a>
+                    </p>
+                </div>
             </div>
         </div>
     </footer>
 
-    <!-- Bootstrap JavaScript -->
+    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JavaScript -->
+    
+    <!-- jQuery (if needed) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Common JavaScript -->
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    
+    <!-- Page-specific JavaScript -->
     {% block scripts %}{% endblock %}
+    
+    <!-- Tooltip Initialization -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function(tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Initialize all popovers
+            const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            popoverTriggerList.map(function(popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl);
+            });
+        });
+    </script>
 </body>
 </html>

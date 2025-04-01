@@ -1,29 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="140" height="40" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background shapes -->
-  <rect x="5" y="5" width="30" height="30" rx="6" fill="#3498db" />
-  <rect x="10" y="10" width="30" height="30" rx="6" fill="#2980b9" opacity="0.8" />
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="#272935" stroke="#6366f1" stroke-width="3"/>
   
-  <!-- Calculator icon -->
-  <path d="M20 12H30C31.1 12 32 12.9 32 14V26C32 27.1 31.1 28 30 28H20C18.9 28 18 27.1 18 26V14C18 12.9 18.9 12 20 12Z" fill="white"/>
-  <rect x="20" y="15" width="10" height="3" rx="1" fill="#2c3e50"/>
-  <circle cx="21.5" cy="21.5" r="1.5" fill="#2c3e50"/>
-  <circle cx="25" cy="21.5" r="1.5" fill="#2c3e50"/>
-  <circle cx="28.5" cy="21.5" r="1.5" fill="#2c3e50"/>
-  <circle cx="21.5" cy="25" r="1.5" fill="#2c3e50"/>
-  <circle cx="25" cy="25" r="1.5" fill="#2c3e50"/>
-  <circle cx="28.5" cy="25" r="1.5" fill="#2c3e50"/>
+  <!-- Building/Property Icon -->
+  <g transform="translate(60, 50) scale(0.12)">
+    <path d="M448 0h224V512H448V160l-64-32-64 32V512H64V192l192-64v-64h-64V0h64v64h192zm-96 416h-64V352h64v64zm-192-64h64v64h-64v-64zm192-64h-64v-64h64v64zm-192-64h64v64h-64v-64zm384-128h-64v64h64v-64zm0 128h-64v64h64v-64zm0 128h-64v64h64v-64z" fill="#a5b4fc"/>
+  </g>
   
-  <!-- Building icon -->
-  <path d="M13 28V16L8 20V28H13Z" fill="white"/>
-  <path d="M14 28V12L20 16V28H14Z" fill="white"/>
-  <rect x="10" y="22" width="2" height="2" fill="#2c3e50"/>
-  <rect x="10" y="18" width="2" height="2" fill="#2c3e50"/>
-  <rect x="16" y="22" width="2" height="2" fill="#2c3e50"/>
-  <rect x="16" y="18" width="2" height="2" fill="#2c3e50"/>
-  <rect x="16" y="14" width="2" height="2" fill="#2c3e50"/>
+  <!-- Chart/Graph Element -->
+  <g transform="translate(100, 100)">
+    <!-- Bar Chart Bars -->
+    <rect x="-30" y="5" width="10" height="30" rx="2" fill="#22c55e" opacity="0.9"/>
+    <rect x="-15" y="-5" width="10" height="40" rx="2" fill="#3b82f6" opacity="0.9"/>
+    <rect x="0" y="-15" width="10" height="50" rx="2" fill="#a855f7" opacity="0.9"/>
+    <rect x="15" y="-25" width="10" height="60" rx="2" fill="#ec4899" opacity="0.9"/>
+    
+    <!-- Chart Grid Lines -->
+    <line x1="-40" y1="35" x2="40" y2="35" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+    <line x1="-40" y1="15" x2="40" y2="15" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+    <line x1="-40" y1="-5" x2="40" y2="-5" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+    <line x1="-40" y1="-25" x2="40" y2="-25" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+  </g>
   
-  <!-- Text -->
-  <text x="45" y="22" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="white">LEVY</text>
-  <text x="45" y="34" font-family="Arial, sans-serif" font-size="10" font-weight="400" fill="#a3c2dc">CALCULATOR</text>
+  <!-- Percentage Symbol -->
+  <g transform="translate(140, 95) scale(0.06)">
+    <path d="M318.77 25.419C318.77 38.784 306.131 49.673 290.605 49.673C275.078 49.673 262.441 38.784 262.441 25.419C262.441 12.054 275.078 1.163 290.605 1.163C306.131 1.163 318.77 12.054 318.77 25.419ZM318.77 166.279C318.77 179.645 306.131 190.535 290.605 190.535C275.078 190.535 262.441 179.645 262.441 166.279C262.441 152.914 275.078 142.023 290.605 142.023C306.131 142.023 318.77 152.914 318.77 166.279ZM31.0233 104.07C31.0233 90.704 43.6603 79.815 59.187 79.815C74.7137 79.815 87.3508 90.704 87.3508 104.07C87.3508 117.434 74.7137 128.325 59.187 128.325C43.6603 128.325 31.0233 117.434 31.0233 104.07ZM31.0233 242.93C31.0233 229.565 43.6603 218.675 59.187 218.675C74.7137 218.675 87.3508 229.565 87.3508 242.93C87.3508 256.295 74.7137 267.186 59.187 267.186C43.6603 267.186 31.0233 256.295 31.0233 242.93ZM261.612 223.674L83.2868 50.5704C77.4806 44.5676 68.1451 44.5676 62.3393 50.5704C56.5335 56.5732 56.5335 66.2122 62.3393 72.215L240.665 245.319C246.471 251.322 255.806 251.322 261.612 245.319C267.418 239.315 267.418 229.677 261.612 223.674Z" fill="#eef2ff" stroke="#6366f1" stroke-width="5"/>
+  </g>
+  
+  <!-- Text: "LEVY" -->
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="#ffffff">LEVY CALC</text>
+  
+  <!-- Decorative Elements -->
+  <circle cx="56" cy="56" r="5" fill="#3b82f6"/>
+  <circle cx="144" cy="56" r="5" fill="#ec4899"/>
+  <circle cx="56" cy="144" r="5" fill="#22c55e"/>
+  <circle cx="144" cy="144" r="5" fill="#a855f7"/>
+  
+  <!-- Subtle Connecting Lines -->
+  <line x1="59" y1="59" x2="97" y2="97" stroke="#6366f1" stroke-width="1.5" opacity="0.6"/>
+  <line x1="141" y1="59" x2="103" y2="97" stroke="#6366f1" stroke-width="1.5" opacity="0.6"/>
+  <line x1="59" y1="141" x2="97" y2="103" stroke="#6366f1" stroke-width="1.5" opacity="0.6"/>
+  <line x1="141" y1="141" x2="103" y2="103" stroke="#6366f1" stroke-width="1.5" opacity="0.6"/>
 </svg>
