@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Levy Calculator - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}Levy Rate Calculator{% endblock %}
+{% block page_subtitle %}Calculate levy rates based on tax code areas and apply statutory limits{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Enter Levy Amounts</h5>
+            </div>
+            <div class="card-body">
+                {% if tax_codes %}
+                <form action="{{ url_for('levy_calculator') }}" method="post">
+                    <div class="alert alert-info mb-4">
+                        <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Levy Calculation Information</h6>
+                        <p class="mb-0">
+                            Enter the levy amount (in dollars) for each tax code area. The system will calculate the
+                            levy rate per $1,000 of assessed value and apply statutory limits:
+                            <ul class="mb-0">
+                                <li>101% cap: Rate cannot exceed 101% of previous year's rate</li>
+                                <li>$5.90 per $1,000 maximum rate cap</li>
+                            </ul>
+                        </p>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover table-levy">
+                            <thead>
+                                <tr>
+                                    <th>Tax Code</th>
+                                    <th>Total Assessed Value</th>
+                                    <th>Previous Rate</th>
+                                    <th>Enter Levy Amount ($)</th>
+                                    <th>Calculated Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tax_code in tax_codes %}
+                                <tr>
+                                    <td>{{ tax_code.code }}</td>
+                                    <td>${{ '%0.2f'|format(tax_code.total_assessed_value|float) }}</td>
+                                    <td>
+                                        {% if tax_code.previous_year_rate %}
+                                        {{ '%0.4f'|format(tax_code.previous_year_rate|float) }}
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="input-group">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" class="form-control" 
+                                                   name="levy_amount_{{ tax_code.code }}" 
+                                                   value="{{ tax_code.levy_amount|float if tax_code.levy_amount else '' }}"
+                                                   step="0.01" min="0">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if tax_code.levy_rate %}
+                                        {{ '%0.4f'|format(tax_code.levy_rate|float) }}
+                                        {% else %}
+                                        <span class="text-muted">Not calculated</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-calculator me-2"></i> Calculate Levy Rates
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>No Tax Codes Available</h6>
+                    <p class="mb-0">
+                        No tax code areas were found in the database. Please import property data first
+                        to create tax code areas.
+                    </p>
+                </div>
+                <div class="d-grid gap-2 col-6 mx-auto mt-4">
+                    <a href="{{ url_for('import_data') }}" class="btn btn-primary">
+                        <i class="fas fa-file-import me-2"></i> Import Property Data
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Statutory Limits Explained</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">101% Cap</h5>
+                                <p class="card-text">
+                                    The levy rate cannot exceed 101% of the previous year's rate.
+                                    This limit is applied as:
+                                </p>
+                                <pre class="bg-dark text-light p-2 rounded"><code>max_rate = previous_year_rate * 1.01</code></pre>
+                                <p class="card-text mt-2">
+                                    If a previous year's rate is not available, this limit is not applied.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">$5.90 Maximum Rate</h5>
+                                <p class="card-text">
+                                    The levy rate cannot exceed $5.90 per $1,000 of assessed value.
+                                    This is an absolute maximum limit.
+                                </p>
+                                <pre class="bg-dark text-light p-2 rounded"><code>if calculated_rate > 5.90:
+    calculated_rate = 5.90</code></pre>
+                                <p class="card-text mt-2">
+                                    This limit is always applied, regardless of previous year's rate.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-secondary mt-4">
+                    <h6 class="mb-2">How Levy Rates Are Calculated</h6>
+                    <p class="mb-0">
+                        The levy rate is calculated by dividing the levy amount by the total assessed value of all
+                        properties in the tax code area, then multiplying by 1,000 to get the rate per $1,000 of
+                        assessed value:
+                    </p>
+                    <pre class="bg-dark text-light p-2 rounded my-2"><code>levy_rate = (levy_amount / total_assessed_value) * 1000</code></pre>
+                    <p class="mb-0">
+                        After calculation, statutory limits are applied to ensure compliance with legal requirements.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

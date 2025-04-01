@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Overview of levy calculations and property data{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <!-- Properties Counter -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <div class="card-value">{{ property_count }}</div>
+                <h5 class="card-title">Properties</h5>
+                <p class="card-text text-muted">Total properties in database</p>
+                <a href="{{ url_for('import_data') }}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-file-import me-1"></i> Import More
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tax Codes Counter -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <div class="card-value">{{ tax_code_count }}</div>
+                <h5 class="card-title">Tax Codes</h5>
+                <p class="card-text text-muted">Unique tax code areas</p>
+                <a href="{{ url_for('levy_calculator') }}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-calculator me-1"></i> Calculate Levies
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">Import Data</h5>
+                <p class="card-text">Upload property data CSV files</p>
+                <a href="{{ url_for('import_data') }}" class="btn btn-primary">
+                    <i class="fas fa-file-import me-1"></i> Upload CSV
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Report -->
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">Generate Report</h5>
+                <p class="card-text">Download tax roll data</p>
+                <a href="{{ url_for('reports') }}" class="btn btn-primary">
+                    <i class="fas fa-file-export me-1"></i> Export Tax Roll
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Data Visualization</h5>
+            </div>
+            <div class="card-body" id="chartsContainer">
+                <div class="row">
+                    <!-- Levy Rates Chart -->
+                    <div class="col-md-6 mb-4">
+                        <div class="chart-container">
+                            <canvas id="levyRatesChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Assessed Values Chart -->
+                    <div class="col-md-6 mb-4">
+                        <div class="chart-container">
+                            <canvas id="assessedValuesChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Levy Amounts Chart -->
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <canvas id="levyAmountsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="row">
+    <!-- Recent Imports -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Imports</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_imports %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-levy">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Imported</th>
+                                <th>Skipped</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for import_log in recent_imports %}
+                            <tr>
+                                <td>{{ import_log.filename }}</td>
+                                <td>{{ import_log.rows_imported }}</td>
+                                <td>{{ import_log.rows_skipped }}</td>
+                                <td>{{ import_log.import_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">No recent imports found</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Exports -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Reports</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_exports %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-levy">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Records</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export_log in recent_exports %}
+                            <tr>
+                                <td>{{ export_log.filename }}</td>
+                                <td>{{ export_log.rows_exported }}</td>
+                                <td>{{ export_log.export_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">No recent reports generated</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{% endblock %}

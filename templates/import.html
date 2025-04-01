@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Import Data - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}Import Property Data{% endblock %}
+{% block page_subtitle %}Upload and import property data from CSV files{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">CSV File Upload</h5>
+            </div>
+            <div class="card-body">
+                <form id="fileUploadForm" action="{{ url_for('import_data') }}" method="post" enctype="multipart/form-data">
+                    <div class="file-upload-container mb-4">
+                        <div class="file-upload-icon">
+                            <i class="fas fa-file-csv"></i>
+                        </div>
+                        <h5>Upload Property Data CSV</h5>
+                        <p class="text-muted">CSV file must include property_id, assessed_value, and tax_code columns</p>
+                        
+                        <div class="input-group mt-3">
+                            <input type="file" class="form-control" id="csvFileInput" name="file" accept=".csv" required>
+                            <label class="input-group-text" for="csvFileInput" id="csvFileLabel">Choose CSV file...</label>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>CSV File Format Requirements</h6>
+                        <ul class="mb-0">
+                            <li>File must be CSV format with comma separators</li>
+                            <li>Must contain <strong>property_id</strong> column (unique identifier for each property)</li>
+                            <li>Must contain <strong>assessed_value</strong> column (numeric value)</li>
+                            <li>Must contain <strong>tax_code</strong> column (tax district code)</li>
+                            <li>First row should be column headers</li>
+                            <li>Column names are case-insensitive</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" id="uploadSubmitBtn" class="btn btn-primary">
+                            <span id="uploadSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            <i class="fas fa-upload me-2"></i> Upload and Import
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Sample CSV Format</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-dark text-light p-3 rounded"><code>property_id,assessed_value,tax_code
+1001,250000,A101
+1002,325000,A101
+1003,175000,B202
+1004,450000,C303
+1005,275000,B202</code></pre>
+                
+                <div class="mt-4">
+                    <h6>Data Dictionary</h6>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Description</th>
+                                <th>Data Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>property_id</td>
+                                <td>Unique identifier for each property</td>
+                                <td>String/Number</td>
+                            </tr>
+                            <tr>
+                                <td>assessed_value</td>
+                                <td>Assessed property value in dollars</td>
+                                <td>Number</td>
+                            </tr>
+                            <tr>
+                                <td>tax_code</td>
+                                <td>Tax district code where property is located</td>
+                                <td>String</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

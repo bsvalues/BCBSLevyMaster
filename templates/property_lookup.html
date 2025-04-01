@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Property Lookup - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}Property Tax Lookup{% endblock %}
+{% block page_subtitle %}Look up property tax information by property ID{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Property Lookup</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('property_lookup') }}" method="post">
+                    <div class="row mb-4">
+                        <div class="col-md-8 mx-auto">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" name="property_id" placeholder="Enter Property ID" required>
+                                <button type="submit" class="btn btn-primary">Lookup</button>
+                            </div>
+                            <div class="help-text">
+                                Enter a property ID to find its assessed value, tax code, and calculated tax.
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                
+                {% if property_data %}
+                <div class="property-result">
+                    <h4 class="mb-4">Property Information</h4>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Property ID</label>
+                                <div class="property-value">{{ property_data.property_id }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Assessed Value</label>
+                                <div class="property-value">${{ '%0.2f'|format(property_data.assessed_value|float) }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Tax Code</label>
+                                <div class="property-value">{{ property_data.tax_code }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Levy Rate (per $1,000)</label>
+                                <div class="property-value">{{ '%0.4f'|format(property_data.levy_rate|float) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-light mt-4">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Calculated Property Tax</h5>
+                            <div class="display-4 my-3">${{ '%0.2f'|format(property_data.calculated_tax|float) }}</div>
+                            <p class="card-text text-muted">
+                                Calculated as: ${{ '%0.2f'|format(property_data.assessed_value|float) }} ÷ 1,000 × {{ '%0.4f'|format(property_data.levy_rate|float) }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">About Property Tax Calculations</h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    Property taxes in Benton County are calculated based on the assessed value of the property and the levy rate for the
+                    tax code area where the property is located.
+                </p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Assessed Value</h5>
+                                <p class="card-text">
+                                    The assessed value is the dollar value assigned to a property by the County Assessor's Office
+                                    for the purpose of calculating property taxes. This value is determined based on market
+                                    conditions, property improvements, and other factors.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Tax Code Areas</h5>
+                                <p class="card-text">
+                                    Tax code areas are geographic districts that determine which taxing jurisdictions can
+                                    levy taxes on a property. Each area has its own levy rate based on the combined levy
+                                    amounts of all taxing districts that serve that area.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-secondary mt-4">
+                    <h6 class="mb-2">How Property Tax is Calculated</h6>
+                    <p class="mb-0">
+                        The property tax is calculated using the following formula:
+                    </p>
+                    <pre class="bg-dark text-light p-2 rounded my-2"><code>property_tax = (assessed_value / 1000) * levy_rate</code></pre>
+                    <p class="mb-0">
+                        The levy rate is expressed in dollars per $1,000 of assessed value.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

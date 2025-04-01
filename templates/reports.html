@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Benton County Levy Calculator{% endblock %}
+
+{% block page_title %}Tax Roll Reports{% endblock %}
+{% block page_subtitle %}Generate and export tax roll data for properties{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Generate Tax Roll</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Tax Roll Report Information</h6>
+                    <p class="mb-0">
+                        This report generates a comprehensive tax roll CSV file containing all properties with their
+                        assessed values, tax codes, levy rates, and calculated tax amounts. The report will only include
+                        properties in tax code areas where a levy rate has been calculated.
+                    </p>
+                </div>
+                
+                <form action="{{ url_for('reports') }}" method="post">
+                    <div class="text-center py-4">
+                        <i class="fas fa-file-csv fa-4x text-secondary mb-3"></i>
+                        <h5>Tax Roll Export</h5>
+                        <p class="text-muted">
+                            The CSV file will include the following columns:
+                        </p>
+                        <ul class="list-unstyled">
+                            <li><strong>Property ID</strong> - Unique identifier for each property</li>
+                            <li><strong>Assessed Value</strong> - Assessed value in dollars</li>
+                            <li><strong>Tax Code</strong> - Tax district code</li>
+                            <li><strong>Levy Rate</strong> - Calculated levy rate per $1,000</li>
+                            <li><strong>Calculated Tax</strong> - Property tax amount in dollars</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid gap-2 col-lg-6 mx-auto">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-file-export me-2"></i> Generate Tax Roll CSV
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Sample Tax Roll Format</h5>
+            </div>
+            <div class="card-body">
+                <pre class="bg-dark text-light p-3 rounded"><code>Property ID,Assessed Value,Tax Code,Levy Rate,Calculated Tax
+1001,250000.00,A101,3.5000,875.00
+1002,325000.00,A101,3.5000,1137.50
+1003,175000.00,B202,4.2500,743.75
+1004,450000.00,C303,2.9500,1327.50
+1005,275000.00,B202,4.2500,1168.75</code></pre>
+                
+                <div class="mt-4">
+                    <h6>Calculation Method</h6>
+                    <div class="alert alert-secondary">
+                        <p class="mb-0">
+                            Individual property tax is calculated using the formula:
+                        </p>
+                        <pre class="bg-dark text-light p-2 rounded my-2"><code>calculated_tax = (assessed_value / 1000) * levy_rate</code></pre>
+                        <p class="mb-0">
+                            Where levy_rate is the rate per $1,000 of assessed value.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
