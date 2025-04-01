@@ -1,0 +1,155 @@
+Here’s your **God-like Full-Stack Development Prompt Suite** tailored for the **SaaS Levy Calculation Application** using the Replit AI Agent. This includes the **Master Prompt**, modular prompts for development phases, and suggestions for iterative agent-driven progress.
+
+---
+
+## 🧠 **Master God-Like Prompt: SaaS LevyCalc**
+
+> **Prompt Name:** `godlike-saas-levycalc-bootstrap`
+
+**Prompt:**
+> Build a Full-Stack AI LLM-powered SaaS application for property tax levy calculation using the Replit AI Agent environment. This application will serve the Benton County Assessor’s Office with:
+>
+> - **Dynamic roadmap and iterative AI development using Replit AI Agent**
+> - **Python Flask backend with SQLAlchemy ORM**
+> - **Robust CSV import + data validation pipeline**
+> - **Levy calculation engine with statutory compliance logic (e.g., 101% cap, $5.90/$1000 limit)**
+> - **Tax roll generation with CSV export**
+> - **Admin dashboard for uploading files, running reports, and compliance checks**
+> - **Optional public-facing portal for property lookup**
+> - **Secure deployment and environment management inside Replit**
+> - **Continuous integration with unit testing and auto-reporting**
+> - **Comprehensive documentation and data dictionary for long-term maintainability**
+
+---
+
+## 🧱 **Modular Development Prompts**
+
+Each of these prompts can be run one at a time inside Replit AI Agent or triggered manually to build specific modules:
+
+---
+
+### 🔹 1. Bootstrap + Project Setup
+
+**Prompt Name:** `levycalc-setup-replit`
+
+> Scaffold a Python Flask-based SaaS project for levy calculation using Replit.  
+> Include:
+> - SQLAlchemy setup with `Property` model
+> - SQLite database (`levy.db`)
+> - Flask project structure: `/models`, `/routes`, `/utils`, `/templates`, `/static`
+> - Install dependencies: `Flask`, `SQLAlchemy`, `pandas`, `gunicorn`
+> - Enable basic Flask server to run locally in Replit
+
+---
+
+### 🔹 2. CSV Import and Validation
+
+**Prompt Name:** `levycalc-import-validate`
+
+> Create a CSV data import module:
+> - Accept CSV with `property_id`, `assessed_value`, `tax_code`
+> - Validate required columns
+> - Handle upload via Flask route `/upload`
+> - Convert CSV into SQLAlchemy objects and bulk insert
+> - Return import summary (number of rows, warnings)
+
+---
+
+### 🔹 3. Levy Calculation Engine
+
+**Prompt Name:** `levycalc-engine-core`
+
+> Build the levy calculation engine:
+> - Aggregate assessed value by `tax_code`
+> - Accept external `levy_amount` inputs per tax_code
+> - Calculate levy rate = levy_amount / total_assessed_value * 1000
+> - Apply statutory caps:
+>   - Max 101% increase over prior year
+>   - $5.90 per $1,000 cap
+> - Expose calculations via `/levy/summary` route
+
+---
+
+### 🔹 4. Tax Roll and Reporting
+
+**Prompt Name:** `levycalc-tax-roll`
+
+> Build tax roll generator:
+> - Apply levy rate to each property: `assessed_value / 1000 * levy_rate`
+> - Output a downloadable CSV file with:
+>   - `property_id`, `assessed_value`, `tax_code`, `calculated_tax`
+> - Add route `/report` to trigger export
+> - Include CSV writer with headers
+
+---
+
+### 🔹 5. Admin Dashboard UI
+
+**Prompt Name:** `levycalc-admin-dashboard`
+
+> Build a Flask template-based dashboard:
+> - Route `/` = dashboard home
+> - Upload form for CSV
+> - Table view showing recent imports
+> - Report trigger button
+> - Status messages (success/warnings)
+
+---
+
+### 🔹 6. Public Lookup Portal (Optional)
+
+**Prompt Name:** `levycalc-public-lookup`
+
+> Build a `/lookup` route:
+> - Form to input `property_id`
+> - Show matching record’s:
+>   - `assessed_value`
+>   - `tax_code`
+>   - `levy_rate`
+>   - `calculated_tax`
+> - Add simple HTML template or return as JSON
+
+---
+
+### 🔹 7. Testing & CI Agent
+
+**Prompt Name:** `levycalc-test-suite`
+
+> Write test suite for:
+> - CSV import validation
+> - Database inserts
+> - Levy calculation logic
+> - Statutory cap enforcement
+> Use `unittest` or `pytest`, and set up Replit test runner integration
+
+---
+
+### 🔹 8. Documentation Generator
+
+**Prompt Name:** `levycalc-docs`
+
+> Create project documentation:
+> - README with setup, dev, and deployment instructions
+> - `/docs/api.md` listing all Flask routes
+> - `/docs/data_dictionary.md` describing each field and calculation
+> - Future roadmap for enhancements (multi-year support, GIS overlays, audit logs)
+
+---
+
+## 🌀 Bootstrap Agent Iteration Prompt
+
+**Prompt Name:** `bootstrap-dev-checkoff-levycalc`
+
+> Check this app for:
+> - Broken routes or imports
+> - Disabled sign-in or public access for testing
+> - Core module validation (import, calculation, reporting)
+> Then:
+> - Propose and build the next logical feature
+> - Write simple tests before each new function (TDD-style)
+> - Refactor only if necessary for extensibility
+> Iterate until SaaS MVP is stable and test-covered.
+
+---
+
+Want me to auto-run these in Replit Agent one-by-one or scaffold the project shell now?

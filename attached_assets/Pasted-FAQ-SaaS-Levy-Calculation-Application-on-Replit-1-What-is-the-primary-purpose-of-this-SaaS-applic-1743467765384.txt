@@ -1,0 +1,33 @@
+FAQ: SaaS Levy Calculation Application on Replit
+1. What is the primary purpose of this SaaS application?
+
+This SaaS application is designed to streamline and automate the process of calculating property tax levies, specifically for entities like the Benton County Assessor's Office. It aims to handle tasks such as importing property data, calculating tax obligations based on levy rates and assessed values, ensuring compliance with statutory limits, and generating tax roll reports.
+
+2. How does the application handle property data?
+
+The application includes a module for bulk importing property data from CSV files. This module validates the data to ensure required columns like property ID, assessed value, and tax code are present. The valid data is then stored in a relational database using SQLAlchemy, with a defined schema for property information. The system supports bulk insertion of property records for efficiency.
+
+3. Can you explain how the levy calculation engine works?
+
+The levy calculation engine operates in several steps. First, it aggregates the total assessed value of properties within each tax code area. Then, using the total assessed value and the levy amount provided by each taxing district, it calculates the levy rate (typically per $1,000 of assessed value). The engine also incorporates statutory checks to ensure that calculated levy rates do not exceed predefined limits, such as a 101% increase over the previous year's rate, potentially with adjustments for new construction or other statutory caps.
+
+4. How are individual property taxes determined?
+
+Once the levy rate is calculated for a specific tax code area, the application applies this rate to each individual property within that area. The property tax is calculated by taking the property's assessed value, dividing it by 1000, and then multiplying the result by the levy rate. This ensures that each property owner's tax obligation is proportional to their property's assessed value and the applicable levy rate.
+
+5. What kind of reporting capabilities does the application offer?
+
+The application can generate a tax roll report, which is essentially a list of all properties along with their assessed values, tax codes, and the calculated tax obligations. This report can be exported to a CSV file. The system also includes functionalities for administrators to view aggregated reports and any warnings related to statutory compliance during the calculation process.
+
+6. What are the key features of the user interface, and who are the intended users?
+
+The application includes an admin dashboard, accessible through a web browser, where administrators can upload property data files, initiate the data import process, view aggregated reports, and monitor statutory compliance. An optional public portal could also be implemented to allow property owners to check their individual tax details using their property ID. The primary intended users for the administrative interface are likely staff at the Benton County Assessor's Office.
+
+7. How does the development environment, Replit, facilitate the creation of this application?
+
+Replit provides an integrated development environment (IDE) with features that support rapid application development. It allows for easy project setup, includes a package manager for installing necessary libraries (like Flask, SQLAlchemy, and pandas), and offers built-in hosting for deployment. Additionally, Replit provides an AI agent that can assist with code generation, debugging, and automated testing. Collaboration is also facilitated through built-in version control and the ability to invite team members to work on the project simultaneously.
+
+8. What are the next steps after the initial development and deployment of this application?
+
+The outlined plan emphasizes the importance of thorough testing, including unit tests for various modules. Comprehensive documentation, including code documentation and user guides, is also crucial. Finally, the process is iterative, meaning that after the initial deployment, gathering feedback from the Benton County Assessor's Office and making necessary updates and improvements based on that feedback is a key final step.
+
