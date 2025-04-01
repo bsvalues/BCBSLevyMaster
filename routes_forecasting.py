@@ -5,6 +5,7 @@ This module includes routes for tax levy forecasting and analysis:
 - Forecast creation and management
 - Visualization of forecast results
 - Scenario comparison
+- AI-enhanced forecasting and insights
 """
 
 import logging
@@ -14,6 +15,7 @@ from flask import render_template, request, jsonify, flash, Response
 from app import app, db
 from models import TaxCode, TaxCodeHistoricalRate
 from utils import forecasting_utils
+from utils import ai_forecasting_utils
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -246,6 +248,156 @@ def generate_district_forecast():
     except Exception as e:
         logger.exception(f"Error generating district forecast: {str(e)}")
         flash(f"Error generating district forecast: {str(e)}", 'danger')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/ai', methods=['GET'])
+def ai_forecasting_dashboard():
+    """
+    Dashboard for AI-enhanced property tax forecasting.
+    
+    Displays AI-powered forecasting options and features.
+    """
+    # Get all tax codes for selector
+    tax_codes = TaxCode.query.order_by(TaxCode.code).all()
+    
+    # Get current year for context
+    current_year = datetime.now().year
+    
+    return render_template('forecasting/ai_dashboard.html',
+                         tax_codes=tax_codes,
+                         current_year=current_year)
+
+
+@app.route('/forecasting/ai/generate', methods=['POST'])
+def generate_ai_forecast():
+    """
+    Generate an AI-enhanced forecast for a tax code.
+    
+    Uses AI to select the most appropriate model and generate explanations and recommendations.
+    """
+    # Get parameters from request
+    tax_code = request.form.get('tax_code')
+    years_ahead = int(request.form.get('years_ahead', 3))
+    scenario = request.form.get('scenario', 'baseline')
+    
+    # Validate parameters
+    if not tax_code:
+        flash('Tax code is required', 'danger')
+        return jsonify({'error': 'Tax code is required'}), 400
+    
+    if years_ahead < 1 or years_ahead > 10:
+        flash('Years ahead must be between 1 and 10', 'danger')
+        return jsonify({'error': 'Years ahead must be between 1 and 10'}), 400
+    
+    if scenario not in ['baseline', 'optimistic', 'pessimistic']:
+        flash('Invalid scenario', 'danger')
+        return jsonify({'error': 'Invalid scenario'}), 400
+    
+    try:
+        # Get historical data for the tax code
+        historical_data = forecasting_utils.get_historical_data_for_tax_code(tax_code)
+        
+        if not historical_data or len(historical_data['years']) < 3:
+            flash('Insufficient historical data for AI forecasting', 'warning')
+            return jsonify({'error': 'Insufficient historical data for AI forecasting'}), 400
+        
+        # Use AI to select the most appropriate model
+        selected_model = ai_forecasting_utils.ai_forecast_model_selector(historical_data)
+        
+        # Generate forecast with the selected model
+        forecast_result = forecasting_utils.generate_forecast_for_tax_code(
+            tax_code=tax_code,
+            model_type=selected_model.model_type,
+            years_ahead=years_ahead,
+            scenario=scenario
+        )
+        
+        # Generate natural language explanation
+        explanation = ai_forecasting_utils.generate_forecast_explanation(forecast_result)
+        
+        # Detect anomalies in historical data
+        anomalies = ai_forecasting_utils.detect_anomalies(historical_data)
+        
+        # Generate recommendations
+        recommendations = ai_forecasting_utils.generate_forecast_recommendations(forecast_result)
+        
+        # Add AI-enhanced data to the result
+        forecast_result['ai_enhanced'] = {
+            'selected_model': selected_model.model_type,
+            'explanation': explanation,
+            'anomalies': anomalies,
+            'recommendations': recommendations
+        }
+        
+        return jsonify(forecast_result)
+    except Exception as e:
+        logger.exception(f"Error generating AI forecast: {str(e)}")
+        flash(f"Error generating AI forecast: {str(e)}", 'danger')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/ai/anomalies', methods=['POST'])
+def detect_historical_anomalies():
+    """
+    Detect anomalies in historical tax rate data for a tax code.
+    
+    Returns a list of detected anomalies with explanations.
+    """
+    # Get parameters from request
+    tax_code = request.form.get('tax_code')
+    
+    # Validate parameters
+    if not tax_code:
+        flash('Tax code is required', 'danger')
+        return jsonify({'error': 'Tax code is required'}), 400
+    
+    try:
+        # Get historical data for the tax code
+        historical_data = forecasting_utils.get_historical_data_for_tax_code(tax_code)
+        
+        if not historical_data or len(historical_data['years']) < 3:
+            flash('Insufficient historical data for anomaly detection', 'warning')
+            return jsonify({'error': 'Insufficient historical data for anomaly detection'}), 400
+        
+        # Detect anomalies
+        anomalies = ai_forecasting_utils.detect_anomalies(historical_data)
+        
+        return jsonify({
+            'tax_code': tax_code,
+            'anomalies': anomalies
+        })
+    except Exception as e:
+        logger.exception(f"Error detecting anomalies: {str(e)}")
+        flash(f"Error detecting anomalies: {str(e)}", 'danger')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/forecasting/ai/recommendations', methods=['POST'])
+def generate_forecast_recommendations():
+    """
+    Generate AI-powered recommendations based on a forecast.
+    
+    Accepts a forecast result and returns a list of recommendations.
+    """
+    # Get forecast data from request
+    forecast_data = request.json
+    
+    if not forecast_data:
+        flash('Forecast data is required', 'danger')
+        return jsonify({'error': 'Forecast data is required'}), 400
+    
+    try:
+        # Generate recommendations
+        recommendations = ai_forecasting_utils.generate_forecast_recommendations(forecast_data)
+        
+        return jsonify({
+            'tax_code': forecast_data.get('tax_code'),
+            'recommendations': recommendations
+        })
+    except Exception as e:
+        logger.exception(f"Error generating recommendations: {str(e)}")
+        flash(f"Error generating recommendations: {str(e)}", 'danger')
         return jsonify({'error': str(e)}), 500
 
 

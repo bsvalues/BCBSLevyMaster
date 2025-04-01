@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+
+{% block title %}AI-Enhanced Forecasting{% endblock %}
+
+{% block styles %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  .model-card {
+    transition: transform .2s ease-in-out;
+  }
+  .model-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15);
+  }
+  .recommendation-card {
+    border-left: 4px solid var(--bs-primary);
+  }
+  .recommendation-card.high-priority {
+    border-left-color: var(--bs-danger);
+  }
+  .recommendation-card.medium-priority {
+    border-left-color: var(--bs-warning);
+  }
+  .recommendation-card.low-priority {
+    border-left-color: var(--bs-info);
+  }
+  .explanation-box {
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+    border-radius: 0.375rem;
+    padding: 1.25rem;
+    border-left: 4px solid var(--bs-primary);
+  }
+  .anomaly-item {
+    border-left: 4px solid var(--bs-warning);
+  }
+  .anomaly-item.high {
+    border-left-color: var(--bs-danger);
+  }
+  .anomaly-item.medium {
+    border-left-color: var(--bs-warning);
+  }
+  .anomaly-item.low {
+    border-left-color: var(--bs-info);
+  }
+  #ai-loader {
+    display: none;
+  }
+  .ai-badge {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--bs-primary);
+    font-size: 0.875em;
+    border-radius: 50rem;
+    padding: 0.35em 0.65em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+      <span class="ai-badge me-2">
+        <i class="bi bi-stars"></i> AI-Enhanced
+      </span>
+      Forecasting Dashboard
+    </h1>
+    <a href="/forecasting" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Standard Forecasting
+    </a>
+  </div>
+
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">AI-Enhanced Forecast Generator</h5>
+          <p class="card-text">Generate an AI-powered forecast with automatic model selection, anomaly detection, and recommendations.</p>
+          
+          <form id="ai-forecast-form" class="row g-3">
+            <div class="col-md-6">
+              <label for="tax-code" class="form-label">Tax Code</label>
+              <select class="form-select" id="tax-code" name="tax_code" required>
+                <option value="">Select a tax code</option>
+                {% for tax_code in tax_codes %}
+                <option value="{{ tax_code.code }}">{{ tax_code.code }} - {{ tax_code.description }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="col-md-3">
+              <label for="years-ahead" class="form-label">Years Ahead</label>
+              <select class="form-select" id="years-ahead" name="years_ahead">
+                {% for i in range(1, 11) %}
+                <option value="{{ i }}" {% if i == 3 %}selected{% endif %}>{{ i }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="col-md-3">
+              <label for="scenario" class="form-label">Scenario</label>
+              <select class="form-select" id="scenario" name="scenario">
+                <option value="baseline" selected>Baseline</option>
+                <option value="optimistic">Optimistic</option>
+                <option value="pessimistic">Pessimistic</option>
+              </select>
+            </div>
+            
+            <div class="col-12 mt-3">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-magic"></i> Generate AI Forecast
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- AI Loader -->
+  <div id="ai-loader" class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-body text-center py-5">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <h5>AI is analyzing your data and generating insights...</h5>
+          <p class="text-muted">This may take a few moments</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results Section (hidden initially) -->
+  <div id="forecast-results" style="display: none;">
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-top mb-3">
+              <h5 class="card-title mb-0">Forecast Results</h5>
+              <span class="badge bg-primary" id="selected-model-badge"></span>
+            </div>
+            
+            <div class="explanation-box mb-4" id="forecast-explanation"></div>
+            
+            <div class="row">
+              <div class="col-md-12">
+                <div id="forecast-chart" style="height: 400px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">AI-Generated Recommendations</h5>
+          </div>
+          <div class="card-body" id="recommendations-container">
+            <!-- Recommendations will be displayed here -->
+            <div class="text-center py-4 text-muted" id="no-recommendations">
+              <i class="bi bi-info-circle fs-4"></i>
+              <p class="mt-2">No recommendations available</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row mb-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Historical Data Anomalies</h5>
+          </div>
+          <div class="card-body">
+            <p class="text-muted">AI has analyzed your historical data to detect potential anomalies that may affect forecasting accuracy.</p>
+            
+            <div id="anomalies-container">
+              <!-- Anomalies will be displayed here -->
+              <div class="text-center py-4 text-muted" id="no-anomalies">
+                <i class="bi bi-check-circle fs-4"></i>
+                <p class="mt-2">No anomalies detected in the historical data</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const forecastForm = document.getElementById('ai-forecast-form');
+  const aiLoader = document.getElementById('ai-loader');
+  const forecastResults = document.getElementById('forecast-results');
+  const forecastExplanation = document.getElementById('forecast-explanation');
+  const selectedModelBadge = document.getElementById('selected-model-badge');
+  const recommendationsContainer = document.getElementById('recommendations-container');
+  const noRecommendations = document.getElementById('no-recommendations');
+  const anomaliesContainer = document.getElementById('anomalies-container');
+  const noAnomalies = document.getElementById('no-anomalies');
+  
+  forecastForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    
+    // Show loader, hide results
+    aiLoader.style.display = 'block';
+    forecastResults.style.display = 'none';
+    
+    // Get form data
+    const formData = new FormData(forecastForm);
+    
+    // Call AI forecast endpoint
+    fetch('/forecasting/ai/generate', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(errorData => {
+          throw new Error(errorData.error || 'An error occurred');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Hide loader and show results
+      aiLoader.style.display = 'none';
+      forecastResults.style.display = 'block';
+      
+      // Display AI explanation
+      forecastExplanation.textContent = data.ai_enhanced.explanation;
+      
+      // Show selected model badge
+      const modelType = data.ai_enhanced.selected_model;
+      selectedModelBadge.textContent = `${modelType.charAt(0).toUpperCase() + modelType.slice(1)} Model`;
+      
+      // Display chart
+      createForecastChart(data);
+      
+      // Display recommendations
+      displayRecommendations(data.ai_enhanced.recommendations);
+      
+      // Display anomalies
+      displayAnomalies(data.ai_enhanced.anomalies);
+    })
+    .catch(error => {
+      aiLoader.style.display = 'none';
+      alert(error.message);
+      console.error('Error:', error);
+    });
+  });
+  
+  function createForecastChart(data) {
+    const historicalYears = data.historical_data.years;
+    const historicalRates = data.historical_data.rates;
+    const forecastYears = data.forecast.years;
+    const forecastRates = data.forecast.predicted_rates;
+    const confidenceIntervals = data.forecast.confidence_intervals;
+    
+    // Create upper and lower bounds for confidence intervals
+    const lowerBound = [];
+    const upperBound = [];
+    
+    for (let i = 0; i < confidenceIntervals.length; i++) {
+      lowerBound.push(confidenceIntervals[i][0]);
+      upperBound.push(confidenceIntervals[i][1]);
+    }
+    
+    const traces = [
+      {
+        x: historicalYears,
+        y: historicalRates,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Historical Data',
+        line: {
+          color: '#336699',
+          width: 2
+        },
+        marker: {
+          size: 6,
+          color: '#336699'
+        }
+      },
+      {
+        x: forecastYears,
+        y: forecastRates,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Forecast',
+        line: {
+          color: '#FF6600',
+          width: 2
+        },
+        marker: {
+          size: 6,
+          color: '#FF6600'
+        }
+      },
+      {
+        x: forecastYears.concat(forecastYears.slice().reverse()),
+        y: upperBound.concat(lowerBound.slice().reverse()),
+        fill: 'toself',
+        fillcolor: 'rgba(255, 102, 0, 0.2)',
+        line: {
+          color: 'transparent'
+        },
+        name: 'Confidence Interval',
+        showlegend: true,
+        hoverinfo: 'skip'
+      }
+    ];
+    
+    const layout = {
+      title: `Levy Rate Forecast for ${data.tax_code}`,
+      xaxis: {
+        title: 'Year',
+        tickmode: 'array',
+        tickvals: historicalYears.concat(forecastYears)
+      },
+      yaxis: {
+        title: 'Levy Rate',
+        tickformat: '.4f'
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.2
+      },
+      margin: {
+        l: 50,
+        r: 50,
+        b: 80,
+        t: 100
+      },
+      hovermode: 'closest',
+      template: 'plotly_dark',
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)'
+    };
+    
+    Plotly.newPlot('forecast-chart', traces, layout, {responsive: true});
+  }
+  
+  function displayRecommendations(recommendations) {
+    if (!recommendations || recommendations.length === 0) {
+      noRecommendations.style.display = 'block';
+      return;
+    }
+    
+    noRecommendations.style.display = 'none';
+    recommendationsContainer.innerHTML = '';
+    
+    recommendations.forEach((rec, index) => {
+      const priorityClass = `${rec.priority}-priority`;
+      
+      const recElement = document.createElement('div');
+      recElement.className = `recommendation-card mb-3 p-3 rounded ${priorityClass}`;
+      
+      const priorityBadge = document.createElement('span');
+      priorityBadge.className = `badge bg-${rec.priority === 'high' ? 'danger' : (rec.priority === 'medium' ? 'warning' : 'info')} float-end`;
+      priorityBadge.textContent = `${rec.priority.charAt(0).toUpperCase() + rec.priority.slice(1)} Priority`;
+      
+      const title = document.createElement('h5');
+      title.className = 'mb-2';
+      title.textContent = rec.title;
+      title.appendChild(priorityBadge);
+      
+      const description = document.createElement('p');
+      description.className = 'mb-0';
+      description.textContent = rec.description;
+      
+      recElement.appendChild(title);
+      recElement.appendChild(description);
+      
+      recommendationsContainer.appendChild(recElement);
+    });
+  }
+  
+  function displayAnomalies(anomalies) {
+    if (!anomalies || anomalies.length === 0) {
+      noAnomalies.style.display = 'block';
+      return;
+    }
+    
+    noAnomalies.style.display = 'none';
+    anomaliesContainer.innerHTML = '';
+    
+    const listGroup = document.createElement('div');
+    listGroup.className = 'list-group';
+    
+    anomalies.forEach((anomaly, index) => {
+      const anomalyElement = document.createElement('div');
+      anomalyElement.className = `anomaly-item list-group-item ${anomaly.severity}`;
+      
+      const header = document.createElement('div');
+      header.className = 'd-flex justify-content-between align-items-center';
+      
+      const title = document.createElement('h6');
+      title.className = 'mb-1';
+      title.textContent = `Anomaly detected in ${anomaly.year}`;
+      
+      const badge = document.createElement('span');
+      badge.className = `badge bg-${anomaly.severity === 'high' ? 'danger' : (anomaly.severity === 'medium' ? 'warning' : 'info')}`;
+      badge.textContent = `${anomaly.severity.charAt(0).toUpperCase() + anomaly.severity.slice(1)} Severity`;
+      
+      header.appendChild(title);
+      header.appendChild(badge);
+      
+      const explanation = document.createElement('p');
+      explanation.className = 'mb-1';
+      explanation.textContent = anomaly.explanation;
+      
+      anomalyElement.appendChild(header);
+      anomalyElement.appendChild(explanation);
+      
+      listGroup.appendChild(anomalyElement);
+    });
+    
+    anomaliesContainer.appendChild(listGroup);
+  }
+});
+</script>
+{% endblock %}
