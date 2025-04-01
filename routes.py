@@ -7,7 +7,7 @@ from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict
 from utils.import_utils import validate_and_import_csv
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
-from utils.district_utils import import_district_text_file, import_district_xml_file, get_linked_levy_codes
+from utils.district_utils import import_district_text_file, import_district_xml_file, import_district_excel_file, get_linked_levy_codes
 from sqlalchemy import func
 
 @app.route('/')
@@ -119,8 +119,10 @@ def district_import():
                 result = import_district_text_file(temp_path)
             elif filename.lower().endswith('.xml'):
                 result = import_district_xml_file(temp_path)
+            elif filename.lower().endswith('.xlsx') or filename.lower().endswith('.xls'):
+                result = import_district_excel_file(temp_path)
             else:
-                flash("Unsupported file format. Please upload a .txt or .xml file.", 'danger')
+                flash("Unsupported file format. Please upload a .txt, .xml, .xlsx, or .xls file.", 'danger')
                 return redirect(request.url)
             
             # Remove temp file

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block page_title %}Import Tax District Data{% endblock %}
-{% block page_subtitle %}Upload tax district relationships from text or XML files{% endblock %}
+{% block page_subtitle %}Upload tax district relationships from text, XML, or Excel files{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -16,7 +16,7 @@
                         <label for="file" class="form-label">Select District Data File</label>
                         <input type="file" class="form-control" id="file" name="file" required>
                         <div class="form-text text-muted">
-                            Upload a text (tab-delimited) or XML file containing tax district relationships.
+                            Upload a text (tab-delimited), XML, or Excel file (.xlsx/.xls) containing tax district relationships.
                         </div>
                     </div>
                     
@@ -26,6 +26,7 @@
                         <ul class="mb-0">
                             <li><strong>Text files (.txt)</strong> - Tab-delimited with columns for tax_district_id, year, levy_code, and linked_levy_code</li>
                             <li><strong>XML files (.xml)</strong> - Structured data with TaxDistrict elements containing DistrictID, Year, LevyCode, and LinkedLevyCode nodes</li>
+                            <li><strong>Excel files (.xlsx/.xls)</strong> - Spreadsheet with columns for tax_district_id, year, levy_code, and linked_levy_code</li>
                         </ul>
                     </div>
                     
@@ -97,6 +98,41 @@
     &lt;/TaxDistrict&gt;
     &lt;!-- Additional districts... --&gt;
 &lt;/TaxDistricts&gt;</pre>
+
+                    <h6 class="mt-3 mb-2">Excel Files</h6>
+                    <p class="mb-2">Excel files (.xlsx or .xls) should contain the following columns:</p>
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Column</th>
+                                <th>Description</th>
+                                <th>Example</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>tax_district_id</td>
+                                <td>Unique identifier for the tax district</td>
+                                <td>101</td>
+                            </tr>
+                            <tr>
+                                <td>year</td>
+                                <td>Tax year for the district relationship</td>
+                                <td>2023</td>
+                            </tr>
+                            <tr>
+                                <td>levy_code</td>
+                                <td>The primary levy code for the district</td>
+                                <td>A101</td>
+                            </tr>
+                            <tr>
+                                <td>linked_levy_code</td>
+                                <td>A related levy code linked to the primary code</td>
+                                <td>B202</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="text-muted small">Note: The first row of the Excel file should contain the column headers exactly as shown above.</p>
                 </div>
             </div>
         </div>

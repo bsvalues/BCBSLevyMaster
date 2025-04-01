@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import xml.etree.ElementTree as ET
+import openpyxl
+import xlrd
 from datetime import datetime
 from app import db
 from models import TaxDistrict
@@ -207,6 +209,141 @@ def import_district_xml_file(file_path):
             'imported': 0,
             'skipped': 0,
             'warnings': [f"Error importing XML file: {str(e)}"]
+        }
+
+def import_district_excel_file(file_path):
+    """
+    Import tax district data from an Excel file (.xls or .xlsx).
+    
+    Args:
+        file_path: Path to the Excel file
+        
+    Returns:
+        Dict containing import results
+    """
+    try:
+        # Determine file extension and read accordingly
+        if file_path.lower().endswith('.xlsx'):
+            # Use pandas with openpyxl engine for .xlsx files
+            df = pd.read_excel(file_path, engine='openpyxl')
+        elif file_path.lower().endswith('.xls'):
+            # Use pandas with xlrd engine for .xls files
+            df = pd.read_excel(file_path, engine='xlrd')
+        else:
+            return {
+                'success': False,
+                'imported': 0,
+                'skipped': 0,
+                'warnings': ["Unsupported Excel file format. Only .xls and .xlsx are supported."]
+            }
+        
+        # Check if the DataFrame is empty
+        if df.empty:
+            return {
+                'success': False,
+                'imported': 0,
+                'skipped': 0,
+                'warnings': ["No district data found in Excel file."]
+            }
+        
+        # Map column names to expected names
+        column_mapping = {
+            # Standard format
+            'tax_district_id': 'tax_district_id',
+            'year': 'year',
+            'levy_code': 'levy_code',
+            'linked_levy_code': 'linked_levy_code',
+            
+            # Alternative format from provided Excel files
+            'levy_cd': 'levy_code',
+            'levy_cd_linked': 'linked_levy_code'
+        }
+        
+        # Rename columns to match expected format
+        df = df.rename(columns=column_mapping)
+        
+        # Check for required columns after mapping
+        required_columns = ['tax_district_id', 'year', 'levy_code', 'linked_levy_code']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            return {
+                'success': False,
+                'imported': 0,
+                'skipped': 0,
+                'warnings': [f"Missing required columns after mapping: {', '.join(missing_columns)}"]
+            }
+        
+        # Store results
+        imported_count = 0
+        skipped_count = 0
+        warnings = []
+        
+        # Process each row
+        for index, row in df.iterrows():
+            try:
+                # Validate data types and convert if needed
+                try:
+                    district_id = int(row['tax_district_id'])
+                    year = int(row['year'])
+                    levy_code = str(row['levy_code']).strip()
+                    linked_levy_code = str(row['linked_levy_code']).strip()
+                except (ValueError, TypeError) as e:
+                    skipped_count += 1
+                    warnings.append(f"Error in row {index+2}: Invalid data type - {str(e)}")
+                    continue
+                
+                # Skip rows with empty values in any required field
+                if pd.isna(district_id) or pd.isna(year) or not levy_code or not linked_levy_code:
+                    skipped_count += 1
+                    warnings.append(f"Skipped row {index+2} due to missing required values")
+                    continue
+                
+                # Check if a record with the same key already exists
+                existing_record = TaxDistrict.query.filter(
+                    and_(
+                        TaxDistrict.tax_district_id == district_id,
+                        TaxDistrict.year == year,
+                        TaxDistrict.levy_code == levy_code,
+                        TaxDistrict.linked_levy_code == linked_levy_code
+                    )
+                ).first()
+                
+                if existing_record:
+                    skipped_count += 1
+                    continue
+                
+                # Create a new district record
+                district = TaxDistrict(
+                    tax_district_id=district_id,
+                    year=year,
+                    levy_code=levy_code,
+                    linked_levy_code=linked_levy_code
+                )
+                
+                db.session.add(district)
+                imported_count += 1
+                
+            except Exception as e:
+                skipped_count += 1
+                warnings.append(f"Error processing row {index+2}: {str(e)}")
+        
+        # Commit changes
+        db.session.commit()
+        
+        return {
+            'success': imported_count > 0,
+            'imported': imported_count,
+            'skipped': skipped_count,
+            'warnings': warnings
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'skipped': 0,
+            'warnings': [f"Error importing Excel file: {str(e)}"]
         }
 
 def get_linked_levy_codes(levy_code, year=None):
