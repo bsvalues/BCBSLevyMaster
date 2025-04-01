@@ -6,12 +6,17 @@ from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
 from app import app, db
-from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict
+from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict, TaxCodeHistoricalRate
 from utils.import_utils import validate_and_import_csv
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
 from utils.district_utils import import_district_text_file, import_district_xml_file, import_district_excel_file, get_linked_levy_codes
 from utils.bill_impact_utils import calculate_bill_impact
+from utils.historical_utils import (
+    store_current_rates_as_historical, get_available_years, 
+    get_historical_rates_by_code, calculate_multi_year_changes,
+    seed_historical_rates
+)
 from sqlalchemy import func
 
 # Configure logger
@@ -1080,3 +1085,123 @@ def mcp_insights():
                           recent_imports=recent_imports,
                           recent_exports=recent_exports,
                           tax_summary=tax_summary)
+
+
+@app.route('/historical-rates', methods=['GET', 'POST'])
+def historical_rates():
+    """
+    View and manage multi-year historical levy rate data.
+    """
+    # Variables for template rendering
+    tax_codes = TaxCode.query.all()
+    available_years = get_available_years()
+    chart_data = None
+    selected_tax_code = None
+    multi_year_analysis = None
+    seeded = False
+    stored = False
+    
+    # Get the current year (default to 2024 if not available)
+    current_year = datetime.now().year
+    
+    if request.method == 'POST':
+        if 'seed_historical_data' in request.form:
+            # Seed historical rates for development and testing
+            base_year = int(request.form.get('base_year', current_year))
+            num_years = int(request.form.get('num_years', 5))
+            
+            success, message = seed_historical_rates(base_year, num_years)
+            
+            if success:
+                flash(message, 'success')
+                seeded = True
+            else:
+                flash(f"Error seeding historical data: {message}", 'danger')
+                
+            # Refresh available years
+            available_years = get_available_years()
+                
+        elif 'store_current_rates' in request.form:
+            # Store current tax code rates as historical data
+            year = int(request.form.get('year', current_year))
+            
+            success, message = store_current_rates_as_historical(year)
+            
+            if success:
+                flash(message, 'success')
+                stored = True
+            else:
+                flash(f"Error storing current rates: {message}", 'danger')
+                
+            # Refresh available years
+            available_years = get_available_years()
+            
+        elif 'view_historical_data' in request.form:
+            # Get selected tax code for historical data viewing
+            tax_code = request.form.get('tax_code')
+            selected_tax_code = tax_code
+            
+            if tax_code:
+                # Retrieve historical data for this tax code
+                historical_data = get_historical_rates_by_code(tax_code)
+                
+                if historical_data:
+                    # Prepare data for chart display
+                    years = [data['year'] for data in historical_data]
+                    rates = [data['levy_rate'] for data in historical_data]
+                    amounts = [data['levy_amount'] for data in historical_data]
+                    assessed_values = [data['total_assessed_value'] for data in historical_data]
+                    
+                    # Create multi-year analysis
+                    multi_year_analysis = calculate_multi_year_changes(tax_code)
+                    
+                    # Prepare chart data
+                    chart_data = {
+                        'tax_code': tax_code,
+                        'years': years,
+                        'rates': rates,
+                        'amounts': amounts,
+                        'assessed_values': assessed_values,
+                        'multi_year_analysis': multi_year_analysis
+                    }
+                else:
+                    flash(f"No historical data found for tax code {tax_code}", 'warning')
+            else:
+                flash("Please select a tax code to view historical data", 'warning')
+    
+    return render_template('historical_rates.html',
+                          tax_codes=tax_codes,
+                          available_years=available_years,
+                          current_year=current_year,
+                          chart_data=chart_data,
+                          selected_tax_code=selected_tax_code,
+                          multi_year_analysis=multi_year_analysis,
+                          seeded=seeded,
+                          stored=stored)
+
+
+@app.route('/api/historical-data/<tax_code>')
+def api_historical_data(tax_code):
+    """
+    API endpoint to get historical rate data for a specific tax code.
+    """
+    try:
+        # Get historical data for this tax code
+        historical_data = get_historical_rates_by_code(tax_code)
+        
+        if not historical_data:
+            return jsonify({'error': f"No historical data found for tax code {tax_code}"}), 404
+            
+        # Create multi-year analysis
+        multi_year_analysis = calculate_multi_year_changes(tax_code)
+        
+        # Return the data as JSON
+        return jsonify({
+            'tax_code': tax_code,
+            'historical_data': historical_data,
+            'multi_year_analysis': multi_year_analysis
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving historical data for {tax_code}: {str(e)}")
+        return jsonify({'error': str(e)}), 500

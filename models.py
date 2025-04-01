@@ -28,6 +28,10 @@ class TaxCode(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relationship to historical rates
+    historical_rates = db.relationship('TaxCodeHistoricalRate', backref='tax_code', lazy='dynamic',
+                                      cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f"<TaxCode {self.code}>"
 
@@ -76,3 +80,24 @@ class ExportLog(db.Model):
     
     def __repr__(self):
         return f"<ExportLog {self.filename}>"
+
+class TaxCodeHistoricalRate(db.Model):
+    """
+    Model for storing historical tax rates for each tax code over multiple years.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_code.id'), nullable=False, index=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    levy_rate = db.Column(db.Float, nullable=False)
+    levy_amount = db.Column(db.Float, nullable=True)
+    total_assessed_value = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Ensure uniqueness of tax_code_id and year combination
+    __table_args__ = (
+        db.UniqueConstraint('tax_code_id', 'year', name='uix_tax_code_year'),
+    )
+    
+    def __repr__(self):
+        return f"<TaxCodeHistoricalRate {self.tax_code_id}-{self.year}>"

@@ -6,6 +6,8 @@
     <title>{% block title %}SaaS Levy Calculation Application{% endblock %}</title>
     <!-- Bootstrap CSS from CDN with dark theme -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
     <!-- Favicon -->
@@ -51,6 +53,9 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{{ url_for('reports') }}">Reports</a></li>
                             </ul>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('historical_rates') }}">Historical Rates</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('mcp_insights') }}">MCP Insights</a>
@@ -103,5 +108,6 @@
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block extra_js %}{% endblock %}
+    {% block scripts %}{% endblock %}
 </body>
 </html>
