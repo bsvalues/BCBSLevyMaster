@@ -26,17 +26,26 @@
                     </form>
                 </div>
                 
-                <div class="mb-4">
-                    <ul class="nav nav-tabs" id="glossaryTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">All Terms</button>
-                        </li>
-                        {% for category in categories %}
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="{{ category.id }}-tab" data-bs-toggle="tab" data-bs-target="#{{ category.id }}" type="button" role="tab" aria-controls="{{ category.id }}" aria-selected="false">{{ category.name }}</button>
-                        </li>
+                <!-- Alphabetical quick navigation on desktop -->
+                <div class="d-none d-md-block mb-4">
+                    <div class="glossary-nav">
+                        {% for letter, terms in all_terms_by_letter.items() %}
+                            <a href="#letter-{{ letter }}" class="btn btn-sm btn-outline-secondary me-1">{{ letter }}</a>
                         {% endfor %}
-                    </ul>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="nav nav-tabs scrollable-tabs" id="glossaryTabs" role="tablist">
+                        <div class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">All Terms</button>
+                        </div>
+                        {% for category in categories %}
+                        <div class="nav-item" role="presentation">
+                            <button class="nav-link" id="{{ category.id }}-tab" data-bs-toggle="tab" data-bs-target="#{{ category.id }}" type="button" role="tab" aria-controls="{{ category.id }}" aria-selected="false">{{ category.name }}</button>
+                        </div>
+                        {% endfor %}
+                    </div>
                     
                     <div class="tab-content p-3 border border-top-0 rounded-bottom" id="glossaryTabContent">
                         <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
@@ -45,14 +54,16 @@
                                     <div class="list-group glossary-terms">
                                         {% for letter, terms in all_terms_by_letter.items() %}
                                         <div class="glossary-letter-section mb-4">
-                                            <h3 class="glossary-letter">{{ letter }}</h3>
+                                            <h3 class="glossary-letter" id="letter-{{ letter }}">{{ letter }}</h3>
                                             {% for term in terms %}
-                                            <div class="glossary-term-item">
-                                                <h4 class="glossary-term">{{ term.term }}</h4>
-                                                <p class="glossary-definition">{{ term.definition|safe }}</p>
-                                                {% if term.example %}
-                                                <p class="glossary-example text-muted"><em>Example: {{ term.example|safe }}</em></p>
-                                                {% endif %}
+                                            <div class="glossary-term-item card mb-3">
+                                                <div class="card-body">
+                                                    <h4 class="glossary-term card-title">{{ term.term }}</h4>
+                                                    <p class="glossary-definition card-text">{{ term.definition|safe }}</p>
+                                                    {% if term.example %}
+                                                    <p class="glossary-example text-muted card-text"><em>Example: {{ term.example|safe }}</em></p>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                             {% endfor %}
                                         </div>
@@ -69,12 +80,14 @@
                             </div>
                             <div class="list-group glossary-terms">
                                 {% for term in category.terms %}
-                                <div class="glossary-term-item">
-                                    <h4 class="glossary-term">{{ term.term }}</h4>
-                                    <p class="glossary-definition">{{ term.definition|safe }}</p>
-                                    {% if term.example %}
-                                    <p class="glossary-example text-muted"><em>Example: {{ term.example|safe }}</em></p>
-                                    {% endif %}
+                                <div class="glossary-term-item card mb-3">
+                                    <div class="card-body">
+                                        <h4 class="glossary-term card-title">{{ term.term }}</h4>
+                                        <p class="glossary-definition card-text">{{ term.definition|safe }}</p>
+                                        {% if term.example %}
+                                        <p class="glossary-example text-muted card-text"><em>Example: {{ term.example|safe }}</em></p>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 {% endfor %}
                             </div>
@@ -201,6 +214,71 @@
                 searchGlossary();
             }
         });
+        
+        // Make tabs scrollable on mobile
+        if (window.innerWidth < 768) {
+            $('.scrollable-tabs').css({
+                'display': 'flex',
+                'flex-wrap': 'nowrap',
+                'overflow-x': 'auto',
+                '-webkit-overflow-scrolling': 'touch',
+                'margin-bottom': '0'
+            });
+            
+            $('.scrollable-tabs .nav-item').css({
+                'white-space': 'nowrap',
+                'float': 'none'
+            });
+        }
+        
+        // Add back to top button for mobile
+        let backToTopBtn = $('<button>', {
+            id: 'backToTop',
+            class: 'btn btn-primary btn-sm position-fixed',
+            html: '<i class="bi bi-arrow-up"></i>',
+            css: {
+                'bottom': '20px',
+                'right': '20px',
+                'display': 'none',
+                'z-index': '1000',
+                'border-radius': '50%',
+                'width': '45px',
+                'height': '45px'
+            }
+        });
+        
+        $('body').append(backToTopBtn);
+        
+        // Show/hide back to top button
+        $(window).scroll(function() {
+            if ($(this).scrollTop() > 300) {
+                $('#backToTop').fadeIn();
+            } else {
+                $('#backToTop').fadeOut();
+            }
+        });
+        
+        // Scroll to top
+        $('#backToTop').click(function() {
+            $('html, body').animate({scrollTop: 0}, 300);
+            return false;
+        });
+        
+        // Add collapsible functionality to letter sections on mobile
+        if (isTouchDevice()) {
+            $('.glossary-letter').css('cursor', 'pointer').append(' <small class="text-muted">(tap to expand/collapse)</small>');
+            
+            $('.glossary-letter').click(function() {
+                $(this).siblings('.glossary-term-item').slideToggle();
+                $(this).toggleClass('collapsed');
+                
+                if ($(this).hasClass('collapsed')) {
+                    $(this).append(' <i class="bi bi-plus-circle"></i>');
+                } else {
+                    $(this).find('.bi').remove();
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

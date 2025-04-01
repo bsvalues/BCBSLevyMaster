@@ -21,8 +21,10 @@
                 <form method="post" class="mb-4">
                     <div class="form-floating mb-3">
                         <input type="text" class="form-control" id="property_id" name="property_id" placeholder="Enter Property ID"
-                               {% if property_data %}value="{{ property_data.property_id }}"{% endif %} required>
+                               {% if property_data %}value="{{ property_data.property_id }}"{% endif %} 
+                               autocomplete="off" inputmode="search" required>
                         <label for="property_id">Property ID</label>
+                        <small class="form-text text-muted mt-1">Type at least 3 characters for suggestions</small>
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg">
@@ -205,7 +207,7 @@
 {% block scripts %}
 <script>
     $(document).ready(function() {
-        // Property ID autocomplete
+        // Property ID autocomplete with mobile enhancements
         $('#property_id').autocomplete({
             source: function(request, response) {
                 $.ajax({
@@ -224,8 +226,49 @@
                     }
                 });
             },
-            minLength: 3
+            minLength: 3,
+            position: { my: "left top+5", at: "left bottom" },
+            appendTo: ".form-floating", // Ensures dropdown is in the right container
+            classes: {
+                "ui-autocomplete": "dropdown-menu" // Make it look like Bootstrap
+            }
         });
+        
+        // Make autocomplete more touch-friendly
+        if (isTouchDevice()) {
+            $('.ui-autocomplete').css({
+                'max-height': '50vh',
+                'overflow-y': 'auto',
+                '-webkit-overflow-scrolling': 'touch'
+            });
+            
+            // Increase touch target size of jQuery UI autocomplete items
+            $(document).on('click', '.ui-menu-item, .ui-menu-item-wrapper', function(e) {
+                // Prevent default handling to avoid double-selection on touch devices
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Get the item text and select it
+                var text = $(this).text().trim();
+                $('#property_id').val(text);
+                $('#property_id').autocomplete('close');
+            });
+        }
+        
+        {% if property_data %}
+        // Add print functionality
+        const printBtn = document.createElement('button');
+        printBtn.className = 'btn btn-outline-secondary mt-3';
+        printBtn.innerHTML = '<i class="bi bi-printer me-2"></i>Print Property Information';
+        printBtn.id = 'printPropertyInfo';
+        printBtn.type = 'button';
+        printBtn.addEventListener('click', function() {
+            window.print();
+        });
+        
+        // Append button to property information card
+        document.querySelector('.card-footer.bg-light').appendChild(printBtn);
+        {% endif %}
     });
 </script>
 {% endblock %}

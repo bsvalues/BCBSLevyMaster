@@ -6,12 +6,16 @@
     margin-bottom: 1rem;
     border-bottom: 1px solid var(--bs-border-color);
     color: var(--bs-primary);
+    position: relative;
+}
+
+.glossary-letter.collapsed {
+    margin-bottom: 0.5rem;
 }
 
 .glossary-term-item {
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px dashed var(--bs-border-color);
 }
 
 .glossary-term-item:last-child {
@@ -29,6 +33,22 @@
 
 .glossary-example {
     font-size: 0.9rem;
+}
+
+/* Enhance glossary cards for mobile */
+.glossary-term-item.card {
+    transition: transform 0.2s ease;
+}
+
+.glossary-term-item.card:active {
+    transform: scale(0.98);
+}
+
+/* Fix for autocomplete dropdown on smaller screens */
+.ui-autocomplete {
+    max-width: calc(100% - 30px);
+    max-height: 50vh;
+    overflow-y: auto;
 }
 
 /* Page Header Styling */
@@ -105,6 +125,112 @@
     .feature-icon {
         font-size: 2rem;
     }
+    
+    /* Larger touch targets for mobile */
+    .btn {
+        padding: 0.625rem 1rem;
+        min-height: 44px; /* Minimum height for touch targets */
+    }
+    
+    /* Improved card spacing on mobile */
+    .card {
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Enhanced form controls for touch */
+    .form-control, 
+    .form-select {
+        min-height: 44px;
+        font-size: 1rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Increased spacing for list groups */
+    .list-group-item {
+        padding: 0.75rem 1rem;
+    }
+    
+    /* More spacing for accordion buttons */
+    .accordion-button {
+        padding: 1rem;
+        min-height: 54px;
+    }
+    
+    /* Scrollable tabs for glossary */
+    .scrollable-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 0;
+        padding-bottom: 0.5rem;
+    }
+    
+    .scrollable-tabs .nav-item {
+        white-space: nowrap;
+        float: none;
+        flex-shrink: 0;
+    }
+    
+    /* Enhanced glossary letter sections */
+    .glossary-letter small {
+        font-size: 0.7rem;
+        opacity: 0.7;
+    }
+    
+    /* Improved jQuery UI autocomplete dropdowns */
+    .ui-menu-item, .ui-menu-item-wrapper {
+        padding: 10px 15px !important;
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+}
+
+/* Sticky back to top button */
+#back-to-top-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+#back-to-top-btn.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Enhanced focus states for better accessibility */
+a:focus, button:focus, input:focus, select:focus, textarea:focus {
+    outline: 3px solid rgba(var(--bs-primary-rgb), 0.5);
+    outline-offset: 2px;
+}
+
+/* Touch-friendly glossary navigation */
+.glossary-nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.5rem 0;
+    margin-bottom: 1.5rem;
+}
+
+.glossary-nav .btn {
+    margin-right: 0.5rem;
+}
+
+/* Smooth scrolling for better user experience */
+html {
+    scroll-behavior: smooth;
 }
 
 /* Property Search Result Styling */

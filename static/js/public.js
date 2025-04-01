@@ -4,22 +4,28 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Enable tooltips
+    // Enable tooltips with improved touch device support
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function(tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl, {
-            html: true
+            html: true,
+            trigger: isTouchDevice() ? 'click' : 'hover focus', // Use click on touch devices
+            boundary: document.body // Prevent positioning issues
         });
     });
 
-    // Enable popovers
+    // Enable popovers with improved touch device support
     const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
     popoverTriggerList.map(function(popoverTriggerEl) {
         return new bootstrap.Popover(popoverTriggerEl, {
             html: true,
-            trigger: 'hover focus'
+            trigger: isTouchDevice() ? 'click' : 'hover focus',
+            boundary: document.body
         });
     });
+    
+    // Initialize back to top button
+    initBackToTop();
 
     // Property Lookup Form Validation
     const propertyLookupForm = document.querySelector('form[action*="property_lookup"]');
@@ -152,4 +158,46 @@ function getChangeClass(value) {
     if (value > 0) return 'tax-rate-change-positive';
     if (value < 0) return 'tax-rate-change-negative';
     return 'tax-rate-change-neutral';
+}
+
+/**
+ * Detects if the current device is a touch device
+ * @returns {boolean} True if touch device, false otherwise
+ */
+function isTouchDevice() {
+    return (('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        (navigator.msMaxTouchPoints > 0));
+}
+
+/**
+ * Initializes the back to top button functionality
+ */
+function initBackToTop() {
+    const backToTopBtn = document.getElementById('back-to-top-btn');
+    
+    if (!backToTopBtn) return;
+    
+    // Show button when user scrolls down 300px
+    window.addEventListener('scroll', function() {
+        if (window.pageYOffset > 300) {
+            backToTopBtn.classList.add('show');
+        } else {
+            backToTopBtn.classList.remove('show');
+        }
+    });
+    
+    // Scroll to top when button is clicked
+    backToTopBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+    
+    // Initially check scroll position
+    if (window.pageYOffset > 300) {
+        backToTopBtn.classList.add('show');
+    }
 }

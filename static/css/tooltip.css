@@ -104,12 +104,56 @@
 
 /* Responsive Adjustments */
 @media (max-width: 767.98px) {
+    /* Wider tooltips on small screens for better readability */
     .tooltip {
-        --tooltip-max-width: 250px;
+        --tooltip-max-width: 270px;
     }
     
     .tooltip .tooltip-inner {
-        padding: 0.5rem;
-        font-size: 0.8rem;
+        padding: 0.625rem;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    
+    /* Make the tooltip term more noticeable for touch devices */
+    .tooltip-term {
+        border-bottom: 1.5px dotted var(--bs-primary);
+        padding: 2px 0;  /* Better tap/touch area */
+    }
+    
+    /* Better spacing in tooltip content on small screens */
+    .tooltip-title {
+        font-size: 0.95rem;
+        margin-bottom: 0.625rem;
+    }
+    
+    .tooltip-definition {
+        margin-bottom: 0.625rem;
+    }
+    
+    /* More visible see more link */
+    .tooltip-see-more {
+        margin-top: 0.625rem;
+        font-size: 0.85rem;
+        padding: 4px 0; /* Larger touch area */
+        font-weight: 500;
+    }
+}
+
+/* Touch-optimized tooltips */
+@media (pointer: coarse) {
+    /* Alternative display for tooltips on touch devices */
+    .tooltip-term {
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1.5px;
+        text-decoration-color: var(--bs-primary);
+        border-bottom: none;
+    }
+    
+    /* Add tap indicator - subtle highlight effect */
+    .tooltip-term:active {
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+        border-radius: 2px;
     }
 }
