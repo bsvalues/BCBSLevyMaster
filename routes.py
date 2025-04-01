@@ -1272,3 +1272,228 @@ def api_historical_data(tax_code):
     except Exception as e:
         logger.error(f"Error retrieving historical data for {tax_code}: {str(e)}")
         return jsonify({'error': str(e)}), 500
+        
+@app.route('/api/historical_export_preview')
+def api_historical_export_preview():
+    """
+    API endpoint to preview historical rate data for export.
+    """
+    year = request.args.get('year', '')
+    tax_code = request.args.get('tax_code', '')
+    
+    try:
+        # Get data based on filters
+        query = db.session.query(
+            TaxCode.code.label('tax_code'),
+            TaxCodeHistoricalRate.year,
+            TaxCodeHistoricalRate.levy_rate,
+            TaxCodeHistoricalRate.levy_amount,
+            TaxCodeHistoricalRate.total_assessed_value
+        ).join(
+            TaxCodeHistoricalRate, 
+            TaxCode.id == TaxCodeHistoricalRate.tax_code_id
+        )
+        
+        # Apply filters if provided
+        if year:
+            query = query.filter(TaxCodeHistoricalRate.year == int(year))
+        if tax_code:
+            query = query.filter(TaxCode.code == tax_code)
+            
+        # Get results (limit to 100 for preview)
+        results = query.limit(100).all()
+        
+        if not results:
+            return jsonify({
+                'success': False,
+                'message': 'No historical rate data matching the criteria'
+            })
+        
+        # Convert to list of dictionaries
+        preview_data = []
+        for row in results:
+            preview_data.append({
+                'tax_code': row.tax_code,
+                'year': row.year,
+                'levy_rate': float(row.levy_rate),
+                'levy_amount': float(row.levy_amount) if row.levy_amount else None,
+                'total_assessed_value': float(row.total_assessed_value) if row.total_assessed_value else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'preview': preview_data,
+            'total_count': len(preview_data),
+            'has_more': len(preview_data) == 100,
+            'filters': {
+                'year': year,
+                'tax_code': tax_code
+            }
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Error generating export preview: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"Error generating preview: {str(e)}"
+        })
+
+@app.route('/api/historical_import_preview', methods=['POST'])
+def api_historical_import_preview():
+    """
+    API endpoint to preview CSV data before import.
+    """
+    if 'csv_file' not in request.files:
+        return jsonify({
+            'success': False,
+            'message': 'No file provided'
+        })
+    
+    csv_file = request.files['csv_file']
+    if not csv_file.filename.lower().endswith('.csv'):
+        return jsonify({
+            'success': False,
+            'message': 'File must be a CSV'
+        })
+    
+    try:
+        # Read CSV content
+        csv_content = io.StringIO(csv_file.read().decode('utf-8'))
+        
+        # Reset file pointer for analysis
+        csv_file.seek(0)
+        
+        # Process data for preview
+        reader = csv.DictReader(csv_content)
+        
+        # Check if the CSV has the required headers
+        required_headers = ['Tax Code', 'Year', 'Levy Rate']
+        headers = reader.fieldnames
+        if not headers or not all(header in headers for header in required_headers):
+            return jsonify({
+                'success': False,
+                'message': 'CSV file is missing required headers: ' + ', '.join(required_headers)
+            })
+        
+        # Process rows for preview
+        preview_data = []
+        warnings = []
+        unique_tax_codes = set()
+        stats = {
+            'to_import': 0,
+            'to_update': 0,
+            'to_skip': 0,
+            'unique_tax_codes': 0
+        }
+        
+        # Get existing tax codes
+        existing_tax_codes = {tc.code: tc.id for tc in TaxCode.query.all()}
+        
+        # Check for existing historical rates
+        existing_rates = {}
+        for rate in TaxCodeHistoricalRate.query.all():
+            tax_code = next((tc for tc, tc_id in existing_tax_codes.items() 
+                          if tc_id == rate.tax_code_id), None)
+            if tax_code:
+                key = f"{tax_code}_{rate.year}"
+                existing_rates[key] = True
+        
+        for i, row in enumerate(reader):
+            # Skip header row
+            if i == 0 and 'Tax Code' in row and 'Year' in row:
+                continue
+                
+            # Extract data
+            tax_code = row.get('Tax Code', '').strip()
+            year_str = row.get('Year', '').strip()
+            levy_rate_str = row.get('Levy Rate', '').strip()
+            levy_amount_str = row.get('Levy Amount', '').strip()
+            total_assessed_value_str = row.get('Total Assessed Value', '').strip()
+            
+            # Basic validation
+            row_status = 'new'
+            row_valid = True
+            
+            # Check tax code exists
+            if not tax_code or tax_code not in existing_tax_codes:
+                warnings.append(f"Row {i+1}: Tax code '{tax_code}' not found in database")
+                row_status = 'skip'
+                row_valid = False
+            else:
+                unique_tax_codes.add(tax_code)
+            
+            # Check year format
+            try:
+                year = int(year_str) if year_str else None
+                if not year:
+                    raise ValueError("Invalid year")
+            except ValueError:
+                warnings.append(f"Row {i+1}: Invalid year format '{year_str}'")
+                year = None
+                row_status = 'skip'
+                row_valid = False
+            
+            # Check rate format
+            try:
+                levy_rate = float(levy_rate_str) if levy_rate_str else None
+                if levy_rate is None:
+                    raise ValueError("Invalid rate")
+            except ValueError:
+                warnings.append(f"Row {i+1}: Invalid levy rate format '{levy_rate_str}'")
+                levy_rate = None
+                row_status = 'skip'
+                row_valid = False
+            
+            # Try to parse other numeric fields
+            try:
+                levy_amount = float(levy_amount_str) if levy_amount_str else None
+            except ValueError:
+                warnings.append(f"Row {i+1}: Invalid levy amount format '{levy_amount_str}'")
+                levy_amount = None
+            
+            try:
+                total_assessed_value = float(total_assessed_value_str) if total_assessed_value_str else None
+            except ValueError:
+                warnings.append(f"Row {i+1}: Invalid assessed value format '{total_assessed_value_str}'")
+                total_assessed_value = None
+            
+            # Check if this is an update to existing data
+            if row_valid and f"{tax_code}_{year}" in existing_rates:
+                row_status = 'update'
+                stats['to_update'] += 1
+            elif row_valid:
+                stats['to_import'] += 1
+            else:
+                stats['to_skip'] += 1
+            
+            # Add to preview data
+            preview_data.append({
+                'tax_code': tax_code,
+                'year': year,
+                'levy_rate': levy_rate,
+                'levy_amount': levy_amount,
+                'total_assessed_value': total_assessed_value,
+                'status': row_status
+            })
+            
+            # Limit preview to first 100 rows
+            if len(preview_data) >= 100:
+                warnings.append(f"Preview limited to first 100 rows. Full import will process all {i+1} rows.")
+                break
+        
+        stats['unique_tax_codes'] = len(unique_tax_codes)
+        
+        return jsonify({
+            'success': True,
+            'preview': preview_data,
+            'warnings': warnings,
+            'stats': stats,
+            'has_more': len(preview_data) == 100 and reader.line_num > 100
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Error analyzing CSV file: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"Error analyzing CSV file: {str(e)}"
+        })

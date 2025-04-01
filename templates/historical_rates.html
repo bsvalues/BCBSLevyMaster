@@ -114,7 +114,7 @@
                 <div class="collapse" id="importExportCollapse">
                     <div class="card-body">
                         <!-- Export Historical Data -->
-                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-4">
+                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-4" name="export_form">
                             <h6 class="mb-3"><i class="bi bi-download"></i> Export Historical Data</h6>
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -138,17 +138,71 @@
                                     <div class="form-text">Filter export to a specific tax code</div>
                                 </div>
                             </div>
-                            <div class="mt-3">
+                            <div class="mt-3 d-flex">
+                                <button type="button" id="previewExportBtn" class="btn btn-secondary me-2">
+                                    <i class="bi bi-eye"></i> Preview Data
+                                </button>
                                 <button type="submit" name="export_historical_data" class="btn btn-success">
                                     <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
                                 </button>
+                                <input type="hidden" name="export_historical_data" value="">
                             </div>
                         </form>
+                        
+                        <!-- Export Preview Modal -->
+                        <div class="modal fade" id="exportPreviewModal" tabindex="-1" aria-labelledby="exportPreviewModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="exportPreviewModalLabel">Export Data Preview</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="exportPreviewLoading" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2">Loading preview data...</p>
+                                        </div>
+                                        <div id="exportPreviewContent" class="d-none">
+                                            <div class="alert alert-info mb-3">
+                                                <strong>Preview of export data:</strong> Showing up to 100 rows.
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped table-hover" id="exportPreviewTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Tax Code</th>
+                                                            <th>Year</th>
+                                                            <th>Levy Rate</th>
+                                                            <th>Levy Amount</th>
+                                                            <th>Total Assessed Value</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Preview data will be inserted here -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div id="exportPreviewNoData" class="alert alert-warning d-none">
+                                                No data found matching the selected criteria.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <button type="button" class="btn btn-success" id="confirmExportBtn">
+                                            <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <hr>
                         
                         <!-- Import Historical Data -->
-                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-3" enctype="multipart/form-data">
+                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-3" enctype="multipart/form-data" id="importForm">
                             <h6 class="mb-3"><i class="bi bi-upload"></i> Import Historical Data</h6>
                             <div class="mb-3">
                                 <label for="csv_file" class="form-label">CSV File</label>
@@ -158,10 +212,112 @@
                                     <code>Tax Code, Year, Levy Rate, Levy Amount, Total Assessed Value</code>
                                 </div>
                             </div>
-                            <button type="submit" name="import_historical_data" class="btn btn-primary">
-                                <i class="bi bi-cloud-upload"></i> Import Data
-                            </button>
+                            <div class="d-flex">
+                                <button type="button" class="btn btn-secondary me-2" id="previewImportBtn">
+                                    <i class="bi bi-eye"></i> Preview Import
+                                </button>
+                                <button type="submit" name="import_historical_data" class="btn btn-primary">
+                                    <i class="bi bi-cloud-upload"></i> Import Data
+                                </button>
+                            </div>
                         </form>
+                        
+                        <!-- Import Preview Modal -->
+                        <div class="modal fade" id="importPreviewModal" tabindex="-1" aria-labelledby="importPreviewModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="importPreviewModalLabel">Import Preview</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="importPreviewLoading" class="text-center py-4">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2">Analyzing CSV file...</p>
+                                        </div>
+                                        <div id="importPreviewContent" class="d-none">
+                                            <div class="alert alert-info mb-3">
+                                                <i class="bi bi-info-circle"></i> <strong>Preview Only:</strong> 
+                                                These changes have not been applied to the database yet.
+                                            </div>
+                                            
+                                            <div id="importPreviewStats" class="mb-3">
+                                                <div class="row g-2">
+                                                    <div class="col-md-3">
+                                                        <div class="card bg-light">
+                                                            <div class="card-body p-2 text-center">
+                                                                <div class="h5 mb-0" id="rowsToImport">0</div>
+                                                                <div class="text-muted small">Rows to Import</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card bg-light">
+                                                            <div class="card-body p-2 text-center">
+                                                                <div class="h5 mb-0" id="rowsToUpdate">0</div>
+                                                                <div class="text-muted small">Updates</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card bg-light">
+                                                            <div class="card-body p-2 text-center">
+                                                                <div class="h5 mb-0" id="rowsToSkip">0</div>
+                                                                <div class="text-muted small">Skipped</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="card bg-light">
+                                                            <div class="card-body p-2 text-center">
+                                                                <div class="h5 mb-0" id="uniqueTaxCodes">0</div>
+                                                                <div class="text-muted small">Tax Codes</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div id="importValidationErrors" class="alert alert-danger d-none mb-3">
+                                                <h6><i class="bi bi-exclamation-triangle"></i> Validation Issues:</h6>
+                                                <ul id="importValidationErrorsList" class="mb-0"></ul>
+                                            </div>
+                                            
+                                            <h6>Data Preview</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped table-hover" id="importPreviewTable">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Row</th>
+                                                            <th>Tax Code</th>
+                                                            <th>Year</th>
+                                                            <th>Levy Rate</th>
+                                                            <th>Levy Amount</th>
+                                                            <th>Total Assessed Value</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <!-- Preview data will be inserted here -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div id="importPreviewNoData" class="alert alert-warning d-none">
+                                                No valid data found in the CSV file.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        <button type="button" class="btn btn-primary" id="confirmImportBtn">
+                                            <i class="bi bi-cloud-upload"></i> Proceed with Import
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Download Template Button -->
                         <div class="mt-2">
@@ -198,6 +354,27 @@
                     <div>
                         <h6>Year-over-Year Rate Change</h6>
                         <canvas id="changeChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <!-- Comparison Chart (will be shown when comparing data) -->
+                    <div id="comparisonChartContainer" class="mt-4 pt-3 border-top d-none">
+                        <h6>
+                            <i class="bi bi-arrow-left-right"></i> Tax Code Comparison
+                            <button class="btn btn-sm btn-outline-secondary float-end" id="closeComparisonBtn">
+                                <i class="bi bi-x"></i> Close
+                            </button>
+                        </h6>
+                        <div class="alert alert-info mb-3">
+                            <small>Comparing data for multiple tax codes. You can add more tax codes for comparison by using the form on the left.</small>
+                        </div>
+                        <div class="mb-4">
+                            <h6 class="small text-muted">Rate Comparison</h6>
+                            <canvas id="comparisonRateChart" width="400" height="200"></canvas>
+                        </div>
+                        <div class="mb-4">
+                            <h6 class="small text-muted">Year-over-Year Change Comparison</h6>
+                            <canvas id="comparisonChangeChart" width="400" height="200"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -314,36 +491,18 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/historical_preview.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Template download functionality
-    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
-    if (downloadTemplateBtn) {
-        downloadTemplateBtn.addEventListener('click', function() {
-            // Create template content
-            const headers = ['Tax Code', 'Year', 'Levy Rate', 'Levy Amount', 'Total Assessed Value'];
-            const exampleRows = [
-                ['123456', '2024', '0.0125', '250000', '20000000'],
-                ['234567', '2023', '0.0110', '220000', '19500000'],
-                ['123456', '2023', '0.0115', '230000', '19800000']
-            ];
-            
-            // Convert to CSV
-            let csvContent = headers.join(',') + '\n';
-            exampleRows.forEach(row => {
-                csvContent += row.join(',') + '\n';
-            });
-            
-            // Create download link
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'historical_rates_template.csv');
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+    // Historical data handling moved to historical_preview.js
+    
+    // Comparison Chart Functionality
+    const comparisonContainer = document.getElementById('comparisonChartContainer');
+    const closeComparisonBtn = document.getElementById('closeComparisonBtn');
+    
+    if (closeComparisonBtn) {
+        closeComparisonBtn.addEventListener('click', function() {
+            comparisonContainer.classList.add('d-none');
         });
     }
     {% if chart_data %}
