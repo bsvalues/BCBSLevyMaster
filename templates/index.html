@@ -10,11 +10,11 @@
                 <h1 class="display-4 fw-bold mb-4">Levy Calculation System</h1>
                 <p class="lead mb-4">A comprehensive property tax levy calculation and management system for Washington state.</p>
                 <div class="d-grid gap-2 d-md-block">
-                    <button type="button" class="btn btn-primary btn-lg me-md-2" disabled>
-                        <i class="bi bi-calculator me-2"></i>Open Levy Calculator
-                    </button>
+                    <a href="{{ url_for('public.index') }}" class="btn btn-primary btn-lg me-md-2">
+                        <i class="bi bi-search me-2"></i>Public Property Lookup
+                    </a>
                     <button type="button" class="btn btn-outline-secondary btn-lg" disabled>
-                        <i class="bi bi-file-earmark-text me-2"></i>View Reports
+                        <i class="bi bi-file-earmark-text me-2"></i>Admin Dashboard
                     </button>
                 </div>
             </div>
@@ -51,9 +51,9 @@
             
             <div class="alert alert-info mt-5" role="alert">
                 <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>System Status</h4>
-                <p>The Levy Calculation System is currently in setup mode. Database tables and initial configuration are being prepared.</p>
+                <p>The Public Property Lookup Portal is now available! Use the portal to search properties, view tax information, and explore tax districts.</p>
                 <hr>
-                <p class="mb-0">Please check back soon for full functionality.</p>
+                <p class="mb-0">Administrative features for levy calculations and reporting are under development.</p>
             </div>
         </div>
     </div>

@@ -1,0 +1,263 @@
+{% extends 'simple_base.html' %}
+
+{% block title %}Tax Districts - Benton County Property Tax Portal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('public.index') }}">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Tax Districts</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <h1 class="h2 mb-3">Tax Districts</h1>
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="yearDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        View {{ year }} <span class="d-none d-md-inline">Data</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="yearDropdown">
+                        {% for available_year in available_years %}
+                            <li><a class="dropdown-item {% if available_year == year %}active{% endif %}" href="{{ url_for('public.district_list', year=available_year) }}">{{ available_year }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <p class="lead">View tax district information for Benton County. Tax districts are governmental entities that have the power to levy taxes on properties within their boundaries.</p>
+        </div>
+    </div>
+    
+    <!-- Filter and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-3">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control" id="districtSearch" placeholder="Search district name or code">
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="districtTypeFilter">
+                                <option value="">All District Types</option>
+                                <option value="SCHOOL">School Districts</option>
+                                <option value="CITY">Cities</option>
+                                <option value="FIRE">Fire Districts</option>
+                                <option value="COUNTY">County</option>
+                                <option value="LIBRARY">Library Districts</option>
+                                <option value="PORT">Port Districts</option>
+                                <option value="HOSPITAL">Hospital Districts</option>
+                                <option value="CEMETERY">Cemetery Districts</option>
+                                <option value="OTHER">Other Districts</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-primary w-100" id="resetFilters">
+                                <i class="bi bi-arrow-counterclockwise me-2"></i>Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- District List -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
+                    <h2 class="h5 mb-0">Tax Districts for {{ year }}</h2>
+                    <span class="badge bg-primary district-count">{{ districts|length }} districts</span>
+                </div>
+                {% if districts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="districtTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Code</th>
+                                    <th>District Name</th>
+                                    <th>Type</th>
+                                    <th class="text-end">Statutory Limit</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for district in districts %}
+                                    <tr class="district-row" data-type="{{ district.district_type }}">
+                                        <td>{{ district.district_code }}</td>
+                                        <td>
+                                            <a href="{{ url_for('public.district_detail', district_id=district.id) }}">
+                                                {{ district.district_name }}
+                                            </a>
+                                        </td>
+                                        <td><span class="badge bg-secondary">{{ district.district_type }}</span></td>
+                                        <td class="text-end">
+                                            {% if district.statutory_limit %}
+                                                {{ district.statutory_limit }} per $1,000
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <a href="{{ url_for('public.district_detail', district_id=district.id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="noResults" class="card-body p-5 text-center" style="display: none;">
+                        <div class="mb-4">
+                            <i class="bi bi-search text-muted display-1"></i>
+                        </div>
+                        <h3 class="h5 mb-3">No districts found</h3>
+                        <p class="text-muted mb-4">Try adjusting your search criteria or using fewer filters.</p>
+                        <button type="button" class="btn btn-outline-primary" id="clearSearch">
+                            Clear Search
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="card-body p-5 text-center">
+                        <div class="mb-4">
+                            <i class="bi bi-building text-muted display-1"></i>
+                        </div>
+                        <h3 class="h5 mb-3">No district data available for {{ year }}</h3>
+                        <p class="text-muted mb-0">Please select a different year or check back later.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- District Type Explanation -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent py-3">
+                    <h2 class="h5 mb-0">Understanding Tax Districts</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h3 class="h6 mb-3">District Types</h3>
+                            <ul class="list-group list-group-flush mb-4">
+                                <li class="list-group-item bg-transparent">
+                                    <strong>School Districts:</strong> Fund public education from kindergarten through 12th grade
+                                </li>
+                                <li class="list-group-item bg-transparent">
+                                    <strong>Cities:</strong> Fund municipal services like police, streets, and parks
+                                </li>
+                                <li class="list-group-item bg-transparent">
+                                    <strong>Fire Districts:</strong> Fund fire protection and emergency medical services
+                                </li>
+                                <li class="list-group-item bg-transparent">
+                                    <strong>County:</strong> Fund county-wide services like courts, jails, and elections
+                                </li>
+                                <li class="list-group-item bg-transparent">
+                                    <strong>Library Districts:</strong> Fund public libraries and related services
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h3 class="h6 mb-3">About Statutory Limits</h3>
+                            <p>State law imposes maximum levy rates (statutory limits) that each type of district can charge. These limits help protect property owners from excessive taxation.</p>
+                            <p>Statutory limits are expressed as a rate per $1,000 of assessed value. For example, a limit of $3.60 means the district can levy up to $3.60 for every $1,000 of assessed property value.</p>
+                            <p>Some districts may levy at lower rates than their statutory maximum. Voters can also approve special levies that temporarily exceed these limits for specific purposes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const districtTable = document.getElementById('districtTable');
+        const districtSearch = document.getElementById('districtSearch');
+        const districtTypeFilter = document.getElementById('districtTypeFilter');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        const noResults = document.getElementById('noResults');
+        const districtCount = document.querySelector('.district-count');
+        
+        // Function to filter districts
+        function filterDistricts() {
+            const searchTerm = districtSearch.value.toLowerCase();
+            const typeFilter = districtTypeFilter.value;
+            let visibleCount = 0;
+            
+            if (districtTable) {
+                const rows = districtTable.querySelectorAll('tbody tr');
+                
+                rows.forEach(row => {
+                    const code = row.cells[0].textContent.toLowerCase();
+                    const name = row.cells[1].textContent.toLowerCase();
+                    const type = row.dataset.type;
+                    
+                    const matchesSearch = searchTerm === '' || 
+                                         code.includes(searchTerm) || 
+                                         name.includes(searchTerm);
+                    
+                    const matchesType = typeFilter === '' || type === typeFilter;
+                    
+                    if (matchesSearch && matchesType) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Update district count
+                if (districtCount) {
+                    districtCount.textContent = `${visibleCount} districts`;
+                }
+                
+                // Show/hide no results message
+                if (noResults) {
+                    if (visibleCount === 0) {
+                        districtTable.style.display = 'none';
+                        noResults.style.display = 'block';
+                    } else {
+                        districtTable.style.display = '';
+                        noResults.style.display = 'none';
+                    }
+                }
+            }
+        }
+        
+        // Event listeners
+        if (districtSearch) {
+            districtSearch.addEventListener('input', filterDistricts);
+        }
+        
+        if (districtTypeFilter) {
+            districtTypeFilter.addEventListener('change', filterDistricts);
+        }
+        
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', function() {
+                districtSearch.value = '';
+                districtTypeFilter.value = '';
+                filterDistricts();
+            });
+        }
+        
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', function() {
+                districtSearch.value = '';
+                districtTypeFilter.value = '';
+                filterDistricts();
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@ from datetime import datetime
 
 from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -20,6 +21,7 @@ class Base(DeclarativeBase):
 
 # Initialize extensions
 db = SQLAlchemy(model_class=Base)
+csrf = CSRFProtect()
 
 
 def create_app(config_name=None):
@@ -58,6 +60,7 @@ def create_app(config_name=None):
     
     # Initialize extensions with the app
     db.init_app(app)
+    csrf.init_app(app)
     
     # Register error handlers
     register_error_handlers(app)
@@ -166,10 +169,12 @@ def index():
 from routes_data_management import data_management_bp
 from routes_forecasting import forecasting_bp
 from routes_levy_exports import levy_exports_bp
+from routes_public import public_bp
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
 app.register_blueprint(levy_exports_bp)
+app.register_blueprint(public_bp)
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():

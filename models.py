@@ -72,16 +72,12 @@ class AuditMixin:
     @declared_attr
     def created_by(cls):
         """Create relationship with User model for created_by."""
-        name = cls.__name__.lower() if hasattr(cls, '__name__') else 'item'
-        return relationship('User', foreign_keys=[cls.created_by_id], backref=backref(
-            name + '_created', lazy='dynamic'))
+        return relationship('User', foreign_keys=[cls.created_by_id])
     
     @declared_attr
     def updated_by(cls):
         """Create relationship with User model for updated_by."""
-        name = cls.__name__.lower() if hasattr(cls, '__name__') else 'item'
-        return relationship('User', foreign_keys=[cls.updated_by_id], backref=backref(
-            name + '_updated', lazy='dynamic'))
+        return relationship('User', foreign_keys=[cls.updated_by_id])
 
 
 class YearMixin:
@@ -90,7 +86,7 @@ class YearMixin:
     year = Column(Integer, nullable=False, index=True)
 
 
-class User(UserMixin, AuditMixin, db.Model):
+class User(UserMixin, db.Model):
     """
     User model for authentication and authorization.
     """
@@ -105,6 +101,8 @@ class User(UserMixin, AuditMixin, db.Model):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     last_login = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Non-audit fields use modified constructor
     def __init__(self, **kwargs):
@@ -296,7 +294,7 @@ class ImportLog(AuditMixin, db.Model):
     import_metadata = Column(JSON)  # Renamed from metadata (reserved name)
     
     # Relationship
-    user = relationship('User', backref=backref('imports', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('imports', lazy='dynamic'))
     
     def __repr__(self):
         return f'<ImportLog {self.filename} {self.status}>'
@@ -320,7 +318,7 @@ class ExportLog(AuditMixin, db.Model):
     export_metadata = Column(JSON)  # Renamed from metadata (reserved name)
     
     # Relationship
-    user = relationship('User', backref=backref('exports', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('exports', lazy='dynamic'))
     
     def __repr__(self):
         return f'<ExportLog {self.filename} {self.status}>'
@@ -344,7 +342,7 @@ class AuditLog(db.Model):
     user_agent = Column(String(256))
     
     # Relationship
-    user = relationship('User', backref=backref('audit_logs', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('audit_logs', lazy='dynamic'))
     
     def __repr__(self):
         return f'<AuditLog {self.table_name} {self.action} {self.record_id}>'
@@ -373,7 +371,7 @@ class LevyScenario(AuditMixin, YearMixin, db.Model):
     status = Column(String(32), default='DRAFT')
     
     # Relationships
-    user = relationship('User', backref=backref('levy_scenarios', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('levy_scenarios', lazy='dynamic'))
     tax_district = relationship('TaxDistrict')
     
     def __repr__(self):
@@ -402,7 +400,7 @@ class Forecast(AuditMixin, db.Model):
     is_public = Column(Boolean, default=False)
     
     # Relationships
-    user = relationship('User', backref=backref('forecasts', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('forecasts', lazy='dynamic'))
     tax_district = relationship('TaxDistrict')
     tax_code = relationship('TaxCode')
     
@@ -480,7 +478,7 @@ class ScheduledReport(AuditMixin, db.Model):
     next_run = Column(DateTime)
     
     # Relationships
-    user = relationship('User', backref=backref('scheduled_reports', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('scheduled_reports', lazy='dynamic'))
     
     def __repr__(self):
         return f'<ScheduledReport {self.name} {self.report_type} {self.schedule_type}>'
@@ -502,7 +500,7 @@ class ReportTemplate(AuditMixin, db.Model):
     is_public = Column(Boolean, default=False)
     
     # Relationships
-    user = relationship('User', backref=backref('report_templates', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('report_templates', lazy='dynamic'))
     
     def __repr__(self):
         return f'<ReportTemplate {self.name} {self.template_type}>'
@@ -527,7 +525,7 @@ class AnalysisResult(AuditMixin, db.Model):
     is_public = Column(Boolean, default=False)
     
     # Relationships
-    user = relationship('User', backref=backref('analyses', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('analyses', lazy='dynamic'))
     
     def __repr__(self):
         return f'<AnalysisResult {self.name} {self.analysis_type}>'
@@ -590,7 +588,7 @@ class AIAnalysisRequest(AuditMixin, db.Model):
     error_details = Column(Text)
     
     # Relationships
-    user = relationship('User', backref=backref('ai_requests', lazy='dynamic'))
+    user = relationship('User', foreign_keys=[user_id], backref=backref('ai_requests', lazy='dynamic'))
     
     def __repr__(self):
         return f'<AIAnalysisRequest {self.id} {self.request_type} {self.status}>'

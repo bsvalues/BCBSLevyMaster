@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800px" height="600px" viewBox="0 0 800 600" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Property Search Illustration</title>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#0D6EFD" stop-opacity="0.2" offset="0%"></stop>
+            <stop stop-color="#0D6EFD" stop-opacity="0.1" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-2">
+            <stop stop-color="#212529" stop-opacity="0.1" offset="0%"></stop>
+            <stop stop-color="#212529" stop-opacity="0.2" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Property-Search" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <!-- Background -->
+        <rect id="Background" fill="url(#linearGradient-1)" x="0" y="0" width="800" height="600" rx="20"></rect>
+        
+        <!-- Grid -->
+        <g id="Grid" transform="translate(50, 50)" stroke="#E9ECEF" stroke-width="1" stroke-dasharray="5,5">
+            <line x1="0" y1="0" x2="700" y2="0"></line>
+            <line x1="0" y1="100" x2="700" y2="100"></line>
+            <line x1="0" y1="200" x2="700" y2="200"></line>
+            <line x1="0" y1="300" x2="700" y2="300"></line>
+            <line x1="0" y1="400" x2="700" y2="400"></line>
+            <line x1="0" y1="500" x2="700" y2="500"></line>
+            
+            <line x1="0" y1="0" x2="0" y2="500"></line>
+            <line x1="100" y1="0" x2="100" y2="500"></line>
+            <line x1="200" y1="0" x2="200" y2="500"></line>
+            <line x1="300" y1="0" x2="300" y2="500"></line>
+            <line x1="400" y1="0" x2="400" y2="500"></line>
+            <line x1="500" y1="0" x2="500" y2="500"></line>
+            <line x1="600" y1="0" x2="600" y2="500"></line>
+            <line x1="700" y1="0" x2="700" y2="500"></line>
+        </g>
+        
+        <!-- Map with Properties -->
+        <g id="Map" transform="translate(75, 75)">
+            <!-- Property Plots -->
+            <rect x="25" y="25" width="150" height="100" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="200" y="25" width="100" height="100" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="325" y="25" width="125" height="150" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="475" y="25" width="175" height="100" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            
+            <rect x="25" y="150" width="100" height="125" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="150" y="150" width="150" height="125" fill="#e35d6a" stroke="#dc3545" stroke-width="2"></rect>
+            <rect x="475" y="150" width="175" height="175" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            
+            <rect x="25" y="300" width="200" height="150" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="250" y="200" width="200" height="250" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            <rect x="475" y="350" width="175" height="100" fill="#6ea8fe" stroke="#0d6efd" stroke-width="2"></rect>
+            
+            <!-- Roads -->
+            <rect x="0" y="125" width="650" height="15" fill="#adb5bd"></rect>
+            <rect x="325" y="0" width="15" height="450" fill="#adb5bd"></rect>
+        </g>
+        
+        <!-- Search Elements -->
+        <g id="Search" transform="translate(200, 200)">
+            <!-- Magnifying Glass -->
+            <circle cx="350" cy="150" r="70" fill="white" stroke="#0d6efd" stroke-width="8"></circle>
+            <line x1="400" y1="200" x2="450" y2="250" stroke="#0d6efd" stroke-width="12" stroke-linecap="round"></line>
+            
+            <!-- Selected Property Highlight -->
+            <rect x="75" y="75" width="150" height="125" fill="none" stroke="#dc3545" stroke-width="4" stroke-dasharray="10,5"></rect>
+            
+            <!-- Data Card -->
+            <g transform="translate(400, 50)">
+                <rect width="200" height="180" rx="10" fill="white" stroke="#0d6efd" stroke-width="2"></rect>
+                <line x1="20" y1="40" x2="180" y2="40" stroke="#e9ecef" stroke-width="2"></line>
+                <line x1="20" y1="80" x2="180" y2="80" stroke="#e9ecef" stroke-width="2"></line>
+                <line x1="20" y1="120" x2="180" y2="120" stroke="#e9ecef" stroke-width="2"></line>
+                
+                <text x="20" y="25" font-family="Arial" font-size="14" fill="#212529">Property Details</text>
+                <text x="20" y="65" font-family="Arial" font-size="12" fill="#6c757d">Parcel ID: 12345-678</text>
+                <text x="20" y="105" font-family="Arial" font-size="12" fill="#6c757d">Value: $245,000</text>
+                <text x="20" y="145" font-family="Arial" font-size="12" fill="#6c757d">Tax: $2,850.25</text>
+            </g>
+        </g>
+        
+        <!-- Property Icons -->
+        <g id="Property-Icons">
+            <g transform="translate(100, 100)">
+                <rect width="30" height="30" fill="#198754"></rect>
+                <rect x="10" y="5" width="10" height="10" fill="white"></rect>
+                <rect x="5" y="20" width="20" height="5" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(225, 100)">
+                <rect width="30" height="30" fill="#198754"></rect>
+                <rect x="10" y="5" width="10" height="10" fill="white"></rect>
+                <rect x="5" y="20" width="20" height="5" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(400, 100)">
+                <rect width="30" height="30" fill="#6f42c1"></rect>
+                <rect x="5" y="5" width="20" height="15" fill="white"></rect>
+                <rect x="10" y="20" width="10" height="10" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(550, 75)">
+                <rect width="40" height="40" fill="#dc3545"></rect>
+                <rect x="10" y="10" width="20" height="15" fill="white"></rect>
+                <rect x="15" y="25" width="10" height="10" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(75, 200)">
+                <rect width="30" height="30" fill="#198754"></rect>
+                <rect x="10" y="5" width="10" height="10" fill="white"></rect>
+                <rect x="5" y="20" width="20" height="5" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(350, 300)">
+                <rect width="30" height="30" fill="#6f42c1"></rect>
+                <rect x="5" y="5" width="20" height="15" fill="white"></rect>
+                <rect x="10" y="20" width="10" height="10" fill="white"></rect>
+            </g>
+            
+            <g transform="translate(550, 375)">
+                <rect width="30" height="30" fill="#198754"></rect>
+                <rect x="10" y="5" width="10" height="10" fill="white"></rect>
+                <rect x="5" y="20" width="20" height="5" fill="white"></rect>
+            </g>
+        </g>
+    </g>
+</svg>
