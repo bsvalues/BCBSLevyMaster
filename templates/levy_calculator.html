@@ -8,6 +8,86 @@
 {% block content %}
 <div class="row">
     <div class="col-lg-10 mx-auto">
+        {% if calculated %}
+        <!-- Calculation Results -->
+        <div class="card border-success mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i> Levy Rates Calculated Successfully</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light mb-4">
+                    <p class="mb-0">
+                        The levy rates have been calculated and stored in the database. You can now view the calculated rates
+                        in the table below or use them for property tax calculations.
+                    </p>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Tax Code</th>
+                                <th>Original Rate</th>
+                                <th>Limited Rate</th>
+                                <th>Change</th>
+                                <th>Limits Applied</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tax_code in tax_codes %}
+                            {% if tax_code.levy_rate %}
+                            <tr>
+                                <td>{{ tax_code.code }}</td>
+                                <td>
+                                    {% if levy_rates and tax_code.code in levy_rates %}
+                                    {{ '%0.4f'|format(levy_rates[tax_code.code]|float) }}
+                                    {% else %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ '%0.4f'|format(tax_code.levy_rate|float) }}</td>
+                                <td>
+                                    {% if levy_rates and tax_code.code in levy_rates %}
+                                    {% set diff = tax_code.levy_rate - levy_rates[tax_code.code] %}
+                                    {% if diff < 0 %}
+                                    <span class="text-danger">{{ '%0.4f'|format(diff|float) }}</span>
+                                    {% else %}
+                                    <span class="text-success">+{{ '%0.4f'|format(diff|float) }}</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if limited_rates and tax_code.code in limited_rates %}
+                                    {% if limited_rates[tax_code.code] != levy_rates[tax_code.code] %}
+                                    <span class="badge bg-warning text-dark">Statutory Limits Applied</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Within Limits</span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">--</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <a href="{{ url_for('reports') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-export me-2"></i> Generate Reports
+                    </a>
+                    <a href="{{ url_for('property_lookup') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-search me-2"></i> Property Lookup
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">Enter Levy Amounts</h5>
@@ -150,4 +230,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block mcp_insights %}
+{% include 'partials/mcp_insights.html' %}
 {% endblock %}

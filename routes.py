@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -202,6 +203,10 @@ def levy_calculator():
     """
     Calculate levy rates based on the imported property data.
     """
+    mcp_insights = None
+    limited_rates = None
+    levy_rates = None
+    
     if request.method == 'POST':
         # Get all tax codes
         tax_codes = db.session.query(TaxCode.code).all()
@@ -233,8 +238,56 @@ def levy_calculator():
         
         db.session.commit()
         
+        # Generate AI-powered insights for levy rates if Claude is available
+        try:
+            from utils.anthropic_utils import get_claude_service
+            
+            # Prepare data for analysis
+            levy_data = {
+                'levy_amounts': levy_amounts,
+                'original_rates': levy_rates,
+                'limited_rates': limited_rates,
+                'statutory_limits': {
+                    'general': 5.90,  # Example statutory limit
+                    'special': 10.0   # Example statutory limit
+                }
+            }
+            
+            claude_service = get_claude_service()
+            if claude_service:
+                # Generate AI insights
+                insights = claude_service.generate_levy_insights(levy_data)
+                
+                # Check for successful analysis
+                if insights and not insights.get('error'):
+                    # Create MCP insights for the template
+                    mcp_insights = {
+                        'narrative': f"""
+                            <p><strong>AI Analysis of Levy Calculations:</strong></p>
+                            <p>{insights.get('compliance', 'The calculated levy rates have been analyzed for statutory compliance.')}</p>
+                            <p>{insights.get('impact', 'Impact analysis on property owners and districts available.')}</p>
+                        """,
+                        'data': {
+                            'levy_codes_count': len(levy_amounts),
+                            'compliance_status': insights.get('compliance_status', 'Within limits'),
+                            'recommendations': insights.get('recommendations', 'No specific recommendations available')
+                        }
+                    }
+            else:
+                logger.info("Claude service not available for levy analysis")
+        except Exception as e:
+            logger.error(f"Error generating levy insights: {str(e)}")
+        
         flash("Levy rates calculated and updated successfully", 'success')
-        return redirect(url_for('index'))
+        
+        # Get all tax codes with updated values for display
+        tax_codes = TaxCode.query.all()
+        return render_template('levy_calculator.html', 
+                              tax_codes=tax_codes, 
+                              mcp_insights=mcp_insights,
+                              levy_rates=levy_rates,
+                              limited_rates=limited_rates,
+                              calculated=True)
     
     # Get all tax codes with their total assessed values
     tax_codes = TaxCode.query.all()
@@ -396,10 +449,100 @@ def mcp_insights():
     recent_imports = ImportLog.query.order_by(ImportLog.import_date.desc()).limit(5).all()
     recent_exports = ExportLog.query.order_by(ExportLog.export_date.desc()).limit(5).all()
     
+    # Get average assessed value and levy rate
+    try:
+        avg_assessed_value = db.session.query(func.avg(Property.assessed_value)).scalar() or 0
+        avg_levy_rate = db.session.query(func.avg(TaxCode.levy_rate)).scalar() or 0
+    except:
+        avg_assessed_value = 0
+        avg_levy_rate = 0
+    
+    # Get tax distribution data
+    tax_summary = []
+    try:
+        # Calculate the total assessed value by tax code
+        tax_codes = db.session.query(TaxCode).all()
+        for tc in tax_codes:
+            if tc.levy_rate and tc.total_assessed_value:
+                tax_summary.append({
+                    'code': tc.code,
+                    'assessed_value': tc.total_assessed_value,
+                    'levy_rate': tc.levy_rate,
+                    'percent_of_total': 0  # Will be calculated below
+                })
+        
+        # Calculate percentages
+        total_av = sum(item['assessed_value'] for item in tax_summary)
+        if total_av > 0:
+            for item in tax_summary:
+                item['percent_of_total'] = (item['assessed_value'] / total_av) * 100
+    except Exception as e:
+        logger.error(f"Error calculating tax summary: {str(e)}")
+    
+    # Generate AI insights using Claude if available
+    ai_narrative = ""
+    ai_data = {}
+    try:
+        from utils.anthropic_utils import get_claude_service
+        
+        claude_service = get_claude_service()
+        if claude_service:
+            # Prepare data for Claude analysis
+            data_for_analysis = {
+                'property_count': property_count,
+                'tax_code_count': tax_code_count,
+                'district_count': district_count,
+                'avg_assessed_value': avg_assessed_value,
+                'avg_levy_rate': avg_levy_rate,
+                'tax_summary': tax_summary[:5],  # Send only first 5 for brevity
+                'recent_import_count': len(recent_imports),
+                'recent_export_count': len(recent_exports)
+            }
+            
+            system_prompt = """
+            You are an expert property tax analyst for the Benton County Assessor's Office in Washington state.
+            Analyze the provided tax system data and generate concise, professional insights on:
+            1. The overall tax system efficiency and distribution
+            2. Patterns in property assessments and levy rates
+            3. Recommendations for further analysis or system improvements
+            
+            Format your response in HTML with appropriate paragraphs, bullet points, and minimal styling.
+            Be factual, clear, and focused on the most relevant insights for tax administrators.
+            Limit your response to 2-3 paragraphs of 2-3 sentences each.
+            """
+            
+            prompt = f"Please analyze this property tax system data and provide insights:\n{json.dumps(data_for_analysis, indent=2)}"
+            
+            response = claude_service.generate_text(prompt, system_prompt, temperature=0.3)
+            
+            if response and not response.startswith("Error:"):
+                ai_narrative = response
+                
+                # Also get some structured data recommendations
+                data_prompt = "Based on the same data, provide exactly 3 specific action recommendations in JSON format with keys 'action1', 'action2', and 'action3'."
+                data_response = claude_service.generate_text(data_prompt, system_prompt, temperature=0.3)
+                
+                try:
+                    # Try to extract JSON from the response
+                    import re
+                    json_match = re.search(r'```json\n(.*?)\n```', data_response, re.DOTALL)
+                    if json_match:
+                        ai_data = json.loads(json_match.group(1))
+                    else:
+                        # Try to parse the entire response as JSON
+                        ai_data = json.loads(data_response)
+                except:
+                    ai_data = {
+                        'action1': 'Analyze tax code efficiency',
+                        'action2': 'Review distribution of tax burden',
+                        'action3': 'Verify statutory compliance'
+                    }
+    except Exception as e:
+        logger.error(f"Error generating MCP insights with Claude: {str(e)}")
+    
     # Assemble MCP insights data for the template
-    # This will be enhanced by the MCP route enhancement in utils/mcp_integration.py
     mcp_insights = {
-        'narrative': """
+        'narrative': ai_narrative or """
             <p>The Model Content Protocol (MCP) integration provides intelligent insights
             into your property tax data. Here are some key observations:</p>
             <ul>
@@ -413,8 +556,15 @@ def mcp_insights():
             'property_count': property_count,
             'tax_code_count': tax_code_count,
             'district_count': district_count,
+            'avg_assessed_value': f"${avg_assessed_value:,.2f}",
+            'avg_levy_rate': f"{avg_levy_rate:.4f}",
             'import_activity': len(recent_imports),
-            'export_activity': len(recent_exports)
+            'export_activity': len(recent_exports),
+            'recommendations': ai_data if ai_data else {
+                'action1': 'Analyze tax code efficiency',
+                'action2': 'Review distribution of tax burden',
+                'action3': 'Verify statutory compliance'
+            }
         }
     }
     
@@ -424,4 +574,5 @@ def mcp_insights():
                           tax_code_count=tax_code_count,
                           district_count=district_count,
                           recent_imports=recent_imports,
-                          recent_exports=recent_exports)
+                          recent_exports=recent_exports,
+                          tax_summary=tax_summary)

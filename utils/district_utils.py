@@ -22,6 +22,22 @@ def import_district_text_file(file_path):
         # Determine the file format (TXT files are often tab-delimited)
         df = pd.read_csv(file_path, sep='\t', encoding='utf-8')
         
+        # Map column names to expected names based on the sample file
+        column_mapping = {
+            # Standard format
+            'tax_district_id': 'tax_district_id',
+            'year': 'year',
+            'levy_code': 'levy_code',
+            'linked_levy_code': 'linked_levy_code',
+            
+            # Format from the provided sample file
+            'levy_cd': 'levy_code',
+            'levy_cd_linked': 'linked_levy_code'
+        }
+        
+        # Rename columns to match expected format
+        df = df.rename(columns=column_mapping)
+        
         # Basic validation of required columns
         required_columns = ['tax_district_id', 'year', 'levy_code', 'linked_levy_code']
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -40,15 +56,32 @@ def import_district_text_file(file_path):
         warnings = []
         
         # Process each row
-        for _, row in df.iterrows():
+        for index, row in df.iterrows():
             try:
+                # Validate data types and convert if needed
+                try:
+                    district_id = int(row['tax_district_id'])
+                    year = int(row['year'])
+                    levy_code = str(row['levy_code']).strip()
+                    linked_levy_code = str(row['linked_levy_code']).strip()
+                except (ValueError, TypeError) as e:
+                    skipped_count += 1
+                    warnings.append(f"Error in row {index+2}: Invalid data type - {str(e)}")
+                    continue
+                
+                # Skip rows with empty values in any required field
+                if pd.isna(district_id) or pd.isna(year) or not levy_code or not linked_levy_code:
+                    skipped_count += 1
+                    warnings.append(f"Skipped row {index+2} due to missing required values")
+                    continue
+                
                 # Check if a record with the same key already exists
                 existing_record = TaxDistrict.query.filter(
                     and_(
-                        TaxDistrict.tax_district_id == row['tax_district_id'],
-                        TaxDistrict.year == row['year'],
-                        TaxDistrict.levy_code == row['levy_code'],
-                        TaxDistrict.linked_levy_code == row['linked_levy_code']
+                        TaxDistrict.tax_district_id == district_id,
+                        TaxDistrict.year == year,
+                        TaxDistrict.levy_code == levy_code,
+                        TaxDistrict.linked_levy_code == linked_levy_code
                     )
                 ).first()
                 
@@ -58,10 +91,10 @@ def import_district_text_file(file_path):
                 
                 # Create a new district record
                 district = TaxDistrict(
-                    tax_district_id=row['tax_district_id'],
-                    year=row['year'],
-                    levy_code=row['levy_code'],
-                    linked_levy_code=row['linked_levy_code']
+                    tax_district_id=district_id,
+                    year=year,
+                    levy_code=levy_code,
+                    linked_levy_code=linked_levy_code
                 )
                 
                 db.session.add(district)
@@ -69,13 +102,13 @@ def import_district_text_file(file_path):
                 
             except Exception as e:
                 skipped_count += 1
-                warnings.append(f"Error processing row {_}: {str(e)}")
+                warnings.append(f"Error processing row {index+2}: {str(e)}")
         
         # Commit changes
         db.session.commit()
         
         return {
-            'success': len(warnings) == 0,
+            'success': imported_count > 0,
             'imported': imported_count,
             'skipped': skipped_count,
             'warnings': warnings
@@ -114,7 +147,13 @@ def import_district_xml_file(file_path):
         skipped_count = 0
         warnings = []
         
-        # Look for district elements
+        # First check if this is an Excel XML format
+        workbook_namespace = '{urn:schemas-microsoft-com:office:spreadsheet}'
+        if 'Workbook' in root.tag or root.find(f'.//{workbook_namespace}Worksheet') is not None:
+            # This looks like an Excel XML file, so handle it appropriately
+            return import_excel_xml_file(root, namespace)
+            
+        # Try to find tax district elements in a standard XML format
         district_elements = root.findall(f'.//{namespace}TaxDistrict') or root.findall('.//*[contains(local-name(), "District")]')
         
         if not district_elements:
@@ -197,7 +236,7 @@ def import_district_xml_file(file_path):
         db.session.commit()
         
         return {
-            'success': len(warnings) == 0,
+            'success': imported_count > 0,
             'imported': imported_count,
             'skipped': skipped_count,
             'warnings': warnings
@@ -209,6 +248,171 @@ def import_district_xml_file(file_path):
             'imported': 0,
             'skipped': 0,
             'warnings': [f"Error importing XML file: {str(e)}"]
+        }
+
+def import_excel_xml_file(root, namespace=''):
+    """
+    Import data from an Excel XML file format.
+    
+    Args:
+        root: The XML root element
+        namespace: XML namespace prefix
+        
+    Returns:
+        Dict containing import results
+    """
+    imported_count = 0
+    skipped_count = 0
+    warnings = []
+    
+    try:
+        # Excel XML namespace
+        ss_namespace = '{urn:schemas-microsoft-com:office:spreadsheet}'
+        
+        # Look for worksheets
+        worksheet_found = False
+        for worksheet in root.findall(f'.//{ss_namespace}Worksheet') or root.findall('.//Worksheet'):
+            worksheet_found = True
+            worksheet_name = worksheet.get(f'{ss_namespace}Name', '') or worksheet.get('Name', '')
+            
+            # Skip if this doesn't look like the right worksheet (we're looking for levy data)
+            if not ('levy' in worksheet_name.lower() or 'district' in worksheet_name.lower()):
+                continue
+            
+            # Get table element
+            table = worksheet.find(f'.//{ss_namespace}Table') or worksheet.find('.//Table')
+            if table is None:
+                warnings.append(f"No table found in worksheet {worksheet_name}")
+                continue
+            
+            # Get all rows
+            rows = table.findall(f'.//{ss_namespace}Row') or table.findall('.//Row')
+            if not rows:
+                warnings.append(f"No rows found in worksheet {worksheet_name}")
+                continue
+            
+            # Extract header row to get column indices
+            header_row = rows[0]
+            header_cells = header_row.findall(f'.//{ss_namespace}Cell') or header_row.findall('.//Cell')
+            
+            # Extract column headers
+            headers = []
+            for cell in header_cells:
+                data_elem = cell.find(f'.//{ss_namespace}Data') or cell.find('.//Data')
+                if data_elem is not None and data_elem.text:
+                    headers.append(data_elem.text.strip())
+                else:
+                    headers.append(None)
+            
+            # Map column names to indices
+            column_indices = {}
+            column_mapping = {
+                'tax_district_id': ['tax_district_id', 'district_id'],
+                'year': ['year'],
+                'levy_code': ['levy_code', 'levy_cd'],
+                'linked_levy_code': ['linked_levy_code', 'levy_cd_linked']
+            }
+            
+            for actual_name, possible_names in column_mapping.items():
+                for possible_name in possible_names:
+                    if possible_name in headers:
+                        column_indices[actual_name] = headers.index(possible_name)
+                        break
+            
+            # Check if we have all required columns
+            required_columns = ['tax_district_id', 'year', 'levy_code', 'linked_levy_code']
+            missing_columns = [col for col in required_columns if col not in column_indices]
+            
+            if missing_columns:
+                warnings.append(f"Missing required columns in worksheet {worksheet_name}: {', '.join(missing_columns)}")
+                continue
+            
+            # Process data rows (skip header)
+            for row_idx, row in enumerate(rows[1:], 1):
+                try:
+                    cells = row.findall(f'.//{ss_namespace}Cell') or row.findall('.//Cell')
+                    
+                    # Initialize row data
+                    row_data = {
+                        'tax_district_id': None,
+                        'year': None,
+                        'levy_code': None,
+                        'linked_levy_code': None
+                    }
+                    
+                    # Extract cell data
+                    for col_name, col_idx in column_indices.items():
+                        if col_idx < len(cells):
+                            cell = cells[col_idx]
+                            data_elem = cell.find(f'.//{ss_namespace}Data') or cell.find('.//Data')
+                            if data_elem is not None and data_elem.text:
+                                row_data[col_name] = data_elem.text.strip()
+                    
+                    # Validate and convert data types
+                    try:
+                        district_id = int(row_data['tax_district_id'])
+                        year = int(row_data['year'])
+                        levy_code = str(row_data['levy_code']).strip() if row_data['levy_code'] else None
+                        linked_levy_code = str(row_data['linked_levy_code']).strip() if row_data['linked_levy_code'] else None
+                    except (ValueError, TypeError) as e:
+                        skipped_count += 1
+                        warnings.append(f"Error in row {row_idx+1}: Invalid data type - {str(e)}")
+                        continue
+                    
+                    # Skip rows with missing required data
+                    if not all([district_id, year, levy_code, linked_levy_code]):
+                        skipped_count += 1
+                        warnings.append(f"Skipped row {row_idx+1} due to missing required values")
+                        continue
+                    
+                    # Check if record already exists
+                    existing_record = TaxDistrict.query.filter(
+                        and_(
+                            TaxDistrict.tax_district_id == district_id,
+                            TaxDistrict.year == year,
+                            TaxDistrict.levy_code == levy_code,
+                            TaxDistrict.linked_levy_code == linked_levy_code
+                        )
+                    ).first()
+                    
+                    if existing_record:
+                        skipped_count += 1
+                        continue
+                    
+                    # Create a new district record
+                    district = TaxDistrict(
+                        tax_district_id=district_id,
+                        year=year,
+                        levy_code=levy_code,
+                        linked_levy_code=linked_levy_code
+                    )
+                    
+                    db.session.add(district)
+                    imported_count += 1
+                    
+                except Exception as e:
+                    skipped_count += 1
+                    warnings.append(f"Error processing row {row_idx+1}: {str(e)}")
+            
+        if not worksheet_found:
+            warnings.append("No worksheets found in Excel XML file")
+        
+        # Commit changes
+        db.session.commit()
+        
+        return {
+            'success': imported_count > 0,
+            'imported': imported_count,
+            'skipped': skipped_count,
+            'warnings': warnings
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'imported': 0,
+            'skipped': 0,
+            'warnings': [f"Error processing Excel XML file: {str(e)}"]
         }
 
 def import_district_excel_file(file_path):
