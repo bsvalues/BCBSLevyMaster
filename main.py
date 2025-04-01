@@ -10,6 +10,10 @@ logging.basicConfig(
 
 # Import routes here to ensure routes are registered with the Flask app
 import routes
+import routes_data_management
+
+# Initialize data management routes
+routes_data_management.init_data_management_routes()
 
 # Initialize MCP if enabled
 MCP_ENABLED = os.environ.get('ENABLE_MCP', 'true').lower() in ('true', '1', 'yes')

@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+
+{% block title %}Enhanced Compliance{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3"><i class="bi bi-check-circle"></i> Enhanced Compliance</h1>
+            <p class="lead">Comprehensive compliance reporting and monitoring for statutory requirements.</p>
+        </div>
+    </div>
+    
+    <!-- Actions and History Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Compliance Management</h5>
+                        <form method="POST" action="{{ url_for('generate_compliance_report') }}" class="d-flex align-items-center">
+                            <select name="year" class="form-select form-select-sm me-2" style="width: auto;">
+                                {% for year in range(2020, 2026) %}
+                                <option value="{{ year }}" {% if year == (report.year if report else 2025) %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">Generate New Report</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Compliance History</h6>
+                            <div class="list-group">
+                                {% for item in history %}
+                                <a href="{{ url_for('enhanced_compliance', report_id=item.report_id) }}" 
+                                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
+                                          {% if report and report.id == item.report_id %}active{% endif %}">
+                                    <div>
+                                        <div class="fw-bold">{{ item.year }} Compliance Report</div>
+                                        <small>Generated {{ item.report_date }}</small>
+                                    </div>
+                                    <span class="badge rounded-pill {% if item.overall_compliant %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ "%.1f"|format(item.compliance_percentage) }}%
+                                    </span>
+                                </a>
+                                {% else %}
+                                <div class="list-group-item text-muted">
+                                    No compliance reports found.
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-8">
+                            {% if report %}
+                            <h6>Report Summary</h6>
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Report Date:</strong> {{ report.report_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                            <p><strong>Tax Year:</strong> {{ report.year }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p>
+                                                <strong>Overall Compliance:</strong>
+                                                {% if report.overall_compliant %}
+                                                <span class="badge bg-success">Compliant</span>
+                                                {% else %}
+                                                <span class="badge bg-danger">Non-Compliant</span>
+                                                {% endif %}
+                                            </p>
+                                            <p><strong>Compliance Score:</strong> {{ "%.1f"|format(report.compliance_percentage) }}%</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if report_data and report_data.critical_issues %}
+                                    <div class="alert alert-danger">
+                                        <h6><i class="bi bi-exclamation-triangle"></i> Critical Issues</h6>
+                                        <ul class="mb-0">
+                                            {% for issue in report_data.critical_issues %}
+                                            <li>{{ issue }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if report_data and report_data.recommendations %}
+                                    <div class="alert alert-primary">
+                                        <h6><i class="bi bi-lightbulb"></i> Recommendations</h6>
+                                        <ul class="mb-0">
+                                            {% for recommendation in report_data.recommendations %}
+                                            <li>{{ recommendation }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex justify-content-end">
+                                        <a href="{{ url_for('download_compliance_report', report_id=report.id) }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-download"></i> Download Report
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <p>No compliance report selected. Please select a report from the history or generate a new one.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if report_data %}
+    <!-- Detailed Compliance Tabs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="complianceTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="levy-rate-tab" data-bs-toggle="tab" data-bs-target="#levy-rate-content" 
+                                   type="button" role="tab" aria-controls="levy-rate-content" aria-selected="true">
+                                Levy Rate Compliance
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="filing-deadline-tab" data-bs-toggle="tab" data-bs-target="#filing-deadline-content" 
+                                   type="button" role="tab" aria-controls="filing-deadline-content" aria-selected="false">
+                                Filing Deadline
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="banked-capacity-tab" data-bs-toggle="tab" data-bs-target="#banked-capacity-content" 
+                                   type="button" role="tab" aria-controls="banked-capacity-content" aria-selected="false">
+                                Banked Capacity
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="complianceTabsContent">
+                        <!-- Levy Rate Compliance Tab -->
+                        <div class="tab-pane fade show active" id="levy-rate-content" role="tabpanel" aria-labelledby="levy-rate-tab">
+                            {% set levy_data = report_data.levy_rate_compliance %}
+                            <div class="row mb-3">
+                                <div class="col-md-3 text-center">
+                                    <div class="display-4">{{ "%.1f"|format(levy_data.compliance_percentage) }}%</div>
+                                    <p class="text-muted">Compliance Rate</p>
+                                </div>
+                                <div class="col-md-9">
+                                    <h5>Levy Rate Compliance for {{ levy_data.year }}</h5>
+                                    <p>
+                                        Statutory limits require levy rates to be below {{ 5.90 }} per $1,000 of assessed value,
+                                        with annual increases limited to 1%.
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Tax Code</th>
+                                            <th>Levy Rate</th>
+                                            <th>Previous Rate</th>
+                                            <th>Regular Levy</th>
+                                            <th>Annual Increase</th>
+                                            <th>Issues</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for code in levy_data.regular_levy_compliance %}
+                                        <tr {% if not code.regular_levy_compliant or not code.annual_increase_compliant %}class="table-danger"{% endif %}>
+                                            <td>{{ code.code }}</td>
+                                            <td>{{ code.levy_rate }}</td>
+                                            <td>{{ code.previous_rate }}</td>
+                                            <td>
+                                                {% if code.regular_levy_compliant %}
+                                                <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                                {% else %}
+                                                <span class="badge bg-danger"><i class="bi bi-x"></i></span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if code.annual_increase_compliant %}
+                                                <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                                {% else %}
+                                                <span class="badge bg-danger"><i class="bi bi-x"></i></span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if code.issues %}
+                                                <ul class="mb-0">
+                                                    {% for issue in code.issues %}
+                                                    <li>{{ issue }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                                {% else %}
+                                                <span class="text-success">No issues</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Filing Deadline Tab -->
+                        <div class="tab-pane fade" id="filing-deadline-content" role="tabpanel" aria-labelledby="filing-deadline-tab">
+                            {% set filing_data = report_data.filing_deadline_compliance %}
+                            <div class="row mb-3">
+                                <div class="col-md-3 text-center">
+                                    <div class="display-4">
+                                        {% if filing_data.status == 'On track' %}
+                                        <i class="bi bi-check-circle text-success"></i>
+                                        {% elif filing_data.status == 'Warning' %}
+                                        <i class="bi bi-exclamation-triangle text-warning"></i>
+                                        {% else %}
+                                        <i class="bi bi-exclamation-circle text-danger"></i>
+                                        {% endif %}
+                                    </div>
+                                    <p class="text-muted">Status: {{ filing_data.status }}</p>
+                                </div>
+                                <div class="col-md-9">
+                                    <h5>Filing Deadline Compliance</h5>
+                                    <p>
+                                        Filing deadline: <strong>{{ filing_data.deadline_date }}</strong><br>
+                                        Days remaining: <strong>{{ filing_data.days_remaining }}</strong>
+                                    </p>
+                                    
+                                    {% if filing_data.warnings %}
+                                    <div class="alert {% if filing_data.status == 'Overdue' or filing_data.status == 'Critical' %}alert-danger{% elif filing_data.status == 'Warning' %}alert-warning{% else %}alert-info{% endif %}">
+                                        <ul class="mb-0">
+                                            {% for warning in filing_data.warnings %}
+                                            <li>{{ warning }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Data Readiness</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="progress mb-3" style="height: 30px;">
+                                                {% set percentage = (filing_data.tax_codes_ready / filing_data.tax_codes_total * 100) if filing_data.tax_codes_total > 0 else 100 %}
+                                                <div class="progress-bar {% if percentage < 50 %}bg-danger{% elif percentage < 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                     role="progressbar" style="width: {{ percentage }}%;" 
+                                                     aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">
+                                                    {{ "%.1f"|format(percentage) }}%
+                                                </div>
+                                            </div>
+                                            <p class="text-center">
+                                                {{ filing_data.tax_codes_ready }} of {{ filing_data.tax_codes_total }} tax codes ready
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">Timeline</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="timeline-simple">
+                                                <div class="timeline-item {% if filing_data.days_remaining <= 0 %}active{% endif %}">
+                                                    <div class="timeline-marker"></div>
+                                                    <div class="timeline-content">
+                                                        <p class="mb-0"><strong>Filing Deadline</strong> - {{ filing_data.deadline_date }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="timeline-item {% if filing_data.days_remaining > 0 and filing_data.days_remaining <= 10 %}active{% endif %}">
+                                                    <div class="timeline-marker"></div>
+                                                    <div class="timeline-content">
+                                                        <p class="mb-0"><strong>Critical Period</strong> - 10 days before deadline</p>
+                                                    </div>
+                                                </div>
+                                                <div class="timeline-item {% if filing_data.days_remaining > 10 and filing_data.days_remaining <= 30 %}active{% endif %}">
+                                                    <div class="timeline-marker"></div>
+                                                    <div class="timeline-content">
+                                                        <p class="mb-0"><strong>Warning Period</strong> - 30 days before deadline</p>
+                                                    </div>
+                                                </div>
+                                                <div class="timeline-item {% if filing_data.days_remaining > 30 %}active{% endif %}">
+                                                    <div class="timeline-marker"></div>
+                                                    <div class="timeline-content">
+                                                        <p class="mb-0"><strong>Preparation Period</strong> - Before warning period</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Banked Capacity Tab -->
+                        <div class="tab-pane fade" id="banked-capacity-content" role="tabpanel" aria-labelledby="banked-capacity-tab">
+                            {% set banked_data = report_data.banked_capacity_compliance %}
+                            <div class="row mb-3">
+                                <div class="col-md-3 text-center">
+                                    <div class="display-4">{{ banked_data.tax_codes_with_banked_capacity|length }}</div>
+                                    <p class="text-muted">Codes with Banked Capacity</p>
+                                </div>
+                                <div class="col-md-9">
+                                    <h5>Banked Capacity Analysis for {{ banked_data.year }}</h5>
+                                    <p>
+                                        Banked capacity represents levy authority that could have been used but wasn't.
+                                        This capacity can be "banked" for future use, subject to statutory limits.
+                                    </p>
+                                    {% if banked_data.total_banked_capacity > 0 %}
+                                    <p class="lead">
+                                        Total potential banked capacity value: <strong>${{ "{:,.2f}".format(banked_data.total_banked_capacity) }}</strong>
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if banked_data.tax_codes_with_banked_capacity %}
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Tax Code</th>
+                                            <th>Current Rate</th>
+                                            <th>Max Allowed Rate</th>
+                                            <th>Banked Capacity (Rate)</th>
+                                            <th>Assessed Value</th>
+                                            <th>Banked Capacity ($)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for code in banked_data.tax_codes_with_banked_capacity %}
+                                        <tr>
+                                            <td>{{ code.code }}</td>
+                                            <td>{{ code.current_rate }}</td>
+                                            <td>{{ "%.5f"|format(code.max_allowed_rate) }}</td>
+                                            <td>{{ "%.5f"|format(code.banked_capacity_rate) }}</td>
+                                            <td>${{ "{:,.2f}".format(code.total_assessed_value) if code.total_assessed_value else 'N/A' }}</td>
+                                            <td>
+                                                {% if code.banked_capacity_value %}
+                                                ${{ "{:,.2f}".format(code.banked_capacity_value) }}
+                                                {% else %}
+                                                N/A
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <p class="mb-0">No tax codes with banked capacity found for {{ banked_data.year }}.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    /* Timeline styling for filing deadline tab */
+    .timeline-simple {
+        position: relative;
+        padding-left: 2rem;
+    }
+    
+    .timeline-simple:before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: #dee2e6;
+    }
+    
+    .timeline-simple .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        opacity: 0.5;
+    }
+    
+    .timeline-simple .timeline-item.active {
+        opacity: 1;
+    }
+    
+    .timeline-simple .timeline-marker {
+        position: absolute;
+        left: -2rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        top: 0.25rem;
+        background-color: var(--bs-secondary);
+    }
+    
+    .timeline-simple .timeline-item.active .timeline-marker {
+        background-color: var(--bs-primary);
+        width: 1.2rem;
+        height: 1.2rem;
+        left: -2.1rem;
+    }
+    
+    .timeline-simple .timeline-content {
+        padding-left: 0.5rem;
+    }
+</style>
+{% endblock %}
