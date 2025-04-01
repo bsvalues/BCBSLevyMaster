@@ -162,6 +162,15 @@ def index():
     return render_template('index.html')
 
 
+# Register blueprints
+from routes_data_management import data_management_bp
+from routes_forecasting import forecasting_bp
+from routes_levy_exports import levy_exports_bp
+
+app.register_blueprint(data_management_bp)
+app.register_blueprint(forecasting_bp)
+app.register_blueprint(levy_exports_bp)
+
 # Import models after db is defined to avoid circular imports
 with app.app_context():
     # Create tables if they don't exist

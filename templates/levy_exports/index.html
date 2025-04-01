@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}Levy Export Management - Levy Calculation System{% endblock %}
+
+{% block page_title %}Levy Exports Management{% endblock %}
+{% block page_subtitle %}Upload, view, and analyze levy export files from various sources{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('levy_exports.upload') }}" class="btn btn-primary">
+    <i class="bi bi-cloud-upload me-1"></i>Upload Levy Export
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="bi bi-calendar3 me-2 text-primary"></i>Available Tax Years
+                </h5>
+                
+                {% if years_data %}
+                    <div class="table-responsive mb-3">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Year</th>
+                                    <th class="text-end">Records</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for year, count in years_data %}
+                                    <tr>
+                                        <td><strong>{{ year }}</strong></td>
+                                        <td class="text-end">{{ "{:,}".format(count) }}</td>
+                                        <td class="text-center">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ url_for('levy_exports.view_year', year=year) }}" class="btn btn-outline-primary">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                <a href="{{ url_for('levy_exports.export_data', year=year) }}" class="btn btn-outline-secondary">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{{ url_for('levy_exports.compare') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-bar-chart-line me-1"></i>Compare Years
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>No levy export data has been uploaded yet. Click the "Upload Levy Export" button to get started.
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('levy_exports.upload') }}" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload me-1"></i>Upload Your First Levy Export
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="bi bi-clock-history me-2 text-primary"></i>Recent Imports
+                </h5>
+                
+                {% if recent_imports %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>File</th>
+                                    <th>Date</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-end">Records</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for import_log in recent_imports %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-2">
+                                                    {% if import_log.filename.endswith('.xlsx') or import_log.filename.endswith('.xls') %}
+                                                        <i class="bi bi-file-earmark-excel text-success"></i>
+                                                    {% elif import_log.filename.endswith('.xml') %}
+                                                        <i class="bi bi-filetype-xml text-primary"></i>
+                                                    {% elif import_log.filename.endswith('.txt') %}
+                                                        <i class="bi bi-filetype-txt text-secondary"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-file-earmark text-muted"></i>
+                                                    {% endif %}
+                                                </span>
+                                                <span class="text-truncate" style="max-width: 150px;">{{ import_log.filename }}</span>
+                                            </div>
+                                        </td>
+                                        <td>{{ import_log.created_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                                        <td class="text-center">
+                                            {% if import_log.status == 'COMPLETED' %}
+                                                <span class="badge bg-success">Completed</span>
+                                            {% elif import_log.status == 'FAILED' %}
+                                                <span class="badge bg-danger">Failed</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ import_log.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">{{ "{:,}".format(import_log.record_count) }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>No recent import activity. Upload a file to get started.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-graph-up me-2 text-success"></i>System Statistics
+                </h5>
+                
+                <div class="list-group list-group-flush mb-3">
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center px-0">
+                        <div>Tax Districts:</div>
+                        <span class="badge bg-primary rounded-pill">{{ stats.total_districts }}</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center px-0">
+                        <div>Tax Codes:</div>
+                        <span class="badge bg-primary rounded-pill">{{ stats.total_tax_codes }}</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center px-0">
+                        <div>Years of Data:</div>
+                        <span class="badge bg-primary rounded-pill">{{ stats.total_years }}</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center px-0">
+                        <div>Most Recent Year:</div>
+                        <span class="badge bg-info rounded-pill">{{ stats.latest_year }}</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center px-0">
+                        <div>Total Records:</div>
+                        <span class="badge bg-info rounded-pill">{{ "{:,}".format(stats.total_records) }}</span>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('forecasting.index') }}" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-graph-up-arrow me-1"></i>View Forecasting
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-lightning-charge me-2 text-warning"></i>Quick Actions
+                </h5>
+                
+                <div class="d-grid gap-2 mb-3">
+                    <a href="{{ url_for('levy_exports.view_year', year=stats.latest_year) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-eye me-1"></i>View Latest Year ({{ stats.latest_year }})
+                    </a>
+                    <a href="{{ url_for('levy_exports.compare', start_year=stats.latest_year-5 if stats.total_years >= 5 else years_data[-1][0], end_year=stats.latest_year) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-bar-chart-line me-1"></i>Five Year Trend Analysis
+                    </a>
+                    <a href="{{ url_for('levy_exports.export_data', year=stats.latest_year, format='excel') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Export Latest Year to Excel
+                    </a>
+                    <a href="{{ url_for('levy_exports.upload') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-cloud-upload me-1"></i>Upload New Levy Export
+                    </a>
+                </div>
+                
+                <div class="alert alert-light border mb-0">
+                    <i class="bi bi-lightbulb me-2 text-warning"></i>
+                    <small>Upload and compare multiple years of data to access trend analysis and forecasting features.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-info-circle me-2 text-info"></i>Supported File Formats
+                </h5>
+                
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item bg-transparent px-0">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-file-earmark-excel text-success fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">Excel Files (.xls, .xlsx)</div>
+                                <small class="text-muted">Structured data from modern export systems</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item bg-transparent px-0">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-filetype-xml text-primary fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">XML Files (.xml)</div>
+                                <small class="text-muted">Compatible with state reporting systems</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item bg-transparent px-0">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-filetype-txt text-secondary fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">Text Files (.txt)</div>
+                                <small class="text-muted">Legacy system exports and reports</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item bg-transparent px-0">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-filetype-csv text-info fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">CSV Files (.csv)</div>
+                                <small class="text-muted">Simple tabular data format</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Highlights -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="bi bi-stars me-2 text-warning"></i>Levy Export Management Features
+                </h5>
+                
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 bg-light">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-upload fs-2 text-primary"></i>
+                                </div>
+                                <h6 class="card-title text-center">Multiple Format Support</h6>
+                                <p class="card-text small text-center">
+                                    Import levy export files from various sources including Excel, XML, TXT, and CSV formats.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 bg-light">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-bar-chart-steps fs-2 text-success"></i>
+                                </div>
+                                <h6 class="card-title text-center">Multi-Year Comparison</h6>
+                                <p class="card-text small text-center">
+                                    Compare levy data across multiple years to identify trends and changes in tax rates.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 bg-light">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-download fs-2 text-info"></i>
+                                </div>
+                                <h6 class="card-title text-center">Export & Reporting</h6>
+                                <p class="card-text small text-center">
+                                    Export levy data in multiple formats for analysis, reporting, and compliance purposes.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 bg-light">
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <i class="bi bi-graph-up-arrow fs-2 text-warning"></i>
+                                </div>
+                                <h6 class="card-title text-center">Trend Analysis</h6>
+                                <p class="card-text small text-center">
+                                    Visualize levy rate trends over time with interactive charts and summary statistics.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any page-specific JavaScript here
+</script>
+{% endblock %}

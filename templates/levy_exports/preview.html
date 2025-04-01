@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+
+{% block title %}Preview Levy Data - Levy Calculation System{% endblock %}
+
+{% block page_title %}Preview Levy Export Data{% endblock %}
+{% block page_subtitle %}Review and verify data before importing into the system{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('levy_exports.upload') }}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Upload
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-4">
+                    <i class="bi bi-eye me-2 text-primary"></i>Data Preview
+                </h5>
+                
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="bi bi-info-circle-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="alert-heading">Verify File Contents</h6>
+                            <p class="mb-0">
+                                Please review the data below to ensure it has been read correctly. 
+                                This shows the first 50 rows (out of {{ total_rows }} total).
+                                You can adjust the column mappings below if needed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive mb-4">
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                {% for column in columns %}
+                                    <th>{{ column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in preview_data %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    {% for column in columns %}
+                                        <td>
+                                            {% if row[column] is defined %}
+                                                {% if row[column] is none %}
+                                                    <span class="text-muted">NULL</span>
+                                                {% else %}
+                                                    {{ row[column] }}
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-file-earmark-text me-2"></i>File Information
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <tbody>
+                                            <tr>
+                                                <th style="width: 30%">Filename:</th>
+                                                <td>{{ filename }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Type:</th>
+                                                <td>
+                                                    {% if file_type == 'xlsx' or file_type == 'xls' %}
+                                                        <span class="badge bg-success">Excel ({{ file_type }})</span>
+                                                    {% elif file_type == 'xml' %}
+                                                        <span class="badge bg-primary">XML</span>
+                                                    {% elif file_type == 'txt' %}
+                                                        <span class="badge bg-secondary">Text</span>
+                                                    {% elif file_type == 'csv' %}
+                                                        <span class="badge bg-info">CSV</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning">{{ file_type }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Year:</th>
+                                                <td>{{ year }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Total Rows:</th>
+                                                <td>{{ total_rows }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Columns:</th>
+                                                <td>{{ columns|length }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-info-circle me-2"></i>Data Summary
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <div class="fw-bold mb-1">Unique Tax Districts:</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for district in unique_districts %}
+                                            <span class="badge bg-primary">{{ district }}</span>
+                                        {% endfor %}
+                                        {% if unique_districts|length > 10 %}
+                                            <span class="badge bg-secondary">+{{ unique_districts|length - 10 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="fw-bold mb-1">Unique Levy Codes:</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for code in unique_levy_codes[:10] %}
+                                            <span class="badge bg-info">{{ code }}</span>
+                                        {% endfor %}
+                                        {% if unique_levy_codes|length > 10 %}
+                                            <span class="badge bg-secondary">+{{ unique_levy_codes|length - 10 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <div class="fw-bold mb-1">Unique Linked Codes:</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for code in unique_linked_codes[:10] %}
+                                            <span class="badge bg-success">{{ code }}</span>
+                                        {% endfor %}
+                                        {% if unique_linked_codes|length > 10 %}
+                                            <span class="badge bg-secondary">+{{ unique_linked_codes|length - 10 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <form action="{{ url_for('levy_exports.process') }}" method="post" class="mb-4">
+                    <h6 class="mb-3">
+                        <i class="bi bi-arrows-angle-contract me-2"></i>Column Mapping
+                    </h6>
+                    
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="district_column" name="district_column">
+                                    <option value="">Select column</option>
+                                    {% for column in columns %}
+                                        <option value="{{ column }}" {% if 'district' in column.lower() or 'tax_district' in column.lower() %}selected{% endif %}>{{ column }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="district_column">Tax District Column</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="levy_code_column" name="levy_code_column">
+                                    <option value="">Select column</option>
+                                    {% for column in columns %}
+                                        <option value="{{ column }}" {% if 'levy_cd' in column.lower() or ('tax' in column.lower() and 'code' in column.lower()) or column.lower() == 'code' %}selected{% endif %}>{{ column }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="levy_code_column">Levy Code Column</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="linked_code_column" name="linked_code_column">
+                                    <option value="">Select column</option>
+                                    {% for column in columns %}
+                                        <option value="{{ column }}" {% if 'linked' in column.lower() %}selected{% endif %}>{{ column }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="linked_code_column">Linked Code Column</label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="form-floating">
+                                <select class="form-select" id="year_column" name="year_column">
+                                    <option value="">No Year Column (use selected year)</option>
+                                    {% for column in columns %}
+                                        <option value="{{ column }}" {% if 'year' in column.lower() %}selected{% endif %}>{{ column }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="year_column">Year Column</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning mb-4">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="alert-heading">Import Warning</h6>
+                                <p class="mb-0">
+                                    This operation will create or update tax districts, tax codes, and rate information 
+                                    in the database. The process cannot be easily reversed. Please ensure the data is 
+                                    correct before proceeding.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('levy_exports.upload') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i>Process and Import Data
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Column mapping helper function
+        function updateMappingSummary() {
+            const district = document.getElementById('district_column').value;
+            const code = document.getElementById('levy_code_column').value;
+            const linked = document.getElementById('linked_code_column').value;
+            const year = document.getElementById('year_column').value;
+            
+            // Update summary display here if needed
+        }
+        
+        // Update when selections change
+        document.getElementById('district_column').addEventListener('change', updateMappingSummary);
+        document.getElementById('levy_code_column').addEventListener('change', updateMappingSummary);
+        document.getElementById('linked_code_column').addEventListener('change', updateMappingSummary);
+        document.getElementById('year_column').addEventListener('change', updateMappingSummary);
+        
+        // Initialize
+        updateMappingSummary();
+    });
+</script>
+{% endblock %}

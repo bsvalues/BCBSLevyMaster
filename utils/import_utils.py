@@ -25,8 +25,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import db
 from models import (
     TaxDistrict, TaxCode, Property, ImportLog, 
-    PropertyType, ImportType, tax_code_district_association,
-    TaxCodeHistoricalRate
+    PropertyType, ImportType, TaxCodeHistoricalRate
 )
 
 
