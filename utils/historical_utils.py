@@ -7,17 +7,22 @@ This module provides functionality to:
 3. Compare rates across multiple years
 4. Calculate year-over-year changes
 5. Visualize historical trends
+6. Import/export historical rate data from/to CSV files
 """
 
+import csv
+import io
 import logging
+import os
 from datetime import datetime
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any, Optional, BinaryIO, TextIO
 
 from sqlalchemy import desc
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from models import TaxCode, TaxCodeHistoricalRate
+from models import ExportLog, ImportLog
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -370,6 +375,230 @@ def calculate_average_rate_change_by_year(start_year: int, end_year: int) -> Dic
             'max_increase': {'tax_code': None, 'change': 0, 'percent': 0},
             'max_decrease': {'tax_code': None, 'change': 0, 'percent': 0},
         }
+
+def export_historical_rates_to_csv(year: Optional[int] = None, 
+                           tax_code: Optional[str] = None) -> Tuple[bool, str, Optional[io.StringIO]]:
+    """
+    Export historical rate data to CSV format.
+
+    Args:
+        year: Optional year to filter data for (if None, exports all years)
+        tax_code: Optional tax code to filter data for (if None, exports all tax codes)
+        
+    Returns:
+        Tuple of (success, message, csv_data)
+    """
+    try:
+        # Build the query based on filters
+        query = TaxCodeHistoricalRate.query.join(TaxCode)
+        
+        if year:
+            query = query.filter(TaxCodeHistoricalRate.year == year)
+        
+        if tax_code:
+            query = query.filter(TaxCode.code == tax_code)
+        
+        # Order the results
+        historical_rates = query.order_by(TaxCode.code, TaxCodeHistoricalRate.year).all()
+        
+        if not historical_rates:
+            return False, "No historical rate data matching the specified filters.", None
+        
+        # Create CSV data in memory
+        csv_data = io.StringIO()
+        csv_writer = csv.writer(csv_data)
+        
+        # Write header
+        csv_writer.writerow([
+            'Tax Code', 'Year', 'Levy Rate', 'Levy Amount', 'Total Assessed Value'
+        ])
+        
+        # Write data rows
+        for rate in historical_rates:
+            tax_code_obj = TaxCode.query.get(rate.tax_code_id)
+            csv_writer.writerow([
+                tax_code_obj.code if tax_code_obj else f"Unknown ({rate.tax_code_id})",
+                rate.year,
+                rate.levy_rate,
+                rate.levy_amount if rate.levy_amount is not None else '',
+                rate.total_assessed_value if rate.total_assessed_value is not None else ''
+            ])
+        
+        # Create export log
+        export_log = ExportLog(
+            filename=f"historical_rates_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv",
+            rows_exported=len(historical_rates)
+        )
+        db.session.add(export_log)
+        db.session.commit()
+        
+        # Reset the StringIO object's position to beginning
+        csv_data.seek(0)
+        
+        return True, f"Successfully exported {len(historical_rates)} historical rate records.", csv_data
+        
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        error_message = f"Failed to export historical rates: {str(e)}"
+        logger.error(error_message)
+        return False, error_message, None
+
+
+def import_historical_rates_from_csv(csv_file: BinaryIO) -> Tuple[bool, str, Dict[str, Any]]:
+    """
+    Import historical rate data from a CSV file.
+
+    Expected CSV format:
+    Tax Code, Year, Levy Rate, Levy Amount, Total Assessed Value
+
+    Args:
+        csv_file: A file-like object containing CSV data
+        
+    Returns:
+        Tuple of (success, message, statistics dictionary)
+    """
+    try:
+        # Statistics for tracking results
+        stats = {
+            'processed': 0,
+            'imported': 0,
+            'updated': 0,
+            'skipped': 0,
+            'errors': 0,
+            'warnings': []
+        }
+        
+        # Parse CSV data
+        csv_data = csv_file.read().decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(csv_data))
+        
+        # Get header row
+        headers = next(csv_reader, None)
+        expected_headers = ['Tax Code', 'Year', 'Levy Rate', 'Levy Amount', 'Total Assessed Value']
+        
+        # Validate headers
+        if not headers or not all(h in headers for h in expected_headers):
+            message = f"Invalid CSV format. Expected headers: {', '.join(expected_headers)}"
+            stats['warnings'].append(message)
+            return False, message, stats
+        
+        # Process each row
+        for row_idx, row in enumerate(csv_reader, start=2):  # Start at 2 to account for header
+            if len(row) < 3:  # Minimum: tax code, year, levy rate
+                stats['warnings'].append(f"Row {row_idx}: Invalid row format, skipping.")
+                stats['skipped'] += 1
+                continue
+                
+            stats['processed'] += 1
+            
+            try:
+                # Extract data
+                tax_code_str = row[0].strip()
+                year_str = row[1].strip()
+                levy_rate_str = row[2].strip()
+                
+                # Validate required fields
+                if not tax_code_str or not year_str or not levy_rate_str:
+                    stats['warnings'].append(f"Row {row_idx}: Missing required field(s), skipping.")
+                    stats['skipped'] += 1
+                    continue
+                
+                # Convert values
+                try:
+                    year = int(year_str)
+                except ValueError:
+                    stats['warnings'].append(f"Row {row_idx}: Invalid year format, skipping.")
+                    stats['skipped'] += 1
+                    continue
+                    
+                try:
+                    levy_rate = float(levy_rate_str)
+                except ValueError:
+                    stats['warnings'].append(f"Row {row_idx}: Invalid levy rate format, skipping.")
+                    stats['skipped'] += 1
+                    continue
+                
+                # Optional fields
+                levy_amount = None
+                if len(row) > 3 and row[3].strip():
+                    try:
+                        levy_amount = float(row[3].strip())
+                    except ValueError:
+                        stats['warnings'].append(f"Row {row_idx}: Invalid levy amount format, using null.")
+                
+                total_assessed_value = None
+                if len(row) > 4 and row[4].strip():
+                    try:
+                        total_assessed_value = float(row[4].strip())
+                    except ValueError:
+                        stats['warnings'].append(f"Row {row_idx}: Invalid assessed value format, using null.")
+                
+                # Look up the tax code
+                tax_code = TaxCode.query.filter_by(code=tax_code_str).first()
+                if not tax_code:
+                    stats['warnings'].append(f"Row {row_idx}: Tax code '{tax_code_str}' not found, skipping.")
+                    stats['skipped'] += 1
+                    continue
+                
+                # Check if historical record already exists
+                existing = TaxCodeHistoricalRate.query.filter_by(
+                    tax_code_id=tax_code.id,
+                    year=year
+                ).first()
+                
+                if existing:
+                    # Update existing record
+                    existing.levy_rate = levy_rate
+                    existing.levy_amount = levy_amount
+                    existing.total_assessed_value = total_assessed_value
+                    existing.updated_at = datetime.utcnow()
+                    stats['updated'] += 1
+                else:
+                    # Create new historical record
+                    historical_rate = TaxCodeHistoricalRate(
+                        tax_code_id=tax_code.id,
+                        year=year,
+                        levy_rate=levy_rate,
+                        levy_amount=levy_amount,
+                        total_assessed_value=total_assessed_value
+                    )
+                    db.session.add(historical_rate)
+                    stats['imported'] += 1
+                    
+            except Exception as e:
+                stats['errors'] += 1
+                stats['warnings'].append(f"Row {row_idx}: Error processing: {str(e)}")
+                logger.error(f"Error processing row {row_idx}: {str(e)}")
+                continue
+        
+        # Commit changes
+        db.session.commit()
+        
+        # Create import log
+        warnings_text = "\n".join(stats['warnings']) if stats['warnings'] else None
+        import_log = ImportLog(
+            filename=f"historical_rates_import_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv",
+            rows_imported=stats['imported'] + stats['updated'],
+            rows_skipped=stats['skipped'] + stats['errors'],
+            warnings=warnings_text,
+            import_type='historical_rates'
+        )
+        db.session.add(import_log)
+        db.session.commit()
+        
+        # Build result message
+        message = (f"Import completed: {stats['imported']} records imported, {stats['updated']} updated, "
+                   f"{stats['skipped']} skipped, {stats['errors']} errors.")
+        
+        logger.info(message)
+        return True, message, stats
+        
+    except Exception as e:
+        db.session.rollback()
+        error_message = f"Failed to import historical rates: {str(e)}"
+        logger.error(error_message)
+        return False, error_message, {'errors': 1, 'warnings': [error_message]}
+
 
 def seed_historical_rates(base_year: int = 2024, num_years: int = 5) -> Tuple[bool, str]:
     """

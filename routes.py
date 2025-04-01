@@ -2,6 +2,7 @@ import os
 import logging
 import json
 import csv
+import io
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -15,7 +16,8 @@ from utils.bill_impact_utils import calculate_bill_impact
 from utils.historical_utils import (
     store_current_rates_as_historical, get_available_years, 
     get_historical_rates_by_code, calculate_multi_year_changes,
-    seed_historical_rates
+    seed_historical_rates, export_historical_rates_to_csv,
+    import_historical_rates_from_csv
 )
 from sqlalchemy import func
 
@@ -1168,6 +1170,71 @@ def historical_rates():
                     flash(f"No historical data found for tax code {tax_code}", 'warning')
             else:
                 flash("Please select a tax code to view historical data", 'warning')
+        
+        elif 'import_historical_data' in request.form:
+            # Handle file upload and import
+            if 'csv_file' not in request.files:
+                flash("No file selected for import", "warning")
+                return redirect(request.url)
+            
+            file = request.files['csv_file']
+            if file.filename == '':
+                flash("No file selected for import", "warning")
+                return redirect(request.url)
+            
+            if file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() == 'csv':
+                # Process CSV file
+                success, message, stats = import_historical_rates_from_csv(file)
+                
+                if success:
+                    flash(message, "success")
+                    # Refresh available years after import
+                    available_years = get_available_years()
+                else:
+                    flash(f"Import error: {message}", "danger")
+            else:
+                flash("Invalid file type. Please upload a CSV file.", "warning")
+                
+        elif 'export_historical_data' in request.form:
+            # Handle export request
+            export_year = request.form.get('export_year')
+            export_tax_code = request.form.get('export_tax_code')
+            
+            # Convert year to int if provided
+            if export_year and export_year.isdigit():
+                export_year = int(export_year)
+            else:
+                export_year = None
+                
+            # Empty string means "all tax codes"
+            if not export_tax_code:
+                export_tax_code = None
+                
+            # Generate export
+            success, message, csv_data = export_historical_rates_to_csv(
+                year=export_year, 
+                tax_code=export_tax_code
+            )
+            
+            if success and csv_data:
+                # Generate filename
+                year_part = f"_{export_year}" if export_year else "_all-years"
+                code_part = f"_{export_tax_code}" if export_tax_code else "_all-codes"
+                filename = f"historical_rates{year_part}{code_part}_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+                
+                # Send file to user
+                response = send_file(
+                    io.BytesIO(csv_data.getvalue().encode('utf-8')),
+                    mimetype='text/csv',
+                    as_attachment=True,
+                    download_name=filename
+                )
+                
+                # Flash success message on redirect
+                flash(message, "success")
+                return response
+            else:
+                flash(message, "warning")
     
     return render_template('historical_rates.html',
                           tax_codes=tax_codes,
