@@ -1,196 +1,89 @@
 # SaaS Levy Calculation Application
 
-A comprehensive property tax levy calculation system developed for county assessors, featuring AI-powered insights, efficient data processing, and statutory compliance.
+A Flask-based SaaS application for property tax levy calculations, leveraging AI and advanced data analytics to provide comprehensive tax assessment insights for county assessors.
+
+## Overview
+
+This application is designed for the Benton County Assessor's office in Washington state. It handles property tax levy calculations, statutory compliance, and related functionalities for property tax administration. The system supports data import/export, levy calculations, property lookups, tax district management, and comprehensive reporting capabilities.
 
 ## Features
 
-### Core Functionality
+- **Property Tax Levy Calculations**: Calculate levy rates and amounts based on assessed values
+- **Multi-Year Analysis**: Track and analyze tax rates across multiple years
+- **Interactive Visualizations**: Visualization system with enhanced charting and real-time filtering
+- **AI-Enhanced Forecasting**: Claude 3.5 Sonnet integration for intelligent model selection and natural language explanations
+- **Bill Impact Calculator**: Analyze effects of pending legislation on tax rates
+- **Anomaly Detection**: Identify unusual patterns in historical tax rate data
+- **Statutory Compliance Reports**: Detailed compliance checks with tabbed interface
+- **Data Management**: Table-level snapshots with configurable retention periods
+- **Audit Trail**: Detailed tracking of all data changes with before/after comparison
+- **Public Portal**: Mobile-optimized public interface with property lookup and glossary
+- **Tax Terminology**: Interactive tooltips and comprehensive glossary
 
-- **Property Management**: Import, view, and manage property data with assessed values
-- **Tax Code Management**: Configure tax codes and levy rates
-- **District Relationship Management**: Define and maintain tax district relationships
-- **Levy Calculator**: Calculate and apply statutory limits to levy rates
-- **Property Lookup**: Quick access to property details and tax calculations
-- **Reports**: Generate comprehensive tax roll reports
+## Technical Stack
 
-### AI Capabilities
-
-- **Claude 3.5 Sonnet Integration**: Powered by Anthropic's cutting-edge LLM
-- **Property Analysis**: AI-driven insights on property assessments and tax implications
-- **Levy Rate Analysis**: Intelligent analysis of levy rates, distributions, and statutory compliance
-- **Model Content Protocol (MCP)**: Standardized framework for AI agent capabilities
-- **Visualized Insights**: Interactive charts and visualizations of AI-generated data
-
-### Data Processing
-
-- **Multi-Format Import**: Support for CSV, TXT, XML, and Excel files
-- **Validation Engine**: Comprehensive data validation and error handling
-- **Batch Processing**: Efficient handling of large property datasets
-- **Audit Logging**: Detailed logs for import and export operations
+- **Backend**: Flask with SQLAlchemy ORM
+- **Database**: PostgreSQL with Flask-Migrate for migrations
+- **AI Integration**: Anthropic Claude 3.5 Sonnet
+- **Data Processing**: Pandas and NumPy
+- **Statistical Analysis**: scikit-learn and statsmodels
+- **Frontend**: Bootstrap with responsive design
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11
 - PostgreSQL database
-- Anthropic API key for Claude integration
+- Anthropic API key (for AI features)
 
 ### Installation
 
-1. Clone the repository:
+1. Clone the repository
+2. Set up environment variables:
    ```
-   git clone https://github.com/yourusername/saas-levy-calculation.git
-   cd saas-levy-calculation
+   DATABASE_URL=postgresql://user:password@localhost/dbname
+   ANTHROPIC_API_KEY=your_api_key
+   SESSION_SECRET=your_session_secret
    ```
-
-2. Install dependencies:
+3. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
-
-3. Set up environment variables:
+4. Set up the database:
    ```
-   export DATABASE_URL=postgresql://username:password@localhost/levy_calc
-   export ANTHROPIC_API_KEY=your_api_key  # Optional, for AI features
-   export SESSION_SECRET=your_secret_key
+   python migrate.py upgrade
    ```
-
-4. Initialize the database:
+5. Run the application:
    ```
-   python seed_data.py
+   gunicorn --bind 0.0.0.0:5000 main:app
    ```
 
-5. Start the application:
-   ```
-   python main.py
-   ```
+### Database Migrations
 
-The application will be available at `http://localhost:5000`.
+The application uses Flask-Migrate for database schema changes. See [docs/migration_guide.md](docs/migration_guide.md) for detailed instructions.
 
-### Sample Data
-
-Sample data is provided for development and testing:
-- `seed_data.py`: Creates sample properties, tax codes, and districts
-
-## Usage
-
-### Data Import
-
-1. **Property Import**: Upload CSV files with property IDs, assessed values, and tax codes
-2. **District Import**: Upload tax district relationships via TXT, XML, or Excel files
-
-### Levy Calculation
-
-1. Navigate to the Levy Calculator
-2. Enter levy amounts for each tax code
-3. Calculate levy rates based on assessed values
-4. Review AI-powered insights and recommendations
-5. Apply statutory limits automatically
-
-### Property Lookup
-
-1. Enter a property ID in the lookup form
-2. View property details, tax code information, and calculated tax
-3. Explore AI-generated insights about the property
-
-### Reports
-
-1. Navigate to the Reports section
-2. Generate a tax roll report
-3. Download the CSV file with property tax calculations
-
-## API Documentation
-
-The application provides a RESTful API for integration with other systems:
-
-- `/api/tax-codes`: Get tax code information
-- `/api/district-summary`: Get district relationship summary
-
-See [API Documentation](docs/api.md) for details.
-
-## Project Structure
+### Development
 
 ```
-├── app.py                # Flask application configuration
-├── main.py               # Application entry point
-├── models.py             # Database models
-├── routes.py             # Route handlers
-├── seed_data.py          # Sample data generator
-├── add_import_type_migration.py  # Database migration script
-├── utils/                # Utility modules
-│   ├── __init__.py
-│   ├── anthropic_utils.py  # Claude AI integration
-│   ├── district_utils.py   # District processing utilities
-│   ├── export_utils.py     # Export functionality
-│   ├── import_utils.py     # Import functionality
-│   ├── levy_utils.py       # Levy calculation utilities
-│   └── mcp_core.py         # Model Content Protocol core
-├── templates/            # HTML templates
-│   ├── index.html          # Dashboard template
-│   ├── import.html         # Import page template
-│   ├── districts.html      # Districts page template
-│   ├── levy_calculator.html  # Levy calculator template
-│   ├── property_lookup.html  # Property lookup template
-│   ├── reports.html        # Reports page template
-│   └── mcp_insights.html   # AI insights page template
-├── static/               # Static assets
-│   ├── css/                # Stylesheets
-│   ├── js/                 # JavaScript files
-│   └── img/                # Images
-├── tests/                # Test suite
-│   ├── conftest.py         # Test configuration
-│   ├── test_models.py      # Database model tests
-│   ├── test_routes.py      # Route handler tests
-│   ├── test_utils.py       # Utility function tests
-│   └── test_anthropic.py   # Claude integration tests
-└── docs/                 # Documentation
-    ├── api.md              # API documentation
-    ├── data_dictionary.md  # Data model documentation
-    └── mcp_framework.md    # MCP framework documentation
+python main.py
 ```
 
-## Model Content Protocol (MCP)
+### Production Deployment
 
-The MCP framework provides standardized interfaces for AI capabilities:
+See [docs/deployment.md](docs/deployment.md) for production deployment instructions.
 
-- **Function Registry**: Centralized repository of AI functions
-- **AI Agents**: Specialized agents for different tasks
-- **Workflows**: Predefined sequences of AI operations
-- **Claude Integration**: Interface to Claude 3.5 Sonnet LLM
+## Documentation
 
-See [MCP Framework Documentation](docs/mcp_framework.md) for details.
-
-## Data Dictionary
-
-For information about the database models and fields, see the [Data Dictionary](docs/data_dictionary.md).
-
-## Testing
-
-Run the test suite with pytest:
-
-```
-pytest
-```
-
-The test suite includes:
-- Database model tests
-- Route handler tests
-- Utility function tests
-- Claude integration tests (with mocks)
-
-## Compliance
-
-This application helps ensure compliance with Washington state property tax statutes:
-- 101% cap on levy rate increases
-- $5.90 per $1,000 maximum levy rate
+- [docs/migration_guide.md](docs/migration_guide.md): Database migration guide
+- [docs/deployment.md](docs/deployment.md): Production deployment guide
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is proprietary and confidential.
 
 ## Acknowledgments
 
-- Anthropic Claude for AI capabilities
-- Flask and SQLAlchemy for the web framework
-- Bootstrap for the responsive UI design
+- Benton County Assessor's Office
+- Flask and SQLAlchemy communities
+- Anthropic for Claude AI services

@@ -53,6 +53,10 @@ def create_app(config_name=None):
     # Initialize Flask-Migrate
     migrate.init_app(app, db, directory=app.config.get('MIGRATION_DIR'))
     
+    # Register blueprints
+    from routes2 import main_bp
+    app.register_blueprint(main_bp)
+    
     # In development mode, create all tables using db.create_all()
     # In production, migrations should be used
     if config_name != 'production':
@@ -62,6 +66,3 @@ def create_app(config_name=None):
             db.create_all()
     
     return app
-
-# Create the application instance (default to development config)
-app = create_app()

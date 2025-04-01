@@ -4,9 +4,9 @@ import json
 import csv
 import io
 from datetime import datetime
-from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
+from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify, Blueprint, current_app
 from werkzeug.utils import secure_filename
-from app import app, db
+from app import db
 from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict, TaxCodeHistoricalRate
 from utils.import_utils import process_import
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
@@ -21,10 +21,13 @@ from utils.historical_utils import (
 )
 from sqlalchemy import func
 
+# Create main routes blueprint
+main_bp = Blueprint('main', __name__)
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
-@app.route('/')
+@main_bp.route('/')
 def index():
     """
     Render the main dashboard.
