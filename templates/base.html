@@ -28,7 +28,7 @@
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
             <div class="container">
-                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
                     <img src="{{ url_for('static', filename='images/logo-light.svg') }}" alt="Levy System Logo" height="40" class="me-2">
                     <span>Levy System</span>
                 </a>
@@ -38,7 +38,7 @@
                 <div class="collapse navbar-collapse" id="mainNavbar">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}" href="{{ url_for('main.index') }}">
+                            <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
                                 <i class="bi bi-house-door me-1"></i>Home
                             </a>
                         </li>

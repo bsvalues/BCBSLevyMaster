@@ -11,6 +11,7 @@ from datetime import datetime
 
 from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy.orm import DeclarativeBase
 
@@ -22,6 +23,7 @@ class Base(DeclarativeBase):
 # Initialize extensions
 db = SQLAlchemy(model_class=Base)
 csrf = CSRFProtect()
+migrate = Migrate()
 
 
 def create_app(config_name=None):
@@ -61,6 +63,14 @@ def create_app(config_name=None):
     # Initialize extensions with the app
     db.init_app(app)
     csrf.init_app(app)
+    migrate.init_app(app, db)
+    
+    # Register CLI commands
+    try:
+        from cli import register_commands
+        register_commands(app)
+    except ImportError:
+        app.logger.warning("CLI commands not registered, cli.py not found")
     
     # Register error handlers
     register_error_handlers(app)

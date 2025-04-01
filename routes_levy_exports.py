@@ -11,10 +11,12 @@ import os
 import json
 import logging
 import tempfile
+import uuid 
+import io
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 
-from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, Response, current_app
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, Response, current_app, session
 from werkzeug.utils import secure_filename
 import pandas as pd
 import numpy as np
@@ -26,6 +28,7 @@ from models import (
     PropertyType, ImportType, ExportType, User, TaxCodeHistoricalRate
 )
 from utils.import_utils import detect_file_type, read_data_from_file
+from utils.levy_export_parser import LevyExportParser, LevyExportFormat
 
 
 # Create blueprint
@@ -38,26 +41,48 @@ logger = logging.getLogger(__name__)
 @levy_exports_bp.route("/", methods=["GET"])
 def index():
     """Render the levy exports dashboard."""
-    # Get recent levy imports related to levy rates
-    recent_imports = ImportLog.query.order_by(desc(ImportLog.created_at)).limit(5).all()
+    try:
+        # Get recent levy imports related to levy rates
+        # Safely query ImportLog with explicit column selection to avoid issues with model changes
+        recent_imports = db.session.query(ImportLog).order_by(desc(ImportLog.created_at)).limit(5).all()
+    except Exception as e:
+        logger.warning(f"Error fetching recent imports: {str(e)}")
+        recent_imports = []
     
-    # Count available years of data
-    years_data = db.session.query(
-        TaxCodeHistoricalRate.year, 
-        func.count(TaxCodeHistoricalRate.id)
-    ).group_by(
-        TaxCodeHistoricalRate.year
-    ).order_by(
-        desc(TaxCodeHistoricalRate.year)
-    ).all()
+    try:
+        # Count available years of data
+        years_data = db.session.query(
+            TaxCodeHistoricalRate.year, 
+            func.count(TaxCodeHistoricalRate.id)
+        ).group_by(
+            TaxCodeHistoricalRate.year
+        ).order_by(
+            desc(TaxCodeHistoricalRate.year)
+        ).all()
+    except Exception as e:
+        logger.warning(f"Error fetching years data: {str(e)}")
+        years_data = []
     
-    # Calculate some statistics
+    try:
+        # Calculate some statistics
+        total_districts = TaxDistrict.query.count()
+    except Exception as e:
+        logger.warning(f"Error counting districts: {str(e)}")
+        total_districts = 0
+        
+    try:
+        total_tax_codes = TaxCode.query.count()
+    except Exception as e:
+        logger.warning(f"Error counting tax codes: {str(e)}")
+        total_tax_codes = 0
+    
+    # Calculate some statistics with error handling
     stats = {
         'total_years': len(years_data),
         'latest_year': years_data[0][0] if years_data else datetime.now().year,
         'total_records': sum(count for _, count in years_data),
-        'total_districts': TaxDistrict.query.count(),
-        'total_tax_codes': TaxCode.query.count(),
+        'total_districts': total_districts,
+        'total_tax_codes': total_tax_codes,
     }
     
     return render_template(
@@ -104,15 +129,30 @@ def upload():
             year = int(request.form.get("year", datetime.now().year))
             notes = request.form.get("notes", "")
             
-            # Detect file type
-            file_type = detect_file_type(filename)
-            if not file_type:
-                file_type = "unknown"
-                flash(f"Could not detect file type from filename: {filename}", "warning")
-            
-            # Read data from file
+            # Detect file type using our enhanced parser
             try:
-                data = read_data_from_file(temp_path, file_type)
+                file_format = LevyExportParser.detect_format(filename)
+                if file_format == LevyExportFormat.UNKNOWN:
+                    file_type = detect_file_type(filename)
+                    if not file_type:
+                        file_type = "unknown"
+                    flash(f"Could not detect file type from filename: {filename}", "warning")
+                else:
+                    file_type = file_format.name.lower()
+                    
+                # Parse data from file using the enhanced parser
+                if file_format != LevyExportFormat.UNKNOWN:
+                    try:
+                        # Use our new parser for supported formats
+                        levy_data = LevyExportParser.parse_file(temp_path)
+                        data = levy_data.records
+                    except Exception as parser_error:
+                        logger.warning(f"Error using enhanced parser: {str(parser_error)}, falling back to legacy parser")
+                        # Fallback to legacy parser
+                        data = read_data_from_file(temp_path, file_type)
+                else:
+                    # Use legacy parser for unsupported formats
+                    data = read_data_from_file(temp_path, file_type)
                 
                 # Create preview data - limit to first 50 rows for display
                 preview_data = data[:50] if len(data) > 50 else data
@@ -169,7 +209,7 @@ def upload():
                     }
                     
                     # Store in session as JSON
-                    request.session['temp_levy_data'] = json.dumps(temp_data)
+                    session['temp_levy_data'] = json.dumps(temp_data)
                     
                     return render_template(
                         "levy_exports/preview.html",
@@ -209,7 +249,7 @@ def upload():
 def process():
     """Process the uploaded levy export file after preview."""
     # Get the temporary data from session
-    temp_data_json = request.session.get('temp_levy_data')
+    temp_data_json = session.get('temp_levy_data')
     if not temp_data_json:
         flash("Session expired or no data found", "error")
         return redirect(url_for('levy_exports.upload'))
@@ -230,8 +270,25 @@ def process():
         linked_code_column = request.form.get('linked_code_column')
         year_column = request.form.get('year_column')
         
-        # Read data from file again
-        data = read_data_from_file(file_path, file_type)
+        # Try to use our enhanced parser first, then fall back to legacy parser if needed
+        try:
+            # Detect file format
+            file_format = LevyExportParser.detect_format(file_path)
+            
+            if file_format != LevyExportFormat.UNKNOWN:
+                # Use our enhanced parser
+                levy_data = LevyExportParser.parse_file(file_path)
+                data = levy_data.records
+                
+                # Include metadata in the import log
+                notes += f"\nParsed with enhanced parser. File format: {file_format.name}"
+            else:
+                # Fall back to legacy parser
+                data = read_data_from_file(file_path, file_type)
+        except Exception as parser_error:
+            logger.warning(f"Error using enhanced parser: {str(parser_error)}, falling back to legacy parser")
+            # Fall back to legacy parser
+            data = read_data_from_file(file_path, file_type)
         
         # Create a pandas DataFrame
         df = pd.DataFrame(data)
@@ -385,7 +442,7 @@ def process():
         os.unlink(file_path)
         
         # Clear session data
-        request.session.pop('temp_levy_data', None)
+        session.pop('temp_levy_data', None)
         
         return redirect(url_for('levy_exports.view_year', year=year))
         
@@ -509,6 +566,230 @@ def compare():
         district_id=district_id,
         comparison_data=comparison_data
     )
+
+
+@levy_exports_bp.route("/parse-direct", methods=["GET", "POST"])
+def parse_direct():
+    """Parse levy export file directly without importing into database."""
+    if request.method == "GET":
+        return render_template("levy_exports/parse_direct.html")
+    
+    # Handle file upload request
+    if "file" not in request.files:
+        flash("No file part", "error")
+        return redirect(request.url)
+    
+    file = request.files["file"]
+    if file.filename == "":
+        flash("No selected file", "error")
+        return redirect(request.url)
+    
+    # Get form parameters
+    output_format = request.form.get('output_format', 'preview')
+    normalize = request.form.get('normalize', '0') == '1'
+    
+    # Save the uploaded file to a temporary location
+    filename = secure_filename(file.filename)
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        temp_path = temp.name
+        file.save(temp_path)
+    
+    try:
+        # Detect file format
+        file_format = LevyExportParser.detect_format(filename)
+        
+        if file_format == LevyExportFormat.UNKNOWN:
+            # Try to detect using standard methods
+            file_type = detect_file_type(filename)
+            if not file_type:
+                flash(f"Could not detect file format for: {filename}", "error")
+                os.unlink(temp_path)
+                return redirect(request.url)
+            file_format_name = file_type.upper()
+        else:
+            file_format_name = file_format.name
+        
+        # Parse the file
+        try:
+            # First try with the enhanced parser
+            levy_data = LevyExportParser.parse_file(temp_path)
+            records = levy_data.records
+        except Exception as parser_error:
+            logger.warning(f"Error using enhanced parser: {str(parser_error)}, falling back to standard parser")
+            # Fall back to standard parser
+            records = read_data_from_file(temp_path, detect_file_type(filename))
+        
+        # Create a pandas DataFrame for easier manipulation
+        df = pd.DataFrame(records)
+        
+        # Normalize column names if requested
+        if normalize:
+            # Apply column name standardization
+            std_columns = {}
+            for col in df.columns:
+                col_lower = col.lower()
+                if 'district' in col_lower or 'tax_district' in col_lower:
+                    std_columns[col] = 'tax_district_id'
+                elif 'year' in col_lower:
+                    std_columns[col] = 'year'
+                elif 'levy_cd' in col_lower or 'code' in col_lower:
+                    std_columns[col] = 'levy_cd'
+                elif 'linked' in col_lower:
+                    std_columns[col] = 'levy_cd_linked'
+                elif 'rate' in col_lower:
+                    std_columns[col] = 'levy_rate'
+                elif 'assessed' in col_lower or 'value' in col_lower:
+                    std_columns[col] = 'assessed_value'
+                elif 'amount' in col_lower:
+                    std_columns[col] = 'levy_amount'
+            
+            # Apply column renaming if any matches were found
+            if std_columns:
+                df = df.rename(columns=std_columns)
+        
+        # Create a session ID for this parsing session
+        session_id = str(uuid.uuid4())
+        
+        # Store parsed data in a persistent location
+        parsed_data = {
+            'df': df.to_dict('records'),
+            'filename': filename,
+            'file_format': file_format_name,
+            'columns': list(df.columns),
+            'total_records': len(df),
+            'output_format': output_format
+        }
+        
+        # Store in Flask session
+        if 'parsed_data' not in session:
+            session['parsed_data'] = {}
+        session['parsed_data'][session_id] = json.dumps(parsed_data)
+        
+        # For direct download formats, generate the file and return it
+        if output_format != 'preview':
+            return generate_download_file(df, output_format, filename)
+        
+        # Preview data - limit to first 100 rows for display
+        preview_data = df.to_dict('records')[:100]
+        
+        # Clean up the temporary file
+        os.unlink(temp_path)
+        
+        # Render the result template
+        return render_template(
+            "levy_exports/parse_direct_result.html",
+            filename=filename,
+            file_format=file_format_name,
+            total_records=len(df),
+            preview_data=preview_data,
+            columns=list(df.columns),
+            output_format=output_format,
+            session_id=session_id
+        )
+    
+    except Exception as e:
+        logger.error(f"Error parsing file directly: {str(e)}")
+        flash(f"Error parsing file: {str(e)}", "error")
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        return redirect(request.url)
+
+
+@levy_exports_bp.route("/download-parsed/<session_id>", methods=["GET"])
+def download_parsed(session_id):
+    """Download the parsed file in the specified format."""
+    if 'parsed_data' not in session or session_id not in session['parsed_data']:
+        flash("Session expired or invalid session ID", "error")
+        return redirect(url_for('levy_exports.parse_direct'))
+    
+    try:
+        # Get the parsed data from session
+        parsed_data = json.loads(session['parsed_data'][session_id])
+        
+        # Create a DataFrame from the stored records
+        df = pd.DataFrame(parsed_data['df'])
+        
+        # Generate the download file
+        return generate_download_file(df, parsed_data['output_format'], parsed_data['filename'])
+        
+    except Exception as e:
+        logger.error(f"Error generating download: {str(e)}")
+        flash(f"Error generating download: {str(e)}", "error")
+        return redirect(url_for('levy_exports.parse_direct'))
+
+
+@levy_exports_bp.route("/convert-format", methods=["POST"])
+def convert_format():
+    """Convert a parsed file to a different format."""
+    session_id = request.form.get('session_id')
+    if not session_id or 'parsed_data' not in session or session_id not in session['parsed_data']:
+        flash("Session expired or invalid session ID", "error")
+        return redirect(url_for('levy_exports.parse_direct'))
+    
+    try:
+        # Get the parsed data from session
+        parsed_data = json.loads(session['parsed_data'][session_id])
+        
+        # Create a DataFrame from the stored records
+        df = pd.DataFrame(parsed_data['df'])
+        
+        # Get the requested output format
+        output_format = request.form.get('output_format')
+        if not output_format:
+            flash("No output format specified", "error")
+            return redirect(url_for('levy_exports.parse_direct'))
+        
+        # Generate the download file
+        return generate_download_file(df, output_format, parsed_data['filename'])
+        
+    except Exception as e:
+        logger.error(f"Error converting format: {str(e)}")
+        flash(f"Error converting format: {str(e)}", "error")
+        return redirect(url_for('levy_exports.parse_direct'))
+
+
+def generate_download_file(df, output_format, filename):
+    """Generate a downloadable file from a DataFrame."""
+    base_filename = os.path.splitext(filename)[0]
+    
+    if output_format == 'csv':
+        csv_data = df.to_csv(index=False)
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment;filename={base_filename}.csv'
+            }
+        )
+    
+    elif output_format == 'json':
+        json_data = df.to_json(orient='records', date_format='iso')
+        return Response(
+            json_data,
+            mimetype='application/json',
+            headers={
+                'Content-Disposition': f'attachment;filename={base_filename}.json'
+            }
+        )
+    
+    elif output_format == 'excel':
+        # Create Excel in memory
+        excel_data = io.BytesIO()
+        with pd.ExcelWriter(excel_data, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        
+        excel_data.seek(0)
+        
+        return Response(
+            excel_data.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment;filename={base_filename}.xlsx'
+            }
+        )
+    
+    else:
+        raise ValueError(f"Unsupported output format: {output_format}")
 
 
 @levy_exports_bp.route("/export", methods=["GET"])

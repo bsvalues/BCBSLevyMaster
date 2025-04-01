@@ -281,9 +281,9 @@ class ImportLog(AuditMixin, db.Model):
     __tablename__ = 'import_log'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('user.id', name='fk_import_log_user'), nullable=True, index=True)
     filename = Column(String(256), nullable=False)
-    import_type = Column(SQLEnum(ImportType), nullable=False)
+    import_type = Column(SQLEnum(ImportType), nullable=True)  # Make nullable for backward compatibility
     record_count = Column(Integer, default=0)
     success_count = Column(Integer, default=0)
     error_count = Column(Integer, default=0)

@@ -5,17 +5,23 @@ Production environment setup script.
 This script prepares the application for production deployment by:
 1. Creating the migrations directory if it doesn't exist
 2. Setting up the production database if needed
-3. Applying database migrations
-4. Creating a logs directory for production logging
+3. Backing up the database before applying migrations
+4. Applying database migrations
+5. Creating logs and backup directories for production use
+6. Verifying the application's health after migration
 
 Usage:
-    python setup_production.py
+    python setup_production.py           # Run all setup steps
+    python setup_production.py --backup  # Only backup the database
+    python setup_production.py --migrate # Only run migrations
 """
 
 import os
 import sys
 import logging
 import subprocess
+import argparse
+import datetime
 from pathlib import Path
 
 # Configure logging
@@ -103,11 +109,61 @@ def setup_migrations():
     )
     return success
 
-def main():
+def backup_database():
+    """Backup the database to a file."""
+    logger.info("Starting database backup")
+    
+    # Create backups directory
+    if not create_directory('backups', 'database backups'):
+        return False
+    
+    # Get the current timestamp for the backup filename
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"backups/database_backup_{timestamp}.sql"
+    
+    # Get database connection parameters from environment
+    pg_host = os.environ.get('PGHOST')
+    pg_user = os.environ.get('PGUSER')
+    pg_password = os.environ.get('PGPASSWORD')
+    pg_database = os.environ.get('PGDATABASE')
+    
+    # Build the pg_dump command
+    pg_dump_cmd = f"PGPASSWORD='{pg_password}' pg_dump -h {pg_host} -U {pg_user} -d {pg_database} -f {backup_filename}"
+    
+    # Run the backup command
+    success, output = run_command(pg_dump_cmd, "Backup database")
+    
+    if success:
+        logger.info(f"Database backup created successfully: {backup_filename}")
+        return True
+    else:
+        logger.error("Failed to create database backup")
+        return False
+
+def verify_application():
+    """Perform basic verification of the application."""
+    logger.info("Verifying application health")
+    
+    # Check database connection again after migrations
+    if not check_database_connection():
+        logger.error("Application verification failed: Database connection issue")
+        return False
+    
+    # Check if the app can be imported and initialized
+    try:
+        from app import create_app
+        app = create_app('production')
+        logger.info("Application verified successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Application verification failed: {e}")
+        return False
+
+def main(args):
     """Run the production setup process."""
     logger.info("Starting production environment setup")
     
-    # Create logs directory
+    # Create necessary directories
     if not create_directory('logs', 'logs'):
         return False
     
@@ -116,14 +172,31 @@ def main():
         logger.error("Database connection check failed. Please check your DATABASE_URL environment variable.")
         return False
     
-    # Set up migrations
-    if not setup_migrations():
-        logger.error("Failed to set up database migrations.")
-        return False
+    # Only backup if requested or doing full setup
+    if args.backup or not (args.backup or args.migrate):
+        if not backup_database():
+            logger.warning("Database backup failed, but continuing with setup")
+    
+    # Only run migrations if requested or doing full setup
+    if args.migrate or not (args.backup or args.migrate):
+        if not setup_migrations():
+            logger.error("Failed to set up database migrations.")
+            return False
+    
+    # Verify application health
+    if not args.backup:  # Skip verification if only backing up
+        if not verify_application():
+            logger.warning("Application verification failed, please check the logs")
     
     logger.info("Production environment setup completed successfully")
     return True
 
 if __name__ == "__main__":
-    success = main()
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Production environment setup")
+    parser.add_argument('--backup', action='store_true', help='Only backup the database')
+    parser.add_argument('--migrate', action='store_true', help='Only run migrations')
+    args = parser.parse_args()
+    
+    success = main(args)
     sys.exit(0 if success else 1)
