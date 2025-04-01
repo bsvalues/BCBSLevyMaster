@@ -63,6 +63,30 @@
                             </p>
                         </div>
                     </div>
+                    
+                    {% if property_data.linked_levy_codes %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Linked Levy Codes</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-3">
+                                The following levy codes are linked to this property's tax code ({{ property_data.tax_code }}):
+                            </p>
+                            <div class="row">
+                                {% for code in property_data.linked_levy_codes %}
+                                <div class="col-md-4 mb-2">
+                                    <span class="badge bg-info text-dark p-2">{{ code }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p class="text-muted mt-3 small">
+                                <i class="fas fa-info-circle me-1"></i> Linked levy codes represent different taxing authorities 
+                                that apply to this property's tax district.
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>

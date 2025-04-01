@@ -31,6 +31,25 @@ class TaxCode(db.Model):
     def __repr__(self):
         return f"<TaxCode {self.code}>"
 
+class TaxDistrict(db.Model):
+    """
+    Model representing a tax district with levy code relationships.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    tax_district_id = db.Column(db.Integer, nullable=False, index=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    levy_code = db.Column(db.String(20), nullable=False, index=True)
+    linked_levy_code = db.Column(db.String(20), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        db.UniqueConstraint('tax_district_id', 'year', 'levy_code', 'linked_levy_code', name='uix_tax_district_relationship'),
+    )
+    
+    def __repr__(self):
+        return f"<TaxDistrict {self.tax_district_id}-{self.year}-{self.levy_code}>"
+
 class ImportLog(db.Model):
     """
     Model to log import operations.
@@ -41,6 +60,7 @@ class ImportLog(db.Model):
     rows_skipped = db.Column(db.Integer, nullable=False)
     warnings = db.Column(db.Text, nullable=True)
     import_date = db.Column(db.DateTime, default=datetime.utcnow)
+    import_type = db.Column(db.String(50), nullable=True)  # 'property', 'district', etc.
     
     def __repr__(self):
         return f"<ImportLog {self.filename}>"

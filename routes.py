@@ -1,12 +1,14 @@
 import os
 from datetime import datetime
-from flask import render_template, request, redirect, url_for, flash, session, send_file
+from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
 from app import app, db
-from models import Property, TaxCode, ImportLog, ExportLog
+from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict
 from utils.import_utils import validate_and_import_csv
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
+from utils.district_utils import import_district_text_file, import_district_xml_file, get_linked_levy_codes
+from sqlalchemy import func
 
 @app.route('/')
 def index():
@@ -19,6 +21,9 @@ def index():
     # Count of tax codes
     tax_code_count = TaxCode.query.count()
     
+    # Count of tax districts
+    district_count = TaxDistrict.query.count()
+    
     # Recent imports
     recent_imports = ImportLog.query.order_by(ImportLog.import_date.desc()).limit(5).all()
     
@@ -28,6 +33,7 @@ def index():
     return render_template('dashboard.html', 
                           property_count=property_count,
                           tax_code_count=tax_code_count,
+                          district_count=district_count,
                           recent_imports=recent_imports,
                           recent_exports=recent_exports)
 
@@ -67,7 +73,8 @@ def import_data():
                 filename=filename,
                 rows_imported=result['imported'],
                 rows_skipped=result['skipped'],
-                warnings='\n'.join(result['warnings']) if result['warnings'] else None
+                warnings='\n'.join(result['warnings']) if result['warnings'] else None,
+                import_type='property'
             )
             db.session.add(import_log)
             db.session.commit()
@@ -80,6 +87,109 @@ def import_data():
             return redirect(url_for('index'))
     
     return render_template('import.html')
+
+@app.route('/district-import', methods=['GET', 'POST'])
+def district_import():
+    """
+    Handle tax district data import via file upload.
+    """
+    if request.method == 'POST':
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            flash('No file part', 'danger')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        
+        # If user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            flash('No selected file', 'danger')
+            return redirect(request.url)
+        
+        if file:
+            filename = secure_filename(file.filename)
+            # Save file temporarily
+            temp_path = os.path.join('/tmp', filename)
+            file.save(temp_path)
+            
+            # Detect file type and import accordingly
+            result = None
+            if filename.lower().endswith('.txt'):
+                result = import_district_text_file(temp_path)
+            elif filename.lower().endswith('.xml'):
+                result = import_district_xml_file(temp_path)
+            else:
+                flash("Unsupported file format. Please upload a .txt or .xml file.", 'danger')
+                return redirect(request.url)
+            
+            # Remove temp file
+            os.remove(temp_path)
+            
+            if result:
+                # Log the import
+                import_log = ImportLog(
+                    filename=filename,
+                    rows_imported=result['imported'],
+                    rows_skipped=result['skipped'],
+                    warnings='\n'.join(result['warnings']) if result['warnings'] else None,
+                    import_type='district'
+                )
+                db.session.add(import_log)
+                db.session.commit()
+                
+                if result['success']:
+                    flash(f"Successfully imported {result['imported']} district relationships. Skipped {result['skipped']} records.", 'success')
+                else:
+                    flash(f"Import completed with warnings. Imported {result['imported']} district relationships. Skipped {result['skipped']} records.", 'warning')
+                
+                return redirect(url_for('districts'))
+    
+    return render_template('district_import.html')
+
+@app.route('/districts')
+def districts():
+    """
+    View and manage tax districts.
+    """
+    # Get filter parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    selected_year = request.args.get('year', type=int)
+    district_id = request.args.get('district_id', type=int)
+    levy_code = request.args.get('levy_code')
+    
+    # Build query with filters
+    query = TaxDistrict.query
+    
+    if selected_year:
+        query = query.filter(TaxDistrict.year == selected_year)
+    
+    if district_id:
+        query = query.filter(TaxDistrict.tax_district_id == district_id)
+    
+    if levy_code:
+        query = query.filter(TaxDistrict.levy_code.ilike(f"%{levy_code}%"))
+    
+    # Get distinct years for dropdown
+    years_query = db.session.query(TaxDistrict.year.distinct()).order_by(TaxDistrict.year)
+    years = [year[0] for year in years_query.all()]
+    
+    # Paginate results
+    pagination = query.order_by(TaxDistrict.year.desc(), TaxDistrict.tax_district_id).paginate(page=page, per_page=per_page)
+    districts = pagination.items
+    
+    # Get total count of districts for display
+    district_count = TaxDistrict.query.count()
+    
+    return render_template('districts.html',
+                          district_count=district_count,
+                          districts=districts,
+                          pagination=pagination,
+                          years=years,
+                          selected_year=selected_year,
+                          district_id=district_id,
+                          levy_code=levy_code)
 
 @app.route('/levy-calculator', methods=['GET', 'POST'])
 def levy_calculator():
@@ -173,12 +283,16 @@ def property_lookup():
                     # Calculate property tax
                     calculated_tax = (property_obj.assessed_value / 1000) * tax_code_obj.levy_rate
                     
+                    # Get linked levy codes if available
+                    linked_levy_codes = get_linked_levy_codes(property_obj.tax_code)
+                    
                     property_data = {
                         'property_id': property_obj.property_id,
                         'assessed_value': property_obj.assessed_value,
                         'tax_code': property_obj.tax_code,
                         'levy_rate': tax_code_obj.levy_rate,
-                        'calculated_tax': calculated_tax
+                        'calculated_tax': calculated_tax,
+                        'linked_levy_codes': linked_levy_codes
                     }
                 else:
                     flash("Tax code information or levy rate not found for this property", 'warning')
@@ -201,3 +315,29 @@ def api_tax_codes():
     } for tc in tax_codes]
     
     return {'data': data}
+
+@app.route('/api/district-summary')
+def api_district_summary():
+    """
+    API endpoint to get district summary for current year.
+    """
+    current_year = datetime.now().year
+    
+    # Get count of districts by year
+    year_counts = db.session.query(
+        TaxDistrict.year,
+        func.count(TaxDistrict.id).label('count')
+    ).group_by(TaxDistrict.year).order_by(TaxDistrict.year.desc()).limit(5).all()
+    
+    # Get most common levy codes
+    levy_code_counts = db.session.query(
+        TaxDistrict.levy_code,
+        func.count(TaxDistrict.id).label('count')
+    ).group_by(TaxDistrict.levy_code).order_by(func.count(TaxDistrict.id).desc()).limit(10).all()
+    
+    data = {
+        'year_counts': [{'year': y[0], 'count': y[1]} for y in year_counts],
+        'levy_code_counts': [{'code': l[0], 'count': l[1]} for l in levy_code_counts],
+    }
+    
+    return jsonify(data)

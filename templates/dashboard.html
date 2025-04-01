@@ -35,27 +35,62 @@
         </div>
     </div>
     
-    <!-- Quick Actions -->
+    <!-- Tax Districts Counter -->
     <div class="col-md-6 col-lg-3 mb-4">
         <div class="card dashboard-card">
             <div class="card-body text-center">
-                <h5 class="card-title">Import Data</h5>
-                <p class="card-text">Upload property data CSV files</p>
-                <a href="{{ url_for('import_data') }}" class="btn btn-primary">
-                    <i class="fas fa-file-import me-1"></i> Upload CSV
+                <div class="card-value">{{ district_count }}</div>
+                <h5 class="card-title">Tax Districts</h5>
+                <p class="card-text text-muted">District-levy relationships</p>
+                <a href="{{ url_for('districts') }}" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="fas fa-building me-1"></i> View Districts
                 </a>
             </div>
         </div>
     </div>
     
-    <!-- Export Report -->
+    <!-- Quick Actions -->
     <div class="col-md-6 col-lg-3 mb-4">
         <div class="card dashboard-card">
             <div class="card-body text-center">
-                <h5 class="card-title">Generate Report</h5>
-                <p class="card-text">Download tax roll data</p>
+                <h5 class="card-title">Actions</h5>
+                <p class="card-text">Manage levy data</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('import_data') }}" class="btn btn-sm btn-primary mb-2">
+                        <i class="fas fa-file-import me-1"></i> Import Properties
+                    </a>
+                    <a href="{{ url_for('district_import') }}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-upload me-1"></i> Import Districts
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Row -->
+<div class="row mb-4">
+    <!-- Generate Report -->
+    <div class="col-md-6">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">Generate Tax Roll</h5>
+                <p class="card-text">Export property tax calculations to CSV</p>
                 <a href="{{ url_for('reports') }}" class="btn btn-primary">
                     <i class="fas fa-file-export me-1"></i> Export Tax Roll
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Property Lookup -->
+    <div class="col-md-6">
+        <div class="card dashboard-card">
+            <div class="card-body text-center">
+                <h5 class="card-title">Property Lookup</h5>
+                <p class="card-text">Find property tax details by ID</p>
+                <a href="{{ url_for('property_lookup') }}" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i> Lookup Property
                 </a>
             </div>
         </div>
@@ -112,6 +147,7 @@
                         <thead>
                             <tr>
                                 <th>Filename</th>
+                                <th>Type</th>
                                 <th>Imported</th>
                                 <th>Skipped</th>
                                 <th>Date</th>
@@ -121,6 +157,15 @@
                             {% for import_log in recent_imports %}
                             <tr>
                                 <td>{{ import_log.filename }}</td>
+                                <td>
+                                    {% if import_log.import_type == 'property' %}
+                                    <span class="badge bg-success">Properties</span>
+                                    {% elif import_log.import_type == 'district' %}
+                                    <span class="badge bg-info">Districts</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Other</span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ import_log.rows_imported }}</td>
                                 <td>{{ import_log.rows_skipped }}</td>
                                 <td>{{ import_log.import_date.strftime('%Y-%m-%d %H:%M') }}</td>
