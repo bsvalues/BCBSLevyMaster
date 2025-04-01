@@ -3,151 +3,191 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}SaaS Levy Calculation Application{% endblock %}</title>
-    <!-- Bootstrap CSS from CDN with dark theme -->
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{% block title %}Levy Calculation System{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/tooltip.css') }}" rel="stylesheet">
-    <!-- Favicon -->
-    <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <header>
-        <!-- Navigation -->
-        <nav class="navbar navbar-expand-lg navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-                    <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" width="30" height="30" class="me-2">
-                    <span>Levy Calculator</span>
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('index') }}">Dashboard</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('property_lookup') }}">Property Lookup</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('districts') }}">Tax Districts</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('levy_calculator') }}">Levy Calculator</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('bill_impact_calculator') }}">Bill Impact Calculator</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Data Management
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('import_data') }}">Import Properties</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('district_import') }}">Import Districts</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('data_archives') }}"><i class="bi bi-archive"></i> Data Archives</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('audit_trail') }}"><i class="bi bi-journal-text"></i> Audit Trail</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('enhanced_compliance') }}"><i class="bi bi-check-circle"></i> Compliance</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('reports') }}">Reports</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="historicalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Historical Analysis
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="historicalDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('historical_rates') }}"><i class="bi bi-graph-up"></i> Historical Rates</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('historical_analysis.advanced_historical_analysis') }}"><i class="bi bi-graph-up-arrow"></i> Advanced Analysis</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="forecastingDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Forecasting
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="forecastingDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('forecasting_dashboard') }}"><i class="bi bi-graph-up-arrow"></i> Forecasting Dashboard</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('forecast_comparison') }}"><i class="bi bi-bar-chart-line"></i> Scenario Comparison</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('district_forecasting') }}"><i class="bi bi-geo-alt"></i> District Forecasting</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('ai_forecasting_dashboard') }}"><i class="bi bi-stars"></i> AI-Enhanced Forecasting</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('interactive_forecasting_dashboard') }}"><i class="bi bi-grid-3x3-gap"></i> Interactive Dashboard</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Reports
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
-                                <li><a class="dropdown-item" href="{{ url_for('reports_dashboard') }}"><i class="bi bi-file-earmark-text"></i> Reports Dashboard</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('report_templates') }}"><i class="bi bi-list-check"></i> Manage Templates</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('report_generator') }}"><i class="bi bi-file-earmark-arrow-down"></i> Generate Report</a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('schedule_report_form') }}"><i class="bi bi-calendar-event"></i> Schedule Reports</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('mcp_insights') }}">MCP Insights</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('glossary.glossary') }}">
-                                <i class="bi bi-book"></i> Tax Glossary
-                            </a>
-                        </li>
-                    </ul>
-                    <div class="d-flex">
-                        <span class="navbar-text me-3">
-                            Benton County Assessor
-                        </span>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="bi bi-calculator me-2"></i>
+                <span>Levy Calculation System</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i class="bi bi-house-door"></i> Home
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="dataDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-database"></i> Data
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="dataDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('data_management.import_page') }}">
+                                    <i class="bi bi-upload"></i> Import Data
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('data_management.export_page') }}">
+                                    <i class="bi bi-download"></i> Export Data
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-building"></i> Properties
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-geo-alt"></i> Tax Districts
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-tags"></i> Tax Codes
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="calculationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-calculator"></i> Calculations
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="calculationDropdown">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-percent"></i> Levy Rates
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-check-circle"></i> Compliance Check
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-graph-up"></i> Scenarios
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-file-text"></i> Reports
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i> Tax Roll
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-clock-history"></i> Historical Analysis
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-graph-up-arrow"></i> Forecasting
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="bi bi-robot"></i> AI Assistant
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="d-flex align-items-center">
+                    <!-- Year Selector -->
+                    <div class="me-3">
+                        <select class="form-select form-select-sm year-selector" aria-label="Select Tax Year">
+                            {% if years_with_data %}
+                                {% for year in years_with_data|sort(reverse=true) %}
+                                    <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                                        {{ year }}
+                                    </option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="{{ current_year }}">{{ current_year }}</option>
+                            {% endif %}
+                        </select>
                     </div>
+                    
+                    <!-- Help Link -->
+                    <a href="#" class="btn btn-outline-light btn-sm me-2" title="Help">
+                        <i class="bi bi-question-circle"></i>
+                    </a>
+                    
+                    <!-- Settings Link -->
+                    <a href="#" class="btn btn-outline-light btn-sm" title="Settings">
+                        <i class="bi bi-gear"></i>
+                    </a>
                 </div>
             </div>
-        </nav>
-    </header>
-
-    <main class="flex-grow-1 py-4">
-        <div class="container">
-            <!-- Flash messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <!-- Page Content -->
-            {% block content %}{% endblock %}
         </div>
+    </nav>
+    
+    <!-- Flash Messages -->
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
     </main>
-
-    <footer class="footer py-3 mt-auto">
+    
+    <!-- Footer -->
+    <footer class="bg-dark py-4 mt-5">
         <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted">&copy; 2025 Benton County Assessor's Office</small>
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="text-muted mb-0">&copy; {% now year %} Levy Calculation System</p>
                 </div>
-                <div>
-                    <small class="text-muted">Powered by Model Content Protocol</small>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted mb-0">Version 1.0.0</p>
                 </div>
             </div>
         </div>
     </footer>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    {% block extra_js %}{% endblock %}
+    
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>

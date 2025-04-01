@@ -1,537 +1,393 @@
 """
-Import Utilities
-
-This module provides functionality for importing data from various file formats
-into the application, with validation and error handling.
-
-Features:
-- Import from Excel, CSV, and other file formats
-- Validate imported data
-- Generate import logs and reports
-- Handle errors and warnings
-- Track imported data through the ImportLog model
+Utility functions for importing data from various file formats.
 """
 
 import os
 import csv
+import io
+import json
 import logging
+import tempfile
+from typing import Dict, List, Any, Optional, Tuple, Union
+from dataclasses import dataclass, field
+
 import pandas as pd
-from datetime import datetime
-from typing import Dict, List, Any, Tuple, Optional, Union
-from io import StringIO, BytesIO
+import numpy as np
 from werkzeug.datastructures import FileStorage
+from sqlalchemy.exc import SQLAlchemyError
 
-from app import db
+from app2 import db
 from models import Property, TaxCode, TaxDistrict, ImportLog
-from utils.validation_framework import (
-    ValidationError, create_property_validator, create_tax_code_validator,
-    create_tax_district_validator, create_import_validator
-)
 
-
+# Configure logger
 logger = logging.getLogger(__name__)
 
-
+@dataclass
 class ImportResult:
-    """Class to hold the result of an import operation."""
+    """Data class to track results of an import operation."""
+    success: bool = True
+    message: str = ''
+    records_imported: int = 0
+    records_skipped: int = 0
+    error_messages: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
     
-    def __init__(self):
-        self.success = True
-        self.imported_count = 0
-        self.skipped_count = 0
-        self.error_messages = []
-        self.warning_messages = []
-        self.import_log_id = None  # Will be set to int when log is created
-    
-    def add_error(self, message: str):
-        """Add an error message and mark import as failed."""
-        self.success = False
-        self.error_messages.append(message)
-    
-    def add_warning(self, message: str):
-        """Add a warning message."""
-        self.warning_messages.append(message)
-    
+    def add_error(self, error_message: str) -> None:
+        """Add an error message to the result."""
+        self.error_messages.append(error_message)
+        
+    def add_warning(self, warning_message: str) -> None:
+        """Add a warning message to the result."""
+        self.warnings.append(warning_message)
+        
     def as_dict(self) -> Dict[str, Any]:
-        """Return the result as a dictionary."""
+        """Convert result to dictionary."""
         return {
             'success': self.success,
-            'imported_count': self.imported_count,
-            'skipped_count': self.skipped_count,
-            'errors': self.error_messages,
-            'warnings': self.warning_messages,
-            'import_log_id': self.import_log_id
+            'message': self.message,
+            'records_imported': self.records_imported,
+            'records_skipped': self.records_skipped,
+            'error_messages': self.error_messages,
+            'warnings': self.warnings
         }
 
-
-def detect_file_type(file: FileStorage) -> str:
+def process_file_import(file: FileStorage, import_type: str) -> ImportResult:
     """
-    Detect the type of file based on extension and content.
+    Process file import for different data types.
     
     Args:
-        file: The uploaded file
+        file: Uploaded file object
+        import_type: Type of import ('property', 'district', etc.)
         
     Returns:
-        str: The detected file type (csv, excel, text)
-        
-    Raises:
-        ValueError: If file type is not supported
+        ImportResult object with import statistics and messages
     """
-    filename = file.filename.lower()
+    if not file or not file.filename:
+        return ImportResult(
+            success=False,
+            message="No file provided"
+        )
     
-    if filename.endswith('.csv'):
-        return 'csv'
-    elif filename.endswith(('.xls', '.xlsx')):
-        return 'excel'
-    elif filename.endswith('.txt'):
-        return 'text'
-    elif filename.endswith('.xml'):
-        return 'xml'
-    else:
-        raise ValueError(f"Unsupported file type: {filename}")
-
-
-def read_data_from_file(file: FileStorage) -> Tuple[List[Dict[str, Any]], str]:
-    """
-    Read data from a file into a list of dictionaries.
-    
-    Args:
-        file: The uploaded file
-        
-    Returns:
-        Tuple: (list of data dictionaries, file_type)
-        
-    Raises:
-        ValueError: If file cannot be read
-    """
-    file_type = detect_file_type(file)
-    data = []
+    # Get file extension
+    file_ext = os.path.splitext(file.filename)[1].lower()
     
     try:
-        if file_type == 'csv':
-            # Read CSV file
-            stream = StringIO(file.read().decode('utf-8'))
-            reader = csv.DictReader(stream)
-            data = [row for row in reader]
+        # Process different file formats
+        if file_ext == '.csv':
+            df = pd.read_csv(file.stream)
+        elif file_ext in ['.xlsx', '.xls']:
+            df = pd.read_excel(file.stream)
+        elif file_ext == '.json':
+            df = pd.read_json(file.stream)
+        elif file_ext == '.xml':
+            df = pd.read_xml(file.stream)
+        elif file_ext == '.txt':
+            # Try to determine delimiter
+            file.stream.seek(0)
+            sample = file.stream.read(4096).decode('utf-8')
+            file.stream.seek(0)
             
-        elif file_type == 'excel':
-            # Read Excel file
-            stream = BytesIO(file.read())
-            df = pd.read_excel(stream)
-            data = df.to_dict('records')
-            
-        elif file_type == 'text':
-            # Read text file with tab or pipe delimiter
-            stream = StringIO(file.read().decode('utf-8'))
-            sample = stream.read(1024)
-            stream.seek(0)
-            
-            # Detect delimiter
             if '\t' in sample:
-                delimiter = '\t'
-            elif '|' in sample:
-                delimiter = '|'
+                df = pd.read_csv(file.stream, delimiter='\t')
+            elif ',' in sample:
+                df = pd.read_csv(file.stream, delimiter=',')
+            elif ';' in sample:
+                df = pd.read_csv(file.stream, delimiter=';')
             else:
-                delimiter = ','
-                
-            reader = csv.DictReader(stream, delimiter=delimiter)
-            data = [row for row in reader]
-            
-        elif file_type == 'xml':
-            # Read XML file - this would need a more complex parser
-            # depending on the XML structure
-            # For now, just raise a not implemented error
-            raise NotImplementedError("XML import is not implemented yet")
-            
+                df = pd.read_csv(file.stream, delimiter=None, engine='python')
         else:
-            raise ValueError(f"Unsupported file type: {file_type}")
+            return ImportResult(
+                success=False,
+                message=f"Unsupported file format: {file_ext}"
+            )
             
-    except Exception as e:
-        logger.error(f"Error reading file: {str(e)}")
-        raise ValueError(f"Could not read file: {str(e)}")
-    
-    return data, file_type
-
-
-def validate_import_metadata(filename: str, data: List[Dict[str, Any]], import_type: str) -> None:
-    """
-    Validate the import metadata.
-    
-    Args:
-        filename: The name of the imported file
-        data: The data to be imported
-        import_type: The type of data being imported
+        # Clean up column names
+        df.columns = [str(col).strip() for col in df.columns]
         
-    Raises:
-        ValidationError: If validation fails
-    """
-    # Get column names from first row
-    columns = list(data[0].keys()) if data else []
+        # Process based on import type
+        if import_type == 'property':
+            return import_property_data(df)
+        elif import_type == 'district':
+            return import_district_data(df)
+        else:
+            return ImportResult(
+                success=False,
+                message=f"Unknown import type: {import_type}"
+            )
     
-    # Create metadata object
-    metadata = {
-        "filename": filename,
-        "row_count": len(data),
-        "columns": columns,
-        "data_type": import_type
-    }
-    
-    # Validate metadata
-    validator = create_import_validator()
-    validator.validate(metadata)
+    except Exception as e:
+        logger.error(f"Error processing {import_type} import: {str(e)}")
+        return ImportResult(
+            success=False,
+            message=f"Error processing file: {str(e)}"
+        )
 
-
-def validate_data_rows(data: List[Dict[str, Any]], import_type: str, strict: bool = False) -> Union[List[Dict[str, Any]], bool]:
+def import_property_data(df: pd.DataFrame) -> ImportResult:
     """
-    Validate all data rows.
+    Import property data from DataFrame.
     
     Args:
-        data: The data to validate
-        import_type: The type of data being imported
-        strict: If True, raises an error on first validation failure
+        df: DataFrame containing property data
         
     Returns:
-        List: List of validation errors
-        
-    Raises:
-        ValidationError: If validation fails and strict=True
-    """
-    # Choose validator based on import type
-    if import_type == 'property':
-        validator = create_property_validator()
-    elif import_type == 'tax_code':
-        validator = create_tax_code_validator()
-    elif import_type == 'tax_district':
-        validator = create_tax_district_validator()
-    else:
-        raise ValueError(f"Unsupported import type: {import_type}")
-    
-    # Validate all rows
-    return validator.validate_collection(data, strict=strict)
-
-
-def import_property_data(data: List[Dict[str, Any]], result: ImportResult) -> None:
-    """
-    Import property data into the database.
-    
-    Args:
-        data: The property data to import
-        result: The ImportResult object to update
-    """
-    for idx, row in enumerate(data):
-        try:
-            # Convert keys to lowercase and trim whitespace
-            row = {k.lower().strip(): v for k, v in row.items()}
-            
-            # Check for required fields
-            property_id = row.get('property_id', row.get('pin', row.get('parcel_id')))
-            assessed_value = row.get('assessed_value', row.get('value'))
-            tax_code = row.get('tax_code', row.get('code'))
-            
-            if not all([property_id, assessed_value, tax_code]):
-                result.add_warning(f"Row {idx+1}: Missing required fields")
-                result.skipped_count += 1
-                continue
-                
-            # Convert to appropriate types
-            try:
-                assessed_value = float(assessed_value)
-            except (ValueError, TypeError):
-                result.add_warning(f"Row {idx+1}: Invalid assessed value: {assessed_value}")
-                result.skipped_count += 1
-                continue
-                
-            # Check if property already exists
-            existing = Property.query.filter_by(property_id=property_id).first()
-            
-            if existing:
-                # Update existing property
-                existing.assessed_value = assessed_value
-                existing.tax_code = tax_code
-                existing.updated_at = datetime.utcnow()
-            else:
-                # Create new property
-                new_property = Property(
-                    property_id=property_id,
-                    assessed_value=assessed_value,
-                    tax_code=tax_code
-                )
-                db.session.add(new_property)
-            
-            result.imported_count += 1
-                
-        except Exception as e:
-            result.add_warning(f"Row {idx+1}: Error processing row: {str(e)}")
-            result.skipped_count += 1
-            continue
-    
-    # Commit all changes
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        result.add_error(f"Database error: {str(e)}")
-
-
-def import_tax_code_data(data: List[Dict[str, Any]], result: ImportResult) -> None:
-    """
-    Import tax code data into the database.
-    
-    Args:
-        data: The tax code data to import
-        result: The ImportResult object to update
-    """
-    for idx, row in enumerate(data):
-        try:
-            # Convert keys to lowercase and trim whitespace
-            row = {k.lower().strip(): v for k, v in row.items()}
-            
-            # Check for required fields
-            code = row.get('code', row.get('tax_code'))
-            levy_rate = row.get('levy_rate', row.get('rate'))
-            
-            if not all([code, levy_rate]):
-                result.add_warning(f"Row {idx+1}: Missing required fields")
-                result.skipped_count += 1
-                continue
-                
-            # Convert to appropriate types
-            try:
-                levy_rate = float(levy_rate)
-                levy_amount = row.get('levy_amount')
-                if levy_amount:
-                    levy_amount = float(levy_amount)
-                    
-                total_assessed_value = row.get('total_assessed_value', row.get('assessed_value'))
-                if total_assessed_value:
-                    total_assessed_value = float(total_assessed_value)
-                    
-                previous_year_rate = row.get('previous_year_rate')
-                if previous_year_rate:
-                    previous_year_rate = float(previous_year_rate)
-            except (ValueError, TypeError) as e:
-                result.add_warning(f"Row {idx+1}: Invalid numeric value: {str(e)}")
-                result.skipped_count += 1
-                continue
-                
-            # Check if tax code already exists
-            existing = TaxCode.query.filter_by(code=code).first()
-            
-            if existing:
-                # Update existing tax code
-                existing.levy_rate = levy_rate
-                if levy_amount:
-                    existing.levy_amount = levy_amount
-                if total_assessed_value:
-                    existing.total_assessed_value = total_assessed_value
-                if previous_year_rate:
-                    existing.previous_year_rate = previous_year_rate
-                existing.updated_at = datetime.utcnow()
-            else:
-                # Create new tax code
-                new_tax_code = TaxCode(
-                    code=code,
-                    levy_rate=levy_rate,
-                    levy_amount=levy_amount,
-                    total_assessed_value=total_assessed_value,
-                    previous_year_rate=previous_year_rate
-                )
-                db.session.add(new_tax_code)
-            
-            result.imported_count += 1
-                
-        except Exception as e:
-            result.add_warning(f"Row {idx+1}: Error processing row: {str(e)}")
-            result.skipped_count += 1
-            continue
-    
-    # Commit all changes
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        result.add_error(f"Database error: {str(e)}")
-
-
-def import_tax_district_data(data: List[Dict[str, Any]], result: ImportResult) -> None:
-    """
-    Import tax district data into the database.
-    
-    Args:
-        data: The tax district data to import
-        result: The ImportResult object to update
-    """
-    for idx, row in enumerate(data):
-        try:
-            # Convert keys to lowercase and trim whitespace
-            row = {k.lower().strip(): v for k, v in row.items()}
-            
-            # Check for required fields
-            tax_district_id = row.get('tax_district_id', row.get('district_id'))
-            year = row.get('year', datetime.now().year)  # Default to current year if not specified
-            levy_code = row.get('levy_code', row.get('code'))
-            linked_levy_code = row.get('linked_levy_code', row.get('linked_code'))
-            
-            if not all([tax_district_id, levy_code, linked_levy_code]):
-                result.add_warning(f"Row {idx+1}: Missing required fields")
-                result.skipped_count += 1
-                continue
-                
-            # Convert to appropriate types
-            try:
-                tax_district_id = int(tax_district_id)
-                year = int(year)
-            except (ValueError, TypeError) as e:
-                result.add_warning(f"Row {idx+1}: Invalid numeric value: {str(e)}")
-                result.skipped_count += 1
-                continue
-                
-            # Check if tax district relationship already exists
-            existing = TaxDistrict.query.filter_by(
-                tax_district_id=tax_district_id,
-                year=year,
-                levy_code=levy_code,
-                linked_levy_code=linked_levy_code
-            ).first()
-            
-            if existing:
-                # Update existing tax district relationship
-                existing.updated_at = datetime.utcnow()
-            else:
-                # Create new tax district relationship
-                new_tax_district = TaxDistrict(
-                    tax_district_id=tax_district_id,
-                    year=year,
-                    levy_code=levy_code,
-                    linked_levy_code=linked_levy_code
-                )
-                db.session.add(new_tax_district)
-            
-            result.imported_count += 1
-                
-        except Exception as e:
-            result.add_warning(f"Row {idx+1}: Error processing row: {str(e)}")
-            result.skipped_count += 1
-            continue
-    
-    # Commit all changes
-    try:
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        result.add_error(f"Database error: {str(e)}")
-
-
-def create_import_log(filename: str, import_type: str, result: ImportResult) -> Optional[int]:
-    """
-    Create an import log entry.
-    
-    Args:
-        filename: The name of the imported file
-        import_type: The type of data imported
-        result: The ImportResult object
-        
-    Returns:
-        int: The ID of the created import log
-    """
-    # Create warnings text
-    warnings_text = None
-    if result.warning_messages:
-        warnings_text = "\n".join(result.warning_messages)
-    
-    # Create import log
-    import_log = ImportLog(
-        filename=filename,
-        rows_imported=result.imported_count,
-        rows_skipped=result.skipped_count,
-        warnings=warnings_text,
-        import_type=import_type
-    )
-    
-    db.session.add(import_log)
-    
-    try:
-        db.session.commit()
-        return import_log.id
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error creating import log: {str(e)}")
-        return None
-
-
-def process_import(
-    file: FileStorage, 
-    import_type: str, 
-    validate_only: bool = False
-) -> ImportResult:
-    """
-    Process an import from a file.
-    
-    Args:
-        file: The uploaded file
-        import_type: The type of data to import (property, tax_code, tax_district)
-        validate_only: If True, only validates data without importing
-        
-    Returns:
-        ImportResult: The result of the import
+        ImportResult object with import statistics and messages
     """
     result = ImportResult()
     
+    # Validate required columns
+    required_columns = ['property_id', 'assessed_value', 'tax_code']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        result.success = False
+        result.message = f"Missing required columns: {', '.join(missing_columns)}"
+        return result
+    
+    # Additional validation for data types
     try:
-        # Read data from file
-        data, file_type = read_data_from_file(file)
+        df['assessed_value'] = pd.to_numeric(df['assessed_value'], errors='coerce')
+        if df['assessed_value'].isna().any():
+            result.add_warning("Some assessed_value entries were not valid numbers and were set to null")
+            
+        # Get valid tax codes
+        valid_tax_codes = set(tc.code for tc in TaxCode.query.all())
+        invalid_tax_codes = set(df['tax_code'].unique()) - valid_tax_codes
         
-        if not data:
-            result.add_error("No data found in file")
-            return result
+        if invalid_tax_codes:
+            # Create new tax codes for missing ones
+            for code in invalid_tax_codes:
+                if pd.isna(code) or code == '':
+                    continue
+                    
+                new_tax_code = TaxCode(
+                    code=str(code),
+                    description=f"Auto-created from property import",
+                    year=pd.to_datetime('now').year
+                )
+                db.session.add(new_tax_code)
             
-        # Validate import metadata
-        try:
-            validate_import_metadata(file.filename, data, import_type)
-        except ValidationError as e:
-            result.add_error(f"Import metadata validation failed: {str(e)}")
-            return result
-            
-        # Validate data rows
-        validation_result = validate_data_rows(data, import_type, strict=False)
+            db.session.commit()
+            result.add_warning(f"Created {len(invalid_tax_codes)} new tax codes: {', '.join(str(c) for c in invalid_tax_codes if not pd.isna(c) and c != '')}")
         
-        # Check if we have validation errors (not a boolean True)
-        if validation_result and not isinstance(validation_result, bool):
-            # We have a list of validation errors
-            validation_errors = validation_result
+        # Add current year if not present
+        if 'year' not in df.columns:
+            df['year'] = pd.to_datetime('now').year
+            result.add_warning("Year column not found, using current year")
             
-            # Add validation errors as warnings
-            for error in validation_errors:
-                result.add_warning(f"Row {error.get('row', '?')}: {error.get('error')}")
-                result.skipped_count += 1
-            
-            # Filter out invalid rows
-            valid_indices = [i for i, d in enumerate(data) if i not in [e.get('row') for e in validation_errors]]
-            data = [data[i] for i in valid_indices]
+        # Start import
+        imported_count = 0
+        skipped_count = 0
         
-        # If validation only, don't import
-        if validate_only:
-            result.imported_count = len(data)
-            return result
-            
-        # Import data based on type
-        if import_type == 'property':
-            import_property_data(data, result)
-        elif import_type == 'tax_code':
-            import_tax_code_data(data, result)
-        elif import_type == 'tax_district':
-            import_tax_district_data(data, result)
+        for _, row in df.iterrows():
+            try:
+                # Check if property already exists
+                property_id = str(row['property_id']).strip()
+                year = int(row['year']) if 'year' in row else pd.to_datetime('now').year
+                existing_property = Property.query.filter_by(property_id=property_id, year=year).first()
+                
+                if existing_property:
+                    # Update existing property
+                    existing_property.assessed_value = float(row['assessed_value']) if not pd.isna(row['assessed_value']) else None
+                    existing_property.tax_code = str(row['tax_code']).strip()
+                    
+                    if 'address' in row and not pd.isna(row['address']):
+                        existing_property.address = str(row['address']).strip()
+                        
+                    if 'owner_name' in row and not pd.isna(row['owner_name']):
+                        existing_property.owner_name = str(row['owner_name']).strip()
+                        
+                    if 'property_type' in row and not pd.isna(row['property_type']):
+                        existing_property.property_type = str(row['property_type']).strip()
+                    
+                    db.session.add(existing_property)
+                    
+                else:
+                    # Create new property
+                    new_property = Property(
+                        property_id=property_id,
+                        assessed_value=float(row['assessed_value']) if not pd.isna(row['assessed_value']) else 0,
+                        tax_code=str(row['tax_code']).strip(),
+                        year=year
+                    )
+                    
+                    if 'address' in row and not pd.isna(row['address']):
+                        new_property.address = str(row['address']).strip()
+                        
+                    if 'owner_name' in row and not pd.isna(row['owner_name']):
+                        new_property.owner_name = str(row['owner_name']).strip()
+                        
+                    if 'property_type' in row and not pd.isna(row['property_type']):
+                        new_property.property_type = str(row['property_type']).strip()
+                        
+                    db.session.add(new_property)
+                
+                imported_count += 1
+                
+                # Commit in batches to avoid memory issues
+                if imported_count % 100 == 0:
+                    db.session.commit()
+                
+            except Exception as e:
+                logger.error(f"Error importing property {row.get('property_id', 'unknown')}: {str(e)}")
+                result.add_error(f"Error importing property {row.get('property_id', 'unknown')}: {str(e)}")
+                skipped_count += 1
+        
+        # Final commit
+        db.session.commit()
+        
+        # Create import log entry
+        import_log = ImportLog(
+            filename=f"property_import_{pd.to_datetime('now').strftime('%Y%m%d_%H%M%S')}",
+            import_type='property',
+            records_imported=imported_count,
+            records_skipped=skipped_count,
+            status='completed' if imported_count > 0 else 'failed'
+        )
+        db.session.add(import_log)
+        db.session.commit()
+        
+        result.records_imported = imported_count
+        result.records_skipped = skipped_count
+        
+        if imported_count == 0 and skipped_count > 0:
+            result.success = False
+            result.message = "Import failed: No records were imported"
+        elif imported_count > 0 and skipped_count > 0:
+            result.message = f"Import completed with warnings: {imported_count} records imported, {skipped_count} records skipped"
         else:
-            result.add_error(f"Unsupported import type: {import_type}")
-            return result
+            result.message = f"Import successful: {imported_count} records imported"
             
-        # Create import log
-        if result.success:
-            log_id = create_import_log(file.filename, import_type, result)
-            result.import_log_id = log_id
-            
-    except Exception as e:
-        logger.error(f"Import error: {str(e)}")
-        result.add_error(f"Import failed: {str(e)}")
+        return result
         
-    return result
+    except Exception as e:
+        logger.error(f"Error in property import: {str(e)}")
+        result.success = False
+        result.message = f"Error during import: {str(e)}"
+        return result
+
+def import_district_data(df: pd.DataFrame) -> ImportResult:
+    """
+    Import tax district data from DataFrame.
+    
+    Args:
+        df: DataFrame containing district data
+        
+    Returns:
+        ImportResult object with import statistics and messages
+    """
+    result = ImportResult()
+    
+    # Validate required columns
+    required_columns = ['tax_district_id', 'district_name', 'levy_code']
+    missing_columns = [col for col in required_columns if col not in df.columns]
+    
+    if missing_columns:
+        result.success = False
+        result.message = f"Missing required columns: {', '.join(missing_columns)}"
+        return result
+    
+    # Additional validation and data preparation
+    try:
+        # Get valid tax codes
+        valid_tax_codes = set(tc.code for tc in TaxCode.query.all())
+        invalid_tax_codes = set(df['levy_code'].unique()) - valid_tax_codes
+        
+        if invalid_tax_codes:
+            # Create new tax codes for missing ones
+            for code in invalid_tax_codes:
+                if pd.isna(code) or code == '':
+                    continue
+                    
+                new_tax_code = TaxCode(
+                    code=str(code),
+                    description=f"Auto-created from district import",
+                    year=pd.to_datetime('now').year
+                )
+                db.session.add(new_tax_code)
+            
+            db.session.commit()
+            result.add_warning(f"Created {len(invalid_tax_codes)} new tax codes: {', '.join(str(c) for c in invalid_tax_codes if not pd.isna(c) and c != '')}")
+        
+        # Add current year if not present
+        if 'year' not in df.columns:
+            df['year'] = pd.to_datetime('now').year
+            result.add_warning("Year column not found, using current year")
+            
+        # Start import
+        imported_count = 0
+        skipped_count = 0
+        
+        for _, row in df.iterrows():
+            try:
+                # Check if district already exists
+                district_id = str(row['tax_district_id']).strip()
+                year = int(row['year']) if 'year' in row else pd.to_datetime('now').year
+                existing_district = TaxDistrict.query.filter_by(tax_district_id=district_id, year=year).first()
+                
+                if existing_district:
+                    # Update existing district
+                    existing_district.district_name = str(row['district_name']).strip()
+                    existing_district.levy_code = str(row['levy_code']).strip()
+                    
+                    if 'statutory_limit' in row and not pd.isna(row['statutory_limit']):
+                        existing_district.statutory_limit = float(row['statutory_limit'])
+                    
+                    db.session.add(existing_district)
+                    
+                else:
+                    # Create new district
+                    new_district = TaxDistrict(
+                        tax_district_id=district_id,
+                        district_name=str(row['district_name']).strip(),
+                        levy_code=str(row['levy_code']).strip(),
+                        year=year
+                    )
+                    
+                    if 'statutory_limit' in row and not pd.isna(row['statutory_limit']):
+                        new_district.statutory_limit = float(row['statutory_limit'])
+                        
+                    db.session.add(new_district)
+                
+                imported_count += 1
+                
+                # Commit in batches to avoid memory issues
+                if imported_count % 100 == 0:
+                    db.session.commit()
+                
+            except Exception as e:
+                logger.error(f"Error importing district {row.get('tax_district_id', 'unknown')}: {str(e)}")
+                result.add_error(f"Error importing district {row.get('tax_district_id', 'unknown')}: {str(e)}")
+                skipped_count += 1
+        
+        # Final commit
+        db.session.commit()
+        
+        # Create import log entry
+        import_log = ImportLog(
+            filename=f"district_import_{pd.to_datetime('now').strftime('%Y%m%d_%H%M%S')}",
+            import_type='district',
+            records_imported=imported_count,
+            records_skipped=skipped_count,
+            status='completed' if imported_count > 0 else 'failed'
+        )
+        db.session.add(import_log)
+        db.session.commit()
+        
+        result.records_imported = imported_count
+        result.records_skipped = skipped_count
+        
+        if imported_count == 0 and skipped_count > 0:
+            result.success = False
+            result.message = "Import failed: No records were imported"
+        elif imported_count > 0 and skipped_count > 0:
+            result.message = f"Import completed with warnings: {imported_count} records imported, {skipped_count} records skipped"
+        else:
+            result.message = f"Import successful: {imported_count} records imported"
+            
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in district import: {str(e)}")
+        result.success = False
+        result.message = f"Error during import: {str(e)}"
+        return result

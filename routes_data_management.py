@@ -1,507 +1,502 @@
 """
-Routes for the enhanced data management system.
+Data management routes for the Levy Calculation System.
 
-This module includes routes for:
-- Audit trail management and review
-- Data archiving and retention
-- Enhanced compliance reporting
+This module provides routes for importing and exporting data.
 """
 
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+import tempfile
+from datetime import datetime
+from typing import Dict, List, Any, Optional
+from json import JSONEncoder
 
-from flask import render_template, request, redirect, url_for, flash, jsonify, abort, send_file
-from sqlalchemy import func, desc
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, send_file, current_app, session
+from werkzeug.utils import secure_filename
+import sqlalchemy as sa
 
-from app import app, db
-from models import (
-    AuditLog, DataArchive, ComplianceReport,
-    Property, TaxCode, TaxDistrict, TaxCodeHistoricalRate,
-    BillImpactEvaluation, BillImpactTaxCode
-)
-from utils.audit_utils import (
-    get_audit_logs_for_record, get_audit_logs_by_action,
-    get_recent_audit_logs, get_audit_summary,
-    format_audit_log_for_display
-)
-from utils.archive_utils import (
-    create_table_archive, create_year_end_archives,
-    apply_retention_policies, get_available_archives,
-    restore_archive
-)
-from utils.enhanced_compliance_utils import (
-    generate_levy_rate_compliance_report,
-    generate_filing_deadline_compliance_report,
-    generate_banked_capacity_report,
-    generate_comprehensive_compliance_report,
-    get_compliance_history,
-    apply_statutory_limits_to_scenario
-)
+from app2 import db
+from models import ImportLog, ExportLog, Property, TaxCode, TaxDistrict
+from utils.import_utils import process_file_import
 
-# Set up logger
+# Configure logger
 logger = logging.getLogger(__name__)
 
-# Audit Trail Routes
-@app.route('/audit-trail')
-def audit_trail():
-    """
-    View the audit trail of data changes.
-    """
-    # Get filter parameters
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-    table = request.args.get('table')
-    record_id = request.args.get('record_id', type=int)
-    action = request.args.get('action')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    
-    # Convert dates if provided
-    if start_date:
-        try:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d')
-        except ValueError:
-            start_date = None
-    if end_date:
-        try:
-            end_date = datetime.strptime(end_date, '%Y-%m-%d')
-            # Set to end of day
-            end_date = end_date.replace(hour=23, minute=59, second=59)
-        except ValueError:
-            end_date = None
-    
-    # Build query with filters
-    query = AuditLog.query
-    
-    if table:
-        query = query.filter(AuditLog.table_name == table)
-    if record_id:
-        query = query.filter(AuditLog.record_id == record_id)
-    if action:
-        query = query.filter(AuditLog.action == action)
-    if start_date:
-        query = query.filter(AuditLog.timestamp >= start_date)
-    if end_date:
-        query = query.filter(AuditLog.timestamp <= end_date)
-    
-    # Get distinct tables for dropdown
-    tables_query = db.session.query(AuditLog.table_name.distinct()).order_by(AuditLog.table_name)
-    tables = [table[0] for table in tables_query.all()]
-    
-    # Paginate results
-    pagination = query.order_by(AuditLog.timestamp.desc()).paginate(page=page, per_page=per_page)
-    logs = pagination.items
-    
-    # Format logs for display
-    formatted_logs = []
-    for log in logs:
-        formatted_logs.append(format_audit_log_for_display(log))
-    
-    # Get audit summary
-    summary = get_audit_summary(start_date, end_date)
-    
-    return render_template('audit_trail.html',
-                          logs=formatted_logs,
-                          pagination=pagination,
-                          tables=tables,
-                          actions=['CREATE', 'UPDATE', 'DELETE'],
-                          selected_table=table,
-                          selected_record_id=record_id,
-                          selected_action=action,
-                          start_date=start_date.strftime('%Y-%m-%d') if start_date else '',
-                          end_date=end_date.strftime('%Y-%m-%d') if end_date else '',
-                          summary=summary)
+# Create blueprint
+data_management_bp = Blueprint(
+    'data_management', 
+    __name__, 
+    url_prefix='/data-management',
+    template_folder='templates/data_management'
+)
 
-@app.route('/audit-trail/entity/<string:table_name>/<int:record_id>')
-def audit_trail_entity(table_name, record_id):
-    """
-    View audit trail for a specific entity.
-    """
-    # Get audit logs for the entity
-    logs = get_audit_logs_for_record(table_name, record_id)
+# Define routes
+@data_management_bp.route('/import', methods=['GET'])
+def import_page():
+    """Render the import page."""
+    # Get recent imports
+    recent_imports = ImportLog.query.order_by(ImportLog.import_date.desc()).limit(5).all()
     
-    # Format logs for display
-    formatted_logs = []
-    for log in logs:
-        formatted_logs.append(format_audit_log_for_display(log))
-    
-    # Get entity details if available
-    entity = None
-    entity_name = None
-    
-    if table_name == 'property':
-        entity = Property.query.get(record_id)
-        if entity:
-            entity_name = f"Property {entity.property_id}"
-    elif table_name == 'tax_code':
-        entity = TaxCode.query.get(record_id)
-        if entity:
-            entity_name = f"Tax Code {entity.code}"
-    elif table_name == 'tax_district':
-        entity = TaxDistrict.query.get(record_id)
-        if entity:
-            entity_name = f"Tax District {entity.tax_district_id}-{entity.levy_code}"
-    
-    return render_template('audit_trail_entity.html',
-                          logs=formatted_logs,
-                          table_name=table_name,
-                          record_id=record_id,
-                          entity=entity,
-                          entity_name=entity_name)
+    return render_template(
+        'import.html',
+        recent_imports=recent_imports,
+        current_year=datetime.now().year
+    )
 
-@app.route('/api/audit-trail/log/<int:log_id>')
-def api_audit_log_detail(log_id):
-    """
-    API endpoint to get details of a specific audit log.
-    """
-    log = AuditLog.query.get_or_404(log_id)
-    return jsonify(format_audit_log_for_display(log))
-
-# Data Archive Routes
-@app.route('/data-archives')
-def data_archives():
-    """
-    View and manage data archives.
-    """
-    # Get filter parameters
-    table = request.args.get('table')
-    archive_type = request.args.get('type')
-    status = request.args.get('status', 'active')
+@data_management_bp.route('/import/property', methods=['POST'])
+def import_property():
+    """Handle property data import."""
+    if 'file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('data_management.import_page'))
     
-    # Build query with filters
-    query = DataArchive.query
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('data_management.import_page'))
     
-    if table:
-        query = query.filter(DataArchive.table_name == table)
-    if archive_type:
-        query = query.filter(DataArchive.archive_type == archive_type)
-    if status:
-        query = query.filter(DataArchive.status == status)
-    
-    # Get distinct tables and types for dropdowns
-    tables_query = db.session.query(DataArchive.table_name.distinct()).order_by(DataArchive.table_name)
-    tables = [table[0] for table in tables_query.all()]
-    
-    types_query = db.session.query(DataArchive.archive_type.distinct()).order_by(DataArchive.archive_type)
-    archive_types = [type[0] for type in types_query.all()]
-    
-    # Get archives
-    archives = query.order_by(DataArchive.archive_date.desc()).all()
-    
-    return render_template('data_archives.html',
-                          archives=archives,
-                          tables=tables,
-                          archive_types=archive_types,
-                          selected_table=table,
-                          selected_type=archive_type,
-                          selected_status=status)
-
-@app.route('/data-archives/create', methods=['GET', 'POST'])
-def create_archive():
-    """
-    Create a new data archive.
-    """
-    if request.method == 'POST':
-        table_name = request.form.get('table_name')
-        archive_type = request.form.get('archive_type', 'backup')
-        description = request.form.get('description')
-        
-        # Get retention days
-        retention_days = None
-        retention_days_str = request.form.get('retention_days')
-        if retention_days_str:
-            try:
-                retention_days = int(retention_days_str)
-            except ValueError:
-                flash("Invalid retention days", 'danger')
-                return redirect(url_for('create_archive'))
-        
-        # Create archive
-        try:
-            archive = create_table_archive(
-                table_name=table_name,
-                archive_type=archive_type,
-                retention_days=retention_days,
-                description=description
-            )
-            
-            flash(f"Archive created successfully with {archive.record_count} records", 'success')
-            return redirect(url_for('data_archives'))
-        except Exception as e:
-            logger.error(f"Error creating archive: {str(e)}")
-            flash(f"Error creating archive: {str(e)}", 'danger')
-            return redirect(url_for('create_archive'))
-    
-    # GET request - show form
-    return render_template('create_archive.html',
-                         tables=[
-                             {'value': 'property', 'label': 'Properties'},
-                             {'value': 'tax_code', 'label': 'Tax Codes'},
-                             {'value': 'tax_district', 'label': 'Tax Districts'},
-                             {'value': 'tax_code_historical_rate', 'label': 'Historical Rates'},
-                             {'value': 'import_log', 'label': 'Import Logs'},
-                             {'value': 'export_log', 'label': 'Export Logs'},
-                             {'value': 'bill_impact_evaluation', 'label': 'Bill Impact Evaluations'}
-                         ],
-                         archive_types=[
-                             {'value': 'backup', 'label': 'Backup'},
-                             {'value': 'year_end', 'label': 'Year-End'},
-                             {'value': 'quarterly', 'label': 'Quarterly'},
-                             {'value': 'monthly', 'label': 'Monthly'},
-                             {'value': 'pre_change', 'label': 'Pre-Change'}
-                         ])
-
-@app.route('/data-archives/year-end', methods=['GET', 'POST'])
-def create_year_end_archive():
-    """
-    Create year-end archives for all relevant tables.
-    """
-    if request.method == 'POST':
-        # Get year
-        year_str = request.form.get('year')
-        try:
-            year = int(year_str)
-        except (ValueError, TypeError):
-            year = datetime.now().year
-        
-        # Get retention years
-        retention_years = 5  # Default 5 years
-        retention_years_str = request.form.get('retention_years')
-        if retention_years_str:
-            try:
-                retention_years = int(retention_years_str)
-            except ValueError:
-                pass
-        
-        # Convert to days
-        retention_days = retention_years * 365
-        
-        # Create archives
-        try:
-            archives = create_year_end_archives(
-                year=year,
-                retention_days=retention_days
-            )
-            
-            flash(f"Created {len(archives)} year-end archives for {year}", 'success')
-            return redirect(url_for('data_archives'))
-        except Exception as e:
-            logger.error(f"Error creating year-end archives: {str(e)}")
-            flash(f"Error creating year-end archives: {str(e)}", 'danger')
-            return redirect(url_for('create_year_end_archive'))
-    
-    # GET request - show form
-    current_year = datetime.now().year
-    years = list(range(current_year - 5, current_year + 1))
-    
-    return render_template('create_year_end_archive.html',
-                         years=years,
-                         selected_year=current_year)
-
-@app.route('/data-archives/restore/<int:archive_id>', methods=['GET', 'POST'])
-def restore_data_archive(archive_id):
-    """
-    Restore data from an archive.
-    """
-    archive = DataArchive.query.get_or_404(archive_id)
-    
-    if request.method == 'POST':
-        restore_type = request.form.get('restore_type', 'merge')
-        
-        try:
-            result = restore_archive(
-                archive_id=archive_id,
-                restore_type=restore_type
-            )
-            
-            flash(f"Restored {result['stats']['updated']} updated and {result['stats']['created']} new records", 'success')
-            return redirect(url_for('data_archives'))
-        except Exception as e:
-            logger.error(f"Error restoring archive: {str(e)}")
-            flash(f"Error restoring archive: {str(e)}", 'danger')
-            return redirect(url_for('restore_data_archive', archive_id=archive_id))
-    
-    # GET request - show form
-    # Get preview of what would be restored
     try:
-        preview = restore_archive(
-            archive_id=archive_id,
-            restore_type='preview'
+        result = process_file_import(file, 'property')
+        
+        if result.success:
+            flash(f'Successfully imported {result.records_imported} properties', 'success')
+        else:
+            flash(f'Import failed: {result.message}', 'error')
+            
+        # Add warnings to flash messages
+        for warning in result.warnings:
+            flash(warning, 'warning')
+            
+        return redirect(url_for('data_management.import_page'))
+    
+    except Exception as e:
+        logger.error(f"Error importing property data: {str(e)}")
+        flash(f'Error importing property data: {str(e)}', 'error')
+        return redirect(url_for('data_management.import_page'))
+
+@data_management_bp.route('/import/district', methods=['POST'])
+def import_district():
+    """Handle tax district data import."""
+    if 'file' not in request.files:
+        flash('No file selected', 'error')
+        return redirect(url_for('data_management.import_page'))
+    
+    file = request.files['file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('data_management.import_page'))
+    
+    try:
+        result = process_file_import(file, 'district')
+        
+        if result.success:
+            flash(f'Successfully imported {result.records_imported} districts', 'success')
+        else:
+            flash(f'Import failed: {result.message}', 'error')
+            
+        # Add warnings to flash messages
+        for warning in result.warnings:
+            flash(warning, 'warning')
+            
+        return redirect(url_for('data_management.import_page'))
+    
+    except Exception as e:
+        logger.error(f"Error importing district data: {str(e)}")
+        flash(f'Error importing district data: {str(e)}', 'error')
+        return redirect(url_for('data_management.import_page'))
+
+@data_management_bp.route('/export', methods=['GET'])
+def export_page():
+    """Render the export page."""
+    # Get available years
+    years = db.session.query(Property.year).distinct().all()
+    years = [year[0] for year in years]
+    
+    # Get recent exports
+    recent_exports = ExportLog.query.order_by(ExportLog.export_date.desc()).limit(5).all()
+    
+    return render_template(
+        'export.html',
+        years=years,
+        recent_exports=recent_exports,
+        current_year=datetime.now().year
+    )
+
+@data_management_bp.route('/export/properties', methods=['POST'])
+def export_properties():
+    """Handle property data export."""
+    try:
+        # Get export parameters
+        export_format = request.form.get('format', 'csv')
+        year = request.form.get('year', datetime.now().year)
+        tax_code = request.form.get('tax_code')
+        
+        # Build query
+        query = db.session.query(Property)
+        if year:
+            query = query.filter(Property.year == year)
+        if tax_code:
+            query = query.filter(Property.tax_code == tax_code)
+            
+        # Execute query
+        properties = query.all()
+        
+        if not properties:
+            flash('No properties found matching the criteria', 'warning')
+            return redirect(url_for('data_management.export_page'))
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{export_format}') as temp:
+            temp_path = temp.name
+            
+            if export_format == 'csv':
+                # Create CSV file
+                import csv
+                with open(temp_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    # Write header
+                    writer.writerow(['property_id', 'address', 'owner_name', 'assessed_value', 'tax_code', 'property_type', 'year'])
+                    # Write data
+                    for prop in properties:
+                        writer.writerow([
+                            prop.property_id,
+                            prop.address,
+                            prop.owner_name,
+                            prop.assessed_value,
+                            prop.tax_code,
+                            prop.property_type,
+                            prop.year
+                        ])
+                        
+            elif export_format == 'json':
+                # Create JSON file
+                class PropertyEncoder(JSONEncoder):
+                    def default(self, obj):
+                        if isinstance(obj, Property):
+                            return {
+                                'property_id': obj.property_id,
+                                'address': obj.address,
+                                'owner_name': obj.owner_name,
+                                'assessed_value': obj.assessed_value,
+                                'tax_code': obj.tax_code,
+                                'property_type': obj.property_type,
+                                'year': obj.year
+                            }
+                        return super().default(obj)
+                
+                with open(temp_path, 'w') as jsonfile:
+                    json.dump(properties, jsonfile, cls=PropertyEncoder, indent=2)
+                    
+            elif export_format == 'excel':
+                try:
+                    import pandas as pd
+                    
+                    # Convert to pandas DataFrame
+                    data = []
+                    for prop in properties:
+                        data.append({
+                            'property_id': prop.property_id,
+                            'address': prop.address,
+                            'owner_name': prop.owner_name,
+                            'assessed_value': prop.assessed_value,
+                            'tax_code': prop.tax_code,
+                            'property_type': prop.property_type,
+                            'year': prop.year
+                        })
+                    
+                    df = pd.DataFrame(data)
+                    df.to_excel(temp_path, index=False)
+                    
+                except ImportError:
+                    flash('Excel export requires pandas to be installed', 'error')
+                    return redirect(url_for('data_management.export_page'))
+                
+            else:
+                flash(f'Unsupported export format: {export_format}', 'error')
+                return redirect(url_for('data_management.export_page'))
+                
+        # Log the export
+        export_log = ExportLog(
+            filename=f'properties_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}',
+            export_date=datetime.utcnow(),
+            export_type='property',
+            rows_exported=len(properties),
+            status='completed'
         )
+        db.session.add(export_log)
+        db.session.commit()
+        
+        # Create exports directory if it doesn't exist
+        os.makedirs('exports', exist_ok=True)
+        
+        # Copy the temporary file to the exports directory
+        export_filename = f'properties_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}'
+        export_path = os.path.join('exports', export_filename)
+        with open(temp_path, 'rb') as src, open(export_path, 'wb') as dst:
+            dst.write(src.read())
+            
+        # Send the file
+        return send_file(
+            export_path,
+            as_attachment=True,
+            download_name=export_filename,
+            mimetype='application/octet-stream'
+        )
+        
     except Exception as e:
-        logger.error(f"Error generating preview: {str(e)}")
-        preview = {'stats': {'total_records': 0}}
-    
-    return render_template('restore_archive.html',
-                         archive=archive,
-                         preview=preview)
+        logger.error(f"Error exporting properties: {str(e)}")
+        flash(f'Error exporting properties: {str(e)}', 'error')
+        return redirect(url_for('data_management.export_page'))
+        
+    finally:
+        # Clean up temporary file
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-@app.route('/api/data-archives/preview/<int:archive_id>')
-def api_archive_preview(archive_id):
-    """
-    API endpoint to preview archive contents.
-    """
-    archive = DataArchive.query.get_or_404(archive_id)
-    
-    # Get limit and offset for pagination
-    limit = request.args.get('limit', 10, type=int)
-    offset = request.args.get('offset', 0, type=int)
-    
-    # Get data preview with pagination
-    data = archive.get_data()
-    total = len(data)
-    preview = data[offset:offset+limit] if data else []
-    
-    return jsonify({
-        'archive': {
-            'id': archive.id,
-            'table_name': archive.table_name,
-            'archive_date': archive.archive_date.strftime('%Y-%m-%d %H:%M:%S'),
-            'record_count': archive.record_count
-        },
-        'preview': {
-            'total': total,
-            'limit': limit,
-            'offset': offset,
-            'records': preview
-        }
-    })
-
-# Enhanced Compliance Routes
-@app.route('/enhanced-compliance')
-def enhanced_compliance():
-    """
-    View enhanced compliance reports.
-    """
-    # Get selected report
-    report_id = request.args.get('report_id', type=int)
-    
-    # If no report selected, get the most recent
-    if not report_id:
-        report = ComplianceReport.query.order_by(ComplianceReport.report_date.desc()).first()
-        if report:
-            report_id = report.id
-    
-    # Get the report
-    report = None
-    report_data = None
-    if report_id:
-        report = ComplianceReport.query.get(report_id)
-        if report:
-            report_data = report.get_report_data()
-    
-    # Get compliance history
-    history = get_compliance_history()
-    
-    return render_template('enhanced_compliance.html',
-                         report=report,
-                         report_data=report_data,
-                         history=history)
-
-@app.route('/enhanced-compliance/generate', methods=['POST'])
-def generate_compliance_report():
-    """
-    Generate a new comprehensive compliance report.
-    """
+@data_management_bp.route('/export/districts', methods=['POST'])
+def export_districts():
+    """Handle tax district data export."""
     try:
-        year_str = request.form.get('year')
-        year = int(year_str) if year_str else None
+        # Get export parameters
+        export_format = request.form.get('format', 'csv')
+        year = request.form.get('year', datetime.now().year)
         
-        report = generate_comprehensive_compliance_report(year)
+        # Build query
+        query = db.session.query(TaxDistrict)
+        if year:
+            query = query.filter(TaxDistrict.year == year)
+            
+        # Execute query
+        districts = query.all()
         
-        flash("Compliance report generated successfully", 'success')
-        return redirect(url_for('enhanced_compliance', report_id=report['report_id']))
+        if not districts:
+            flash('No districts found matching the criteria', 'warning')
+            return redirect(url_for('data_management.export_page'))
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{export_format}') as temp:
+            temp_path = temp.name
+            
+            if export_format == 'csv':
+                # Create CSV file
+                import csv
+                with open(temp_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    # Write header
+                    writer.writerow(['tax_district_id', 'district_name', 'levy_code', 'statutory_limit', 'year'])
+                    # Write data
+                    for district in districts:
+                        writer.writerow([
+                            district.tax_district_id,
+                            district.district_name,
+                            district.levy_code,
+                            district.statutory_limit,
+                            district.year
+                        ])
+                        
+            elif export_format == 'json':
+                # Create JSON file
+                class DistrictEncoder(JSONEncoder):
+                    def default(self, obj):
+                        if isinstance(obj, TaxDistrict):
+                            return {
+                                'tax_district_id': obj.tax_district_id,
+                                'district_name': obj.district_name,
+                                'levy_code': obj.levy_code,
+                                'statutory_limit': obj.statutory_limit,
+                                'year': obj.year
+                            }
+                        return super().default(obj)
+                
+                with open(temp_path, 'w') as jsonfile:
+                    json.dump(districts, jsonfile, cls=DistrictEncoder, indent=2)
+                    
+            elif export_format == 'excel':
+                try:
+                    import pandas as pd
+                    
+                    # Convert to pandas DataFrame
+                    data = []
+                    for district in districts:
+                        data.append({
+                            'tax_district_id': district.tax_district_id,
+                            'district_name': district.district_name,
+                            'levy_code': district.levy_code,
+                            'statutory_limit': district.statutory_limit,
+                            'year': district.year
+                        })
+                    
+                    df = pd.DataFrame(data)
+                    df.to_excel(temp_path, index=False)
+                    
+                except ImportError:
+                    flash('Excel export requires pandas to be installed', 'error')
+                    return redirect(url_for('data_management.export_page'))
+                
+            else:
+                flash(f'Unsupported export format: {export_format}', 'error')
+                return redirect(url_for('data_management.export_page'))
+                
+        # Log the export
+        export_log = ExportLog(
+            filename=f'districts_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}',
+            export_date=datetime.utcnow(),
+            export_type='district',
+            rows_exported=len(districts),
+            status='completed'
+        )
+        db.session.add(export_log)
+        db.session.commit()
+        
+        # Create exports directory if it doesn't exist
+        os.makedirs('exports', exist_ok=True)
+        
+        # Copy the temporary file to the exports directory
+        export_filename = f'districts_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}'
+        export_path = os.path.join('exports', export_filename)
+        with open(temp_path, 'rb') as src, open(export_path, 'wb') as dst:
+            dst.write(src.read())
+            
+        # Send the file
+        return send_file(
+            export_path,
+            as_attachment=True,
+            download_name=export_filename,
+            mimetype='application/octet-stream'
+        )
+        
     except Exception as e:
-        logger.error(f"Error generating compliance report: {str(e)}")
-        flash(f"Error generating compliance report: {str(e)}", 'danger')
-        return redirect(url_for('enhanced_compliance'))
+        logger.error(f"Error exporting districts: {str(e)}")
+        flash(f'Error exporting districts: {str(e)}', 'error')
+        return redirect(url_for('data_management.export_page'))
+        
+    finally:
+        # Clean up temporary file
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
-@app.route('/enhanced-compliance/download/<int:report_id>')
-def download_compliance_report(report_id):
-    """
-    Download a compliance report as CSV.
-    """
-    report = ComplianceReport.query.get_or_404(report_id)
-    report_data = report.get_report_data()
-    
-    # Create CSV data
-    import csv
-    from io import StringIO
-    
-    output = StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow(['Comprehensive Compliance Report', report.report_date.strftime('%Y-%m-%d %H:%M:%S')])
-    writer.writerow(['Year', report.year])
-    writer.writerow(['Overall Compliance', 'Yes' if report.overall_compliant else 'No'])
-    writer.writerow(['Compliance Percentage', f"{report.compliance_percentage:.2f}%"])
-    writer.writerow([])
-    
-    # Write critical issues
-    writer.writerow(['Critical Issues'])
-    critical_issues = report.get_critical_issues()
-    if critical_issues:
-        for issue in critical_issues:
-            writer.writerow([issue])
-    else:
-        writer.writerow(['No critical issues found'])
-    writer.writerow([])
-    
-    # Write levy rate compliance
-    levy_data = report_data.get('levy_rate_compliance', {})
-    writer.writerow(['Levy Rate Compliance'])
-    writer.writerow(['Tax Code', 'Levy Rate', 'Previous Rate', 'Regular Levy Compliant', 'Annual Increase Compliant', 'Issues'])
-    
-    for code_data in levy_data.get('regular_levy_compliance', []):
-        writer.writerow([
-            code_data.get('code'),
-            code_data.get('levy_rate'),
-            code_data.get('previous_rate'),
-            'Yes' if code_data.get('regular_levy_compliant') else 'No',
-            'Yes' if code_data.get('annual_increase_compliant') else 'No',
-            '; '.join(code_data.get('issues', []))
-        ])
-    writer.writerow([])
-    
-    # Write filing deadline compliance
-    filing_data = report_data.get('filing_deadline_compliance', {})
-    writer.writerow(['Filing Deadline Compliance'])
-    writer.writerow(['Deadline Date', filing_data.get('deadline_date')])
-    writer.writerow(['Days Remaining', filing_data.get('days_remaining')])
-    writer.writerow(['Status', filing_data.get('status')])
-    warnings = filing_data.get('warnings', [])
-    writer.writerow(['Warnings', '; '.join(warnings) if warnings else 'None'])
-    writer.writerow([])
-    
-    # Write banked capacity
-    banked_data = report_data.get('banked_capacity_compliance', {})
-    writer.writerow(['Banked Capacity'])
-    writer.writerow(['Total Banked Capacity', f"${banked_data.get('total_banked_capacity', 0):,.2f}"])
-    writer.writerow(['Tax Codes with Banked Capacity', len(banked_data.get('tax_codes_with_banked_capacity', []))])
-    writer.writerow([])
-    
-    # Write recommendations
-    writer.writerow(['Recommendations'])
-    recommendations = report_data.get('recommendations', [])
-    for recommendation in recommendations:
-        writer.writerow([recommendation])
-    
-    # Prepare response
-    output.seek(0)
-    filename = f"compliance_report_{report.year}_{report.report_date.strftime('%Y%m%d')}.csv"
-    
-    # Save to temporary file
-    temp_path = os.path.join('/tmp', filename)
-    with open(temp_path, 'w') as f:
-        f.write(output.getvalue())
-    
-    return send_file(temp_path, as_attachment=True, download_name=filename)
-
-# Initialize the routes
-def init_data_management_routes():
-    """Initialize data management routes."""
-    logger.info("Initializing data management routes")
-    # Routes are automatically loaded from this module
+@data_management_bp.route('/export/tax-codes', methods=['POST'])
+def export_tax_codes():
+    """Handle tax code data export."""
+    try:
+        # Get export parameters
+        export_format = request.form.get('format', 'csv')
+        year = request.form.get('year', datetime.now().year)
+        
+        # Build query
+        query = db.session.query(TaxCode)
+        if year:
+            query = query.filter(TaxCode.year == year)
+            
+        # Execute query
+        tax_codes = query.all()
+        
+        if not tax_codes:
+            flash('No tax codes found matching the criteria', 'warning')
+            return redirect(url_for('data_management.export_page'))
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{export_format}') as temp:
+            temp_path = temp.name
+            
+            if export_format == 'csv':
+                # Create CSV file
+                import csv
+                with open(temp_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    # Write header
+                    writer.writerow(['code', 'description', 'total_assessed_value', 'levy_rate', 'levy_amount', 'year'])
+                    # Write data
+                    for tax_code in tax_codes:
+                        writer.writerow([
+                            tax_code.code,
+                            tax_code.description,
+                            tax_code.total_assessed_value,
+                            tax_code.levy_rate,
+                            tax_code.levy_amount,
+                            tax_code.year
+                        ])
+                        
+            elif export_format == 'json':
+                # Create JSON file
+                class TaxCodeEncoder(JSONEncoder):
+                    def default(self, obj):
+                        if isinstance(obj, TaxCode):
+                            return {
+                                'code': obj.code,
+                                'description': obj.description,
+                                'total_assessed_value': obj.total_assessed_value,
+                                'levy_rate': obj.levy_rate,
+                                'levy_amount': obj.levy_amount,
+                                'year': obj.year
+                            }
+                        return super().default(obj)
+                
+                with open(temp_path, 'w') as jsonfile:
+                    json.dump(tax_codes, jsonfile, cls=TaxCodeEncoder, indent=2)
+                    
+            elif export_format == 'excel':
+                try:
+                    import pandas as pd
+                    
+                    # Convert to pandas DataFrame
+                    data = []
+                    for tax_code in tax_codes:
+                        data.append({
+                            'code': tax_code.code,
+                            'description': tax_code.description,
+                            'total_assessed_value': tax_code.total_assessed_value,
+                            'levy_rate': tax_code.levy_rate,
+                            'levy_amount': tax_code.levy_amount,
+                            'year': tax_code.year
+                        })
+                    
+                    df = pd.DataFrame(data)
+                    df.to_excel(temp_path, index=False)
+                    
+                except ImportError:
+                    flash('Excel export requires pandas to be installed', 'error')
+                    return redirect(url_for('data_management.export_page'))
+                
+            else:
+                flash(f'Unsupported export format: {export_format}', 'error')
+                return redirect(url_for('data_management.export_page'))
+                
+        # Log the export
+        export_log = ExportLog(
+            filename=f'tax_codes_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}',
+            export_date=datetime.utcnow(),
+            export_type='tax_code',
+            rows_exported=len(tax_codes),
+            status='completed'
+        )
+        db.session.add(export_log)
+        db.session.commit()
+        
+        # Create exports directory if it doesn't exist
+        os.makedirs('exports', exist_ok=True)
+        
+        # Copy the temporary file to the exports directory
+        export_filename = f'tax_codes_{year}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.{export_format}'
+        export_path = os.path.join('exports', export_filename)
+        with open(temp_path, 'rb') as src, open(export_path, 'wb') as dst:
+            dst.write(src.read())
+            
+        # Send the file
+        return send_file(
+            export_path,
+            as_attachment=True,
+            download_name=export_filename,
+            mimetype='application/octet-stream'
+        )
+        
+    except Exception as e:
+        logger.error(f"Error exporting tax codes: {str(e)}")
+        flash(f'Error exporting tax codes: {str(e)}', 'error')
+        return redirect(url_for('data_management.export_page'))
+        
+    finally:
+        # Clean up temporary file
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.unlink(temp_path)

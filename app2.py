@@ -1,20 +1,48 @@
+"""
+Application factory module for the Levy Calculation System.
+
+This module provides the Flask application factory pattern
+for better test isolation and configuration flexibility.
+"""
+
 import os
 import logging
+from datetime import datetime
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from sqlalchemy.orm import DeclarativeBase
-from config import config_by_name
 
+# Configure logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Define database base class
 class Base(DeclarativeBase):
     """Base class for all database models."""
     pass
 
-# Initialize SQLAlchemy with the Base class
+# Initialize SQLAlchemy extension
 db = SQLAlchemy(model_class=Base)
 
-# Initialize Migration object (will be configured after the app)
-migrate = Migrate()
+# Create application
+app = Flask(__name__)
+
+# Configure application
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True
+}
+app.secret_key = os.environ.get('SESSION_SECRET', 'dev-secret-key')
+
+# Initialize database
+db.init_app(app)
+
+# Import models (after db initialization)
+with app.app_context():
+    from models import Property, TaxCode, TaxDistrict, ImportLog, ExportLog  # noqa: F401
 
 def create_app(config_name=None):
     """
@@ -26,43 +54,44 @@ def create_app(config_name=None):
     Returns:
         The configured Flask application
     """
-    # Determine configuration environment
-    if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'development')
+    # Create application instance
+    app_instance = Flask(__name__)
     
-    # Create the app
-    app = Flask(__name__)
+    # Configure app based on environment
+    if config_name == 'testing':
+        app_instance.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('TEST_DATABASE_URL', 'sqlite:///:memory:')
+        app_instance.config['TESTING'] = True
+    else:
+        app_instance.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     
-    # Load configuration
-    app.config.from_object(config_by_name[config_name])
-    config_by_name[config_name].init_app(app)
+    # Common configuration
+    app_instance.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app_instance.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_recycle': 300,
+        'pool_pre_ping': True
+    }
+    app_instance.secret_key = os.environ.get('SESSION_SECRET', 'dev-secret-key')
     
-    # Configure logging
-    logging.basicConfig(
-        level=app.config.get('LOG_LEVEL', logging.INFO),
-        format=app.config.get('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    )
-    
-    # Initialize the app with extensions
-    db.init_app(app)
-    
-    # Import models before initializing migrations
-    with app.app_context():
-        import models
-    
-    # Initialize Flask-Migrate
-    migrate.init_app(app, db, directory=app.config.get('MIGRATION_DIR'))
+    # Initialize database with app
+    db.init_app(app_instance)
     
     # Register blueprints
-    from routes2 import main_bp
-    app.register_blueprint(main_bp)
+    with app_instance.app_context():
+        # Import models (after db initialization)
+        from models import Property, TaxCode, TaxDistrict, ImportLog, ExportLog  # noqa: F401
+        
+        # Import and register blueprints
+        try:
+            from routes_data_management import data_management_bp
+            app_instance.register_blueprint(data_management_bp)
+            logger.info("Registered data_management blueprint")
+        except ImportError as e:
+            logger.warning(f"Could not register data_management blueprint: {str(e)}")
+        
+        try:
+            # Add other blueprints here as they are created
+            pass
+        except ImportError as e:
+            logger.warning(f"Could not register additional blueprints: {str(e)}")
     
-    # In development mode, create all tables using db.create_all()
-    # In production, migrations should be used
-    if config_name != 'production':
-        with app.app_context():
-            # Only call create_all in development/testing environments
-            # In production, migrations should be used instead
-            db.create_all()
-    
-    return app
+    return app_instance

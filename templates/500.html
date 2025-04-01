@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}500 - Server Error{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h2 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> 500 - Server Error</h2>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-bug display-1 text-danger"></i>
+                    </div>
+                    <h4 class="mb-3">Oops! Something went wrong on our end.</h4>
+                    <p class="mb-4">We're sorry, but our server encountered an unexpected error.</p>
+                    <p class="small text-muted mb-4">Our technical team has been notified and is working to fix the issue.</p>
+                    <div class="d-grid gap-2 col-6 mx-auto">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="bi bi-house-door"></i> Go to Home Page
+                        </a>
+                        <button class="btn btn-outline-secondary" onclick="window.history.back();">
+                            <i class="bi bi-arrow-left"></i> Go Back
+                        </button>
+                    </div>
+                </div>
+                {% if error_details %}
+                <div class="card-footer">
+                    <div class="accordion" id="errorAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                    Error Details (For Administrators)
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#errorAccordion">
+                                <div class="accordion-body">
+                                    <pre class="bg-dark text-light p-3 rounded"><code>{{ error_details }}</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,698 +1,659 @@
 """
-Forecasting utilities for property tax levy rates.
+Forecasting utilities for the Levy Calculation System.
 
-This module provides tools to analyze historical tax rate data and
-generate forecasts for future years using various statistical models.
+This module provides various forecasting models and utilities for predicting
+future levy rates, tax amounts, and assessed values.
 """
-
 import logging
+from typing import Dict, List, Tuple, Any, Optional, Union, Type
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Union, Optional, Any
-from datetime import datetime
-from dataclasses import dataclass, field
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.arima.model import ARIMA
 
+from app2 import db
 from models import TaxCode, TaxCodeHistoricalRate
-from app import db
 
-# Configure logging
+# Set up logging
 logger = logging.getLogger(__name__)
 
-# Custom exception for insufficient data
+# Available forecasting models
+FORECAST_MODELS = ['linear', 'exponential', 'arima']
+
 class InsufficientDataError(Exception):
-    """Exception raised when there is not enough historical data for forecasting."""
+    """Exception raised when there is insufficient data for forecasting."""
     pass
 
-
-@dataclass
 class ForecastModel:
-    """Base class for forecast models."""
-    model_type: str
-    data: Dict[str, Union[List[int], List[float]]]
-    model: Any = None
-    min_years_required: int = 3
-    scenario: str = 'baseline'  # 'baseline', 'optimistic', or 'pessimistic'
+    """Base class for forecasting models."""
     
-    def __post_init__(self):
-        """Initialize the model after instantiation."""
-        # Verify we have sufficient data
-        if len(self.data['years']) < self.min_years_required:
-            raise InsufficientDataError(
-                f"At least {self.min_years_required} years of historical data are required."
-            )
+    def __init__(self, years: List[int], values: List[float]):
+        """
+        Initialize the forecast model.
         
-        # Additional setup should be done in subclasses
-        self._validate_data()
+        Args:
+            years: List of years for historical data
+            values: List of values (rates, amounts, etc.) for historical data
+        """
+        if len(years) < 3:
+            raise InsufficientDataError("At least 3 years of historical data is required")
+        
+        self.years = years
+        self.values = values
+        self.model = None
     
-    def _validate_data(self):
-        """Validate that the data meets requirements."""
-        if 'years' not in self.data or 'rates' not in self.data:
-            raise ValueError("Data must include 'years' and 'rates' keys")
+    def train(self) -> None:
+        """Train the model on the historical data."""
+        raise NotImplementedError("Subclasses must implement train()")
+    
+    def predict(self, future_years: List[int], confidence_level: float = 0.95) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Generate predictions for future years.
         
-        if len(self.data['years']) != len(self.data['rates']):
-            raise ValueError("Years and rates must have the same length")
-
+        Args:
+            future_years: List of years to forecast
+            confidence_level: Confidence level for prediction intervals (0-1)
+            
+        Returns:
+            Tuple of (predictions, lower_bound, upper_bound)
+        """
+        raise NotImplementedError("Subclasses must implement predict()")
 
 class LinearTrendModel(ForecastModel):
-    """Linear regression forecast model."""
+    """Linear regression-based forecasting model."""
     
-    def __post_init__(self):
-        """Initialize the linear regression model."""
-        super().__post_init__()
+    def train(self) -> None:
+        """Train a linear regression model on the historical data."""
+        X = np.array(self.years).reshape(-1, 1)
+        y = np.array(self.values)
         
-        # Prepare data
-        X = np.array(self.data['years']).reshape(-1, 1)
-        y = np.array(self.data['rates'])
-        
-        # Apply scenario adjustments if needed
-        if self.scenario != 'baseline':
-            y = self._adjust_for_scenario(y)
-        
-        # Create and fit the model
         self.model = LinearRegression()
         self.model.fit(X, y)
         
-        # Store coefficients for later use
-        self.slope = self.model.coef_[0]
-        self.intercept = self.model.intercept_
+        # Calculate residuals for prediction intervals
+        self.predictions = self.model.predict(X)
+        self.residuals = y - self.predictions
+        self.residual_std = np.std(self.residuals)
     
-    def _adjust_for_scenario(self, y):
-        """Adjust rates based on scenario type."""
-        if self.scenario == 'optimistic':
-            # For optimistic scenario, slightly reduce growth rate
-            return y * 0.95
-        elif self.scenario == 'pessimistic':
-            # For pessimistic scenario, slightly increase growth rate
-            return y * 1.05
-        return y
-    
-    def predict(self, years):
-        """Make predictions for the given years."""
-        X_pred = np.array(years).reshape(-1, 1)
-        return self.model.predict(X_pred)
-    
-    def calculate_confidence_intervals(self, years, confidence=0.95):
-        """Calculate confidence intervals for predictions."""
-        # This is a simplified approach - in a real model, we would use
-        # proper statistical methods to calculate the prediction intervals
-        X = np.array(self.data['years']).reshape(-1, 1)
-        y = np.array(self.data['rates'])
+    def predict(self, future_years: List[int], confidence_level: float = 0.95) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Generate linear trend predictions for future years.
         
-        # Calculate residuals
-        y_pred = self.model.predict(X)
-        residuals = y - y_pred
+        Args:
+            future_years: List of years to forecast
+            confidence_level: Confidence level for prediction intervals (0-1)
+            
+        Returns:
+            Tuple of (predictions, lower_bound, upper_bound)
+        """
+        if self.model is None:
+            self.train()
+            
+        X_future = np.array(future_years).reshape(-1, 1)
+        predictions = self.model.predict(X_future)
         
-        # Use residual standard error for confidence intervals
-        residual_std = np.std(residuals)
+        # Calculate prediction intervals
+        z_score = abs(np.percentile(np.random.standard_normal(10000), (1 - confidence_level) / 2 * 100))
+        interval = z_score * self.residual_std
         
-        # Z-score for the given confidence level (assuming normal distribution)
-        if confidence == 0.95:
-            z = 1.96
-        elif confidence == 0.99:
-            z = 2.58
-        else:
-            z = 1.645  # default to 90%
+        lower_bound = predictions - interval
+        upper_bound = predictions + interval
         
-        # Make predictions for new years
-        X_pred = np.array(years).reshape(-1, 1)
-        predictions = self.model.predict(X_pred)
-        
-        # Calculate intervals
-        intervals = []
-        for pred in predictions:
-            margin = z * residual_std
-            intervals.append((pred - margin, pred + margin))
-        
-        return intervals
-
+        return predictions.tolist(), lower_bound.tolist(), upper_bound.tolist()
 
 class ExponentialSmoothingModel(ForecastModel):
-    """Exponential smoothing forecast model."""
+    """Exponential smoothing-based forecasting model."""
     
-    def __post_init__(self):
-        """Initialize the exponential smoothing model."""
-        super().__post_init__()
+    def train(self) -> None:
+        """Train an exponential smoothing model on the historical data."""
+        # Need at least 4 observations for seasonal (annual) patterns
+        seasonal_periods = 1  # Default to non-seasonal
+        if len(self.years) >= 4:
+            seasonal_periods = 1  # Annual seasonality if enough data
+            
+        # Ensure consecutive years
+        df = pd.DataFrame({'year': self.years, 'value': self.values})
+        df = df.sort_values('year')
         
-        # Minimum of 4 years needed for this model
-        if len(self.data['years']) < 4:
-            raise InsufficientDataError(
-                "At least 4 years of historical data are required for exponential smoothing."
-            )
+        # Fill any missing years with interpolated values
+        year_range = range(min(self.years), max(self.years) + 1)
+        if len(year_range) > len(self.years):
+            full_df = pd.DataFrame({'year': list(year_range)})
+            df = pd.merge(full_df, df, on='year', how='left')
+            df['value'] = df['value'].interpolate(method='linear')
         
-        # Prepare data
-        y = pd.Series(self.data['rates'], index=pd.DatetimeIndex(
-            [f"{year}-01-01" for year in self.data['years']], freq='AS'))
+        # Create time series
+        self.ts = pd.Series(df['value'].values, index=df['year'])
         
-        # Apply scenario adjustments if needed
-        if self.scenario != 'baseline':
-            y = self._adjust_for_scenario(y)
-        
-        # Create and fit the model (Holt's method - linear trend)
+        # Fit model - use additive for tax rates which can be close to zero
         self.model = ExponentialSmoothing(
-            y, trend='add', seasonal=None, damped=False
+            self.ts,
+            trend='add',
+            seasonal=None,
+            seasonal_periods=seasonal_periods
         ).fit()
+        
+        # Calculate residuals for prediction intervals
+        self.residuals = self.ts - self.model.fittedvalues
+        self.residual_std = np.std(self.residuals)
     
-    def _adjust_for_scenario(self, y):
-        """Adjust rates based on scenario type."""
-        if self.scenario == 'optimistic':
-            return y * 0.95
-        elif self.scenario == 'pessimistic':
-            return y * 1.05
-        return y
-    
-    def predict(self, years):
-        """Make predictions for the given years."""
-        # Calculate number of steps to forecast
-        last_year = self.data['years'][-1]
-        steps = max(years) - last_year
+    def predict(self, future_years: List[int], confidence_level: float = 0.95) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Generate exponential smoothing predictions for future years.
         
-        # Generate forecast
-        forecast = self.model.forecast(steps=steps)
+        Args:
+            future_years: List of years to forecast
+            confidence_level: Confidence level for prediction intervals (0-1)
+            
+        Returns:
+            Tuple of (predictions, lower_bound, upper_bound)
+        """
+        if self.model is None:
+            self.train()
+            
+        # Get predictions
+        steps = len(future_years)
+        forecast = self.model.forecast(steps)
         
-        # Extract the predictions for the requested years
-        predictions = []
-        forecast_years = list(range(last_year + 1, last_year + steps + 1))
+        # Match forecast index to future_years
+        if len(forecast) == steps:
+            predictions = forecast.values
+        else:
+            # If index doesn't match, interpolate to match future_years
+            forecast_years = forecast.index.tolist()
+            forecast_values = forecast.values
+            
+            # Create a mapping of years to values
+            year_to_value = dict(zip(forecast_years, forecast_values))
+            
+            # Extract values for requested future years
+            predictions = np.array([
+                year_to_value.get(year, np.nan) 
+                for year in future_years
+            ])
+            
+            # Interpolate any missing values
+            nan_mask = np.isnan(predictions)
+            if np.any(nan_mask):
+                x = np.where(~nan_mask)[0]
+                y = predictions[~nan_mask]
+                
+                # Interpolate missing values
+                if len(x) > 0:
+                    predictions[nan_mask] = np.interp(
+                        np.where(nan_mask)[0], 
+                        x, 
+                        y
+                    )
         
-        for year in years:
-            if year in forecast_years:
-                idx = forecast_years.index(year)
-                predictions.append(forecast[idx])
-            else:
-                # If year is in historical data, use that value
-                if year in self.data['years']:
-                    idx = self.data['years'].index(year)
-                    predictions.append(self.data['rates'][idx])
-                else:
-                    # This should not happen with our usage, but just in case
-                    predictions.append(None)
+        # Calculate prediction intervals using residual standard deviation
+        z_score = abs(np.percentile(np.random.standard_normal(10000), (1 - confidence_level) / 2 * 100))
+        interval = z_score * self.residual_std * np.sqrt(np.arange(1, steps + 1))
         
-        return predictions
-    
-    def calculate_confidence_intervals(self, years, confidence=0.95):
-        """Calculate confidence intervals for predictions."""
-        # Similar to the linear model, but adapting for exponential smoothing
-        last_year = self.data['years'][-1]
-        steps = max(years) - last_year
+        lower_bound = predictions - interval
+        upper_bound = predictions + interval
         
-        # Get prediction intervals from statsmodels
-        forecast = self.model.get_forecast(steps=steps)
-        conf_int = forecast.conf_int(alpha=1-confidence)
-        
-        # Extract the intervals for the requested years
-        intervals = []
-        forecast_years = list(range(last_year + 1, last_year + steps + 1))
-        
-        for year in years:
-            if year in forecast_years:
-                idx = forecast_years.index(year)
-                intervals.append((conf_int.iloc[idx, 0], conf_int.iloc[idx, 1]))
-            else:
-                # For historical years, use a narrower interval
-                if year in self.data['years']:
-                    idx = self.data['years'].index(year)
-                    value = self.data['rates'][idx]
-                    intervals.append((value * 0.98, value * 1.02))
-                else:
-                    intervals.append((None, None))
-        
-        return intervals
-
+        return predictions.tolist(), lower_bound.tolist(), upper_bound.tolist()
 
 class ARIMAModel(ForecastModel):
-    """ARIMA forecast model."""
+    """ARIMA-based forecasting model."""
     
-    def __post_init__(self):
-        """Initialize the ARIMA model."""
-        super().__post_init__()
+    def train(self) -> None:
+        """Train an ARIMA model on the historical data."""
+        # Ensure data is in chronological order
+        data = pd.DataFrame({'year': self.years, 'value': self.values})
+        data = data.sort_values('year')
         
-        # ARIMA typically needs more data
-        if len(self.data['years']) < 5:
-            raise InsufficientDataError(
-                "At least 5 years of historical data are required for ARIMA."
-            )
+        # Fill missing years with interpolated values
+        year_range = range(min(self.years), max(self.years) + 1)
+        if len(year_range) > len(self.years):
+            full_df = pd.DataFrame({'year': list(year_range)})
+            data = pd.merge(full_df, data, on='year', how='left')
+            data['value'] = data['value'].interpolate(method='linear')
         
-        # Prepare data
-        y = np.array(self.data['rates'])
+        self.ts = pd.Series(data['value'].values, index=data['year'])
         
-        # Apply scenario adjustments if needed
-        if self.scenario != 'baseline':
-            y = self._adjust_for_scenario(y)
+        # Start with simple model for limited data
+        p, d, q = 1, 1, 0
+        if len(self.years) >= 5:
+            # More complex model if we have enough data
+            p, d, q = 1, 1, 1
         
-        # Create and fit the model
-        # Using (1,1,1) order as a reasonable default
-        # In practice, order selection would be more sophisticated
-        self.model = ARIMA(y, order=(1, 1, 1))
-        self.model_fit = self.model.fit()
+        try:
+            self.model = ARIMA(self.ts, order=(p, d, q))
+            self.result = self.model.fit()
+            
+            # Calculate residuals for prediction intervals
+            self.residuals = self.result.resid
+            self.residual_std = np.std(self.residuals)
+        except Exception as e:
+            logger.warning(f"ARIMA model fitting failed: {str(e)}")
+            # Fall back to a simpler model
+            try:
+                self.model = ARIMA(self.ts, order=(1, 0, 0))
+                self.result = self.model.fit()
+                
+                # Calculate residuals
+                self.residuals = self.result.resid
+                self.residual_std = np.std(self.residuals)
+            except Exception as e2:
+                raise ValueError(f"ARIMA model failed: {str(e2)}")
     
-    def _adjust_for_scenario(self, y):
-        """Adjust rates based on scenario type."""
-        if self.scenario == 'optimistic':
-            return y * 0.95
-        elif self.scenario == 'pessimistic':
-            return y * 1.05
-        return y
-    
-    def predict(self, years):
-        """Make predictions for the given years."""
-        # Calculate number of steps to forecast
-        last_year = self.data['years'][-1]
-        steps = max(years) - last_year
+    def predict(self, future_years: List[int], confidence_level: float = 0.95) -> Tuple[List[float], List[float], List[float]]:
+        """
+        Generate ARIMA predictions for future years.
         
-        # Generate forecast
-        forecast = self.model_fit.forecast(steps=steps)
+        Args:
+            future_years: List of years to forecast
+            confidence_level: Confidence level for prediction intervals (0-1)
+            
+        Returns:
+            Tuple of (predictions, lower_bound, upper_bound)
+        """
+        if not hasattr(self, 'result'):
+            self.train()
+            
+        # Determine steps based on the difference between last historical year and future years
+        steps = len(future_years)
+        forecast_result = self.result.forecast(steps=steps)
         
-        # Extract the predictions for the requested years
-        predictions = []
-        forecast_years = list(range(last_year + 1, last_year + steps + 1))
+        # Extract point forecasts
+        if isinstance(forecast_result, pd.Series):
+            predictions = forecast_result.values
+        else:
+            predictions = forecast_result
+            
+        # If the forecast is longer than requested, truncate it
+        if len(predictions) > len(future_years):
+            predictions = predictions[:len(future_years)]
         
-        for year in years:
-            if year in forecast_years:
-                idx = forecast_years.index(year)
-                predictions.append(forecast[idx])
+        # If the forecast is shorter, extend it using the trend
+        if len(predictions) < len(future_years):
+            # Calculate the average trend from the existing predictions
+            if len(predictions) > 1:
+                avg_trend = (predictions[-1] - predictions[0]) / (len(predictions) - 1)
             else:
-                # If year is in historical data, use that value
-                if year in self.data['years']:
-                    idx = self.data['years'].index(year)
-                    predictions.append(self.data['rates'][idx])
+                # If only one prediction, use the historical trend
+                if len(self.values) > 1:
+                    avg_trend = (self.values[-1] - self.values[0]) / (len(self.values) - 1)
                 else:
-                    # This should not happen with our usage, but just in case
-                    predictions.append(None)
+                    avg_trend = 0
+            
+            # Extend with the trend
+            last_pred = predictions[-1]
+            for i in range(len(predictions), len(future_years)):
+                last_pred += avg_trend
+                predictions = np.append(predictions, last_pred)
         
-        return predictions
-    
-    def calculate_confidence_intervals(self, years, confidence=0.95):
-        """Calculate confidence intervals for predictions."""
-        # Calculate number of steps to forecast
-        last_year = self.data['years'][-1]
-        steps = max(years) - last_year
+        # Calculate prediction intervals
+        z_score = abs(np.percentile(np.random.standard_normal(10000), (1 - confidence_level) / 2 * 100))
+        interval = z_score * self.residual_std * np.sqrt(np.arange(1, steps + 1))
         
-        # Generate forecast with confidence intervals
-        forecast = self.model_fit.get_forecast(steps=steps)
-        conf_int = forecast.conf_int(alpha=1-confidence)
+        lower_bound = predictions - interval
+        upper_bound = predictions + interval
         
-        # Extract the intervals for the requested years
-        intervals = []
-        forecast_years = list(range(last_year + 1, last_year + steps + 1))
-        
-        for year in years:
-            if year in forecast_years:
-                idx = forecast_years.index(year)
-                intervals.append((conf_int.iloc[idx, 0], conf_int.iloc[idx, 1]))
-            else:
-                # For historical years, use a narrower interval
-                if year in self.data['years']:
-                    idx = self.data['years'].index(year)
-                    value = self.data['rates'][idx]
-                    intervals.append((value * 0.98, value * 1.02))
-                else:
-                    intervals.append((None, None))
-        
-        return intervals
+        return predictions.tolist(), lower_bound.tolist(), upper_bound.tolist()
 
-
-def create_forecast_model(
-    model_type: str, 
-    data: Dict[str, Union[List[int], List[float]]],
-    scenario: str = 'baseline'
-) -> ForecastModel:
+def create_forecast_model(model_name: str, years: List[int], values: List[float]) -> ForecastModel:
     """
-    Create a forecast model of the specified type.
+    Create and train a forecast model based on the specified type.
     
     Args:
-        model_type: Type of forecast model ('linear', 'exponential', 'arima')
-        data: Dictionary containing historical years and rates
-        scenario: Scenario type ('baseline', 'optimistic', 'pessimistic')
+        model_name: Type of forecasting model ('linear', 'exponential', 'arima')
+        years: List of years for historical data
+        values: List of values for historical data
         
     Returns:
-        A forecast model instance
+        Trained forecasting model
     """
-    if model_type == 'linear':
-        return LinearTrendModel(model_type=model_type, data=data, scenario=scenario)
-    elif model_type == 'exponential':
-        return ExponentialSmoothingModel(model_type=model_type, data=data, scenario=scenario)
-    elif model_type == 'arima':
-        return ARIMAModel(model_type=model_type, data=data, scenario=scenario)
-    else:
-        raise ValueError(f"Unsupported model type: {model_type}")
-
+    model_classes = {
+        'linear': LinearTrendModel,
+        'exponential': ExponentialSmoothingModel,
+        'arima': ARIMAModel
+    }
+    
+    if model_name not in model_classes:
+        raise ValueError(f"Unknown forecast model: {model_name}")
+    
+    model = model_classes[model_name](years, values)
+    model.train()
+    
+    return model
 
 def generate_forecast(
     model: ForecastModel, 
-    years_ahead: int = 3,
-    confidence: float = 0.95
-) -> Dict[str, Any]:
+    future_years: List[int], 
+    confidence_level: float = 0.95
+) -> Tuple[List[float], List[float], List[float]]:
     """
-    Generate a forecast for future years.
+    Generate forecasts using the provided model.
     
     Args:
-        model: The forecast model to use
-        years_ahead: Number of years to forecast
-        confidence: Confidence level for intervals (0.95 = 95%)
+        model: Trained forecasting model
+        future_years: List of years to forecast
+        confidence_level: Confidence level for prediction intervals
         
     Returns:
-        Dictionary containing forecast data
+        Tuple of (predictions, lower_bound, upper_bound)
     """
-    # Determine the years to forecast
-    last_historical_year = max(model.data['years'])
-    forecast_years = list(range(last_historical_year + 1, 
-                               last_historical_year + years_ahead + 1))
-    
-    # Generate predictions
-    predicted_rates = model.predict(forecast_years)
-    
-    # Calculate confidence intervals
-    confidence_intervals = model.calculate_confidence_intervals(forecast_years, confidence)
-    
-    # Return the forecast data
-    return {
-        'years': forecast_years,
-        'predicted_rates': predicted_rates,
-        'confidence_intervals': confidence_intervals,
-        'model_type': model.model_type,
-        'scenario': model.scenario
-    }
+    return model.predict(future_years, confidence_level)
 
-
-def calculate_accuracy_metrics(model: ForecastModel) -> Dict[str, float]:
+def calculate_accuracy_metrics(
+    model: ForecastModel, 
+    years: List[int], 
+    actual_values: List[float]
+) -> Tuple[float, float, float]:
     """
-    Calculate accuracy metrics for a forecast model.
+    Calculate accuracy metrics for the forecast model.
     
     Args:
-        model: The forecast model to evaluate
+        model: Trained forecasting model
+        years: Years of historical data
+        actual_values: Actual values for comparison
         
     Returns:
-        Dictionary of accuracy metrics
+        Tuple of (rmse, mae, mape)
     """
-    # Use the model to predict values for the historical years
-    historical_years = model.data['years']
-    historical_rates = model.data['rates']
-    predicted_historical = model.predict(historical_years)
+    # Use cross-validation approach if we have enough data
+    if len(years) >= 5:
+        # Hold out the last 2 years for validation
+        train_years = years[:-2]
+        train_values = actual_values[:-2]
+        test_years = years[-2:]
+        test_values = actual_values[-2:]
+        
+        # Retrain the model on the training subset
+        model_class = model.__class__
+        cv_model = model_class(train_years, train_values)
+        cv_model.train()
+        
+        # Generate predictions for test years
+        predictions, _, _ = cv_model.predict(test_years)
+        
+    else:
+        # For limited data, use in-sample accuracy
+        # Retrain to ensure we have predictions for all years
+        model_class = model.__class__
+        cv_model = model_class(years, actual_values)
+        cv_model.train()
+        
+        # Generate in-sample predictions
+        predictions, _, _ = cv_model.predict(years)
+        test_values = actual_values
     
-    # Calculate metrics
-    rmse = np.sqrt(mean_squared_error(historical_rates, predicted_historical))
-    mae = mean_absolute_error(historical_rates, predicted_historical)
-    r_squared = r2_score(historical_rates, predicted_historical)
+    # Calculate error metrics
+    errors = np.array(test_values) - np.array(predictions)
+    rmse = np.sqrt(mean_squared_error(test_values, predictions))
+    mae = mean_absolute_error(test_values, predictions)
     
-    # Calculate mean absolute percentage error (MAPE)
-    mape = np.mean(np.abs((np.array(historical_rates) - np.array(predicted_historical)) / 
-                         np.array(historical_rates))) * 100
+    # Calculate MAPE, avoiding division by zero
+    non_zero_mask = np.array(test_values) != 0
+    if np.any(non_zero_mask):
+        mape = np.mean(np.abs(errors[non_zero_mask] / np.array(test_values)[non_zero_mask])) * 100
+    else:
+        mape = float('inf')
     
-    # Return the metrics
-    return {
-        'rmse': rmse,
-        'mae': mae,
-        'r_squared': r_squared,
-        'mape': mape
-    }
+    return rmse, mae, mape
 
+def detect_anomalies(
+    years: List[int], 
+    values: List[float], 
+    z_threshold: float = 2.0
+) -> List[Tuple[int, float, str, float]]:
+    """
+    Detect anomalies in historical data using z-scores.
+    
+    Args:
+        years: Years of historical data
+        values: Values to analyze for anomalies
+        z_threshold: Z-score threshold for anomaly detection
+        
+    Returns:
+        List of tuples (year, value, anomaly_type, z_score)
+    """
+    from scipy.stats import zscore
+    
+    # Need at least 3 data points for meaningful z-scores
+    if len(values) < 3:
+        return []
+    
+    # Calculate z-scores
+    z_scores = zscore(values)
+    
+    # Identify anomalies
+    anomalies = []
+    for i, (year, value, z) in enumerate(zip(years, values, z_scores)):
+        if abs(z) > z_threshold:
+            anomaly_type = 'high' if z > 0 else 'low'
+            anomalies.append((year, value, anomaly_type, float(z)))
+    
+    return anomalies
 
 def create_forecast_chart_data(
-    historical_data: Dict[str, List],
-    forecast_data: Dict[str, Any],
-    chart_type: str = 'line'
-) -> Dict[str, Any]:
+    years: List[int],
+    values: List[float],
+    future_years: List[int],
+    forecasts: Dict[str, Dict[str, List[float]]]
+) -> Dict[str, List[float]]:
     """
-    Create data formatted for visualization.
+    Create data structure for forecast visualization charts.
     
     Args:
-        historical_data: Dictionary of historical years and rates
-        forecast_data: Dictionary of forecast data
-        chart_type: Type of chart to create ('line', 'bar')
+        years: Historical years
+        values: Historical values
+        future_years: Years being forecasted
+        forecasts: Dictionary of forecast results by model
         
     Returns:
-        Dictionary of data formatted for visualization
+        Dictionary with chart data formatted for JavaScript charts
     """
-    # Format historical data
-    historical = {
-        'x': historical_data['years'],
-        'y': historical_data['rates'],
-        'type': chart_type,
-        'name': 'Historical',
-        'mode': 'lines+markers' if chart_type == 'line' else None,
-        'marker': {'color': 'blue'}
+    # Combine years for x-axis
+    all_years = years + future_years
+    
+    # Prepare historical data (with nulls for future years)
+    historical_values = values + [None] * len(future_years)
+    
+    # Initialize result with historical data
+    result = {
+        'years': all_years,
+        'historical': historical_values
     }
     
-    # Format forecast data
-    forecast = {
-        'x': forecast_data['years'],
-        'y': forecast_data['predicted_rates'],
-        'type': chart_type,
-        'name': 'Forecast',
-        'mode': 'lines+markers' if chart_type == 'line' else None,
-        'marker': {'color': 'red'},
-        'line': {'dash': 'dot'} if chart_type == 'line' else None
-    }
-    
-    # Format confidence intervals (only for line charts)
-    confidence = None
-    if chart_type == 'line':
-        lower_bounds = [ci[0] for ci in forecast_data['confidence_intervals']]
-        upper_bounds = [ci[1] for ci in forecast_data['confidence_intervals']]
+    # Add forecast data for each model (with nulls for historical years)
+    for model_name, forecast_data in forecasts.items():
+        # Create arrays with nulls for historical period
+        forecast_values = [None] * len(years) + forecast_data['forecast']
+        lower_values = [None] * len(years) + forecast_data['lower_bound']
+        upper_values = [None] * len(years) + forecast_data['upper_bound']
         
-        confidence = {
-            'x': forecast_data['years'] + forecast_data['years'][::-1],
-            'y': upper_bounds + lower_bounds[::-1],
-            'fill': 'toself',
-            'fillcolor': 'rgba(255, 0, 0, 0.2)',
-            'line': {'color': 'transparent'},
-            'name': '95% Confidence Interval',
-            'showlegend': True
-        }
+        # Add to result
+        result[f'{model_name}_forecast'] = forecast_values
+        result[f'{model_name}_lower'] = lower_values
+        result[f'{model_name}_upper'] = upper_values
     
-    return {
-        'historical': historical,
-        'forecast': forecast,
-        'confidence': confidence
-    }
-
+    return result
 
 def create_scenario_comparison_chart(
-    historical_data: Dict[str, List],
-    scenario_forecasts: Dict[str, Dict[str, Any]]
-) -> Dict[str, Any]:
+    years: List[int],
+    baseline_values: List[float],
+    scenarios: Dict[str, List[float]]
+) -> Dict[str, List[float]]:
     """
-    Create data for comparing different forecast scenarios.
+    Create data structure for comparing different forecast scenarios.
     
     Args:
-        historical_data: Dictionary of historical years and rates
-        scenario_forecasts: Dictionary of forecast data for different scenarios
+        years: Years for the chart (historical + forecast)
+        baseline_values: Baseline values (historical + forecast)
+        scenarios: Dictionary of scenario names to values
         
     Returns:
-        Dictionary of data formatted for visualization
+        Dictionary with chart data formatted for JavaScript charts
     """
-    # Format historical data
-    historical = {
-        'x': historical_data['years'],
-        'y': historical_data['rates'],
-        'type': 'line',
-        'name': 'Historical',
-        'mode': 'lines+markers',
-        'marker': {'color': 'blue'}
-    }
-    
-    # Format scenario data
-    scenarios = []
-    colors = {'baseline': 'red', 'optimistic': 'green', 'pessimistic': 'orange'}
-    
-    for name, forecast in scenario_forecasts.items():
-        scenario = {
-            'x': forecast['years'],
-            'y': forecast['predicted_rates'],
-            'type': 'line',
-            'name': name.capitalize(),
-            'mode': 'lines+markers',
-            'marker': {'color': colors.get(name, 'gray')},
-            'line': {'dash': 'dot' if name != 'baseline' else 'solid'}
-        }
-        scenarios.append(scenario)
-    
-    return {
-        'historical': historical,
-        'scenarios': scenarios
-    }
-
-
-def get_historical_data_for_tax_code(tax_code: str) -> Dict[str, List]:
-    """
-    Retrieve historical data for a tax code from the database.
-    
-    Args:
-        tax_code: The tax code to retrieve data for
-        
-    Returns:
-        Dictionary containing historical years and rates
-    """
-    # Get the tax code object
-    tax_code_obj = TaxCode.query.filter_by(code=tax_code).first()
-    
-    if not tax_code_obj:
-        raise ValueError(f"Tax code {tax_code} not found")
-    
-    # Get historical rates for this tax code
-    historical_rates = TaxCodeHistoricalRate.query.filter_by(
-        tax_code_id=tax_code_obj.id
-    ).order_by(TaxCodeHistoricalRate.year).all()
-    
-    # Format the data
-    years = [rate.year for rate in historical_rates]
-    rates = [rate.levy_rate for rate in historical_rates]
-    
-    # Include current year if not already in historical data
-    current_year = datetime.now().year
-    if current_year not in years and tax_code_obj.levy_rate:
-        years.append(current_year)
-        rates.append(tax_code_obj.levy_rate)
-    
-    return {
+    result = {
         'years': years,
-        'rates': rates
+        'baseline': baseline_values
     }
-
+    
+    # Add each scenario
+    for name, values in scenarios.items():
+        result[name] = values
+    
+    return result
 
 def generate_forecast_for_tax_code(
-    tax_code: str,
-    model_type: str = 'linear',
-    years_ahead: int = 3,
-    scenario: str = 'baseline'
+    tax_code_id: int,
+    years_to_forecast: int = 3,
+    confidence_level: float = 0.95,
+    preferred_model: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate a forecast for a specific tax code.
+    Generate a complete forecast for a specific tax code.
     
     Args:
-        tax_code: The tax code to forecast
-        model_type: Type of forecast model to use
-        years_ahead: Number of years to forecast
-        scenario: Scenario type
+        tax_code_id: ID of the tax code to forecast
+        years_to_forecast: Number of years to forecast
+        confidence_level: Confidence level for prediction intervals
+        preferred_model: Optional preferred model to use
         
     Returns:
         Dictionary with forecast results
     """
+    # Get tax code details
+    tax_code = TaxCode.query.get(tax_code_id)
+    if not tax_code:
+        raise ValueError(f"Tax code with ID {tax_code_id} not found")
+    
     # Get historical data
-    historical_data = get_historical_data_for_tax_code(tax_code)
-    
-    # Create forecast model
-    model = create_forecast_model(model_type, historical_data, scenario)
-    
-    # Generate forecast
-    forecast = generate_forecast(model, years_ahead)
-    
-    # Calculate accuracy metrics
-    metrics = calculate_accuracy_metrics(model)
-    
-    # Return the results
-    return {
-        'tax_code': tax_code,
-        'historical_data': historical_data,
-        'forecast': forecast,
-        'metrics': metrics
-    }
-
-
-def get_tax_codes_for_district(district_id: int) -> List[str]:
-    """
-    Get all tax codes associated with a district.
-    
-    Args:
-        district_id: The district ID
-        
-    Returns:
-        List of tax codes in the district
-    """
-    # Query the database for tax codes in this district
-    from models import TaxDistrict
-    
-    # Get current year
-    current_year = datetime.now().year
-    
-    # Get all tax district relationships for this district and year
-    districts = TaxDistrict.query.filter_by(
-        tax_district_id=district_id,
-        year=current_year
+    historical_rates = TaxCodeHistoricalRate.query.filter_by(
+        tax_code_id=tax_code_id
+    ).order_by(
+        TaxCodeHistoricalRate.year
     ).all()
     
-    # Extract all unique tax codes (from both levy_code and linked_levy_code)
-    tax_codes = set()
-    for district in districts:
-        tax_codes.add(district.levy_code)
-        tax_codes.add(district.linked_levy_code)
+    if len(historical_rates) < 3:
+        raise InsufficientDataError(f"Insufficient historical data for tax code {tax_code.code}")
     
-    return list(tax_codes)
-
+    # Extract data
+    years = [rate.year for rate in historical_rates]
+    rates = [rate.levy_rate for rate in historical_rates]
+    
+    # Generate forecasts with each model
+    future_years = list(range(max(years) + 1, max(years) + years_to_forecast + 1))
+    forecasts = {}
+    errors = {}
+    
+    for model_name in FORECAST_MODELS:
+        if preferred_model and model_name != preferred_model:
+            continue
+            
+        try:
+            # Create and train model
+            model = create_forecast_model(model_name, years, rates)
+            
+            # Generate forecast
+            forecast, lower, upper = generate_forecast(model, future_years, confidence_level)
+            
+            # Calculate accuracy metrics
+            rmse, mae, mape = calculate_accuracy_metrics(model, years, rates)
+            
+            # Store results
+            forecasts[model_name] = {
+                'forecast': forecast,
+                'lower_bound': lower,
+                'upper_bound': upper
+            }
+            
+            errors[model_name] = {
+                'rmse': rmse,
+                'mae': mae,
+                'mape': mape
+            }
+            
+        except Exception as e:
+            logger.warning(f"Error with {model_name} model: {str(e)}")
+            # Continue with other models
+    
+    if not forecasts:
+        if preferred_model:
+            raise ValueError(f"Preferred model {preferred_model} failed to generate forecast")
+        else:
+            raise ValueError("All forecast models failed")
+    
+    # Select best model based on RMSE
+    if preferred_model and preferred_model in errors:
+        best_model = preferred_model
+    else:
+        best_model = min(errors, key=lambda x: errors[x]['rmse'])
+    
+    # Detect anomalies
+    anomalies = detect_anomalies(years, rates)
+    
+    # Prepare result
+    result = {
+        'tax_code_id': tax_code_id,
+        'tax_code': tax_code.code,
+        'historical_years': years,
+        'historical_rates': rates,
+        'forecast_years': future_years,
+        'forecasts': forecasts,
+        'errors': errors,
+        'best_model': best_model,
+        'anomalies': anomalies
+    }
+    
+    return result
 
 def generate_district_forecast(
     district_id: int,
-    model_type: str = 'linear',
-    years_ahead: int = 3,
-    scenario: str = 'baseline'
+    years_to_forecast: int = 3
 ) -> Dict[str, Any]:
     """
-    Generate a forecast for all tax codes in a district.
+    Generate forecasts for all tax codes in a district.
     
     Args:
-        district_id: The district ID
-        model_type: Type of forecast model to use
-        years_ahead: Number of years to forecast
-        scenario: Scenario type
+        district_id: ID of the tax district to forecast
+        years_to_forecast: Number of years to forecast
         
     Returns:
-        Dictionary with aggregated forecast results
+        Dictionary with forecast results for all tax codes in the district
     """
-    # Get all tax codes for this district
-    tax_codes = get_tax_codes_for_district(district_id)
+    from sqlalchemy import func
+    
+    # Get all tax codes for the district
+    tax_codes = db.session.query(TaxCode).join(
+        TaxDistrict, TaxCode.id == TaxDistrict.tax_code_id
+    ).filter(
+        TaxDistrict.id == district_id
+    ).all()
+    
+    if not tax_codes:
+        raise ValueError(f"No tax codes found for district ID {district_id}")
     
     # Generate forecasts for each tax code
-    forecasts = []
-    for code in tax_codes:
+    forecasts = {}
+    for tax_code in tax_codes:
         try:
             forecast = generate_forecast_for_tax_code(
-                code, model_type, years_ahead, scenario)
-            forecasts.append(forecast)
+                tax_code.id,
+                years_to_forecast=years_to_forecast
+            )
+            forecasts[tax_code.code] = forecast
         except Exception as e:
-            logger.warning(f"Error forecasting tax code {code}: {str(e)}")
-            continue
+            logger.warning(f"Error forecasting tax code {tax_code.code}: {str(e)}")
+            # Continue with other tax codes
     
-    # Calculate aggregate forecast (average across all tax codes)
-    if not forecasts:
-        raise ValueError("No valid forecasts generated for this district")
+    # Get district details
+    district = TaxDistrict.query.get(district_id)
     
-    # Determine the years to include in aggregate
-    forecast_years = forecasts[0]['forecast']['years']
-    
-    # Calculate average predicted rates for each year
-    aggregate_rates = []
-    for i, year in enumerate(forecast_years):
-        rates = [f['forecast']['predicted_rates'][i] for f in forecasts 
-                if i < len(f['forecast']['predicted_rates'])]
-        aggregate_rates.append(sum(rates) / len(rates))
-    
-    # Return district forecast
-    return {
+    # Prepare aggregate result
+    result = {
         'district_id': district_id,
-        'tax_codes': tax_codes,
-        'individual_forecasts': forecasts,
-        'aggregate_forecast': {
-            'years': forecast_years,
-            'predicted_rates': aggregate_rates,
-            'model_type': model_type,
-            'scenario': scenario
-        }
+        'district_name': district.name if district else f"District {district_id}",
+        'forecasts': forecasts,
+        'tax_codes': list(forecasts.keys())
     }
-
-
-def save_forecast_to_database(forecast_data: Dict[str, Any]) -> int:
-    """
-    Save a forecast to the database for future reference.
     
-    Args:
-        forecast_data: The forecast data to save
-        
-    Returns:
-        ID of the saved forecast
-    """
-    # This would implement database storage of forecast results
-    # We'll leave this as a placeholder for now
-    pass
+    return result

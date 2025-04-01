@@ -1,116 +1,198 @@
 """
 Database models for the Levy Calculation System.
+
+This module defines all the database models used in the Levy Calculation System
+including property, tax district, tax code, and levy-related entities.
 """
 
-import inspect
-from datetime import datetime
-from sqlalchemy.inspection import inspect
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, UniqueConstraint, Text, Boolean, Enum
+import sqlalchemy.inspection
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
-from app2 import db
+from datetime import datetime
 
-class Property(db.Model):
-    """Model for storing property assessment data."""
-    __tablename__ = 'property'
+from app import db
+
+
+class User(db.Model):
+    """User model for authentication and tracking actions."""
+    __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True)
-    property_id = Column(String(50), unique=True, nullable=False, index=True)
-    address = Column(String(255), nullable=True)
-    owner_name = Column(String(255), nullable=True)
-    assessed_value = Column(Float, nullable=False)
-    tax_code = Column(String(20), ForeignKey('tax_code.code'), nullable=False, index=True)
-    property_type = Column(String(50), nullable=True)
-    year = Column(Integer, nullable=False, default=lambda: datetime.now().year)
+    username = Column(String(64), unique=True, nullable=False, index=True)
+    email = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(256), nullable=False)
+    first_name = Column(String(50))
+    last_name = Column(String(50))
+    role = Column(String(20), default='user')  # admin, assessor, viewer
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime)
     
     # Relationships
-    tax_code_rel = relationship('TaxCode', back_populates='properties')
-    
-    def __repr__(self):
-        return f"<Property(id={self.id}, property_id='{self.property_id}', value={self.assessed_value})>"
+    audit_logs = relationship('AuditLog', back_populates='user')
 
-class TaxCode(db.Model):
-    """Model for storing tax codes and their associated rates."""
-    __tablename__ = 'tax_code'
-    
-    id = Column(Integer, primary_key=True)
-    code = Column(String(20), unique=True, nullable=False, index=True)
-    description = Column(String(255), nullable=True)
-    total_assessed_value = Column(Float, nullable=True)
-    levy_rate = Column(Float, nullable=True)  # Per $1,000 of assessed value
-    levy_amount = Column(Float, nullable=True)  # Total levy amount for this code
-    year = Column(Integer, nullable=False, default=lambda: datetime.now().year)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    properties = relationship('Property', back_populates='tax_code_rel')
-    districts = relationship('TaxDistrict', back_populates='tax_code_rel')
-    historical_rates = relationship('TaxCodeHistoricalRate', back_populates='tax_code')
-    
     def __repr__(self):
-        return f"<TaxCode(id={self.id}, code='{self.code}', rate={self.levy_rate})>"
+        return f'<User {self.username}>'
+
 
 class TaxDistrict(db.Model):
-    """Model for storing tax district information."""
+    """Tax district model representing a taxing jurisdiction."""
     __tablename__ = 'tax_district'
     
     id = Column(Integer, primary_key=True)
-    tax_district_id = Column(String(20), nullable=False, index=True)
-    district_name = Column(String(255), nullable=False)
-    levy_code = Column(String(20), ForeignKey('tax_code.code'), nullable=False, index=True)
-    year = Column(Integer, nullable=False, default=lambda: datetime.now().year)
-    statutory_limit = Column(Float, nullable=True)  # Maximum statutory levy rate
+    district_name = Column(String(100), nullable=False)
+    district_code = Column(String(20), nullable=False, unique=True, index=True)
+    district_type = Column(String(50))  # School, Fire, City, County, etc.
+    is_active = Column(Boolean, default=True)
+    description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    tax_code_rel = relationship('TaxCode', back_populates='districts')
+    tax_code_districts = relationship('TaxCodeDistrict', back_populates='district')
+    levy_limits = relationship('LevyLimit', back_populates='district')
     
-    # Unique constraint for district_id and year
+    def __repr__(self):
+        return f'<TaxDistrict {self.district_code}: {self.district_name}>'
+
+
+class TaxCode(db.Model):
+    """Tax code model representing a unique combination of tax districts."""
+    __tablename__ = 'tax_code'
+    
+    id = Column(Integer, primary_key=True)
+    code = Column(String(20), nullable=False, unique=True, index=True)
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    year = Column(Integer, default=datetime.now().year, nullable=False, index=True)
+    total_levy_rate = Column(Float, default=0.0)  # Per $1,000 of assessed value
+    total_assessed_value = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tax_code_districts = relationship('TaxCodeDistrict', back_populates='tax_code')
+    properties = relationship('Property', back_populates='tax_code')
+    historical_rates = relationship('TaxCodeHistoricalRate', back_populates='tax_code')
+    
     __table_args__ = (
-        UniqueConstraint('tax_district_id', 'year', name='uix_district_year'),
+        UniqueConstraint('code', 'year', name='uix_code_year'),
     )
     
     def __repr__(self):
-        return f"<TaxDistrict(id={self.id}, district_id='{self.tax_district_id}', name='{self.district_name}')>"
+        return f'<TaxCode {self.code} ({self.year})>'
 
-class ImportLog(db.Model):
-    """Model for tracking data imports."""
-    __tablename__ = 'import_log'
+
+class TaxCodeDistrict(db.Model):
+    """Junction table for tax codes and districts with levy rates."""
+    __tablename__ = 'tax_code_district'
     
     id = Column(Integer, primary_key=True)
-    filename = Column(String(255), nullable=False)
-    import_date = Column(DateTime, default=datetime.utcnow)
-    import_type = Column(String(50), nullable=True)  # 'property', 'tax_district', etc.
-    records_imported = Column(Integer, default=0)
-    records_skipped = Column(Integer, default=0)
-    status = Column(String(50), default='completed')  # 'completed', 'failed', 'partial'
-    notes = Column(Text, nullable=True)
+    tax_code_id = Column(Integer, ForeignKey('tax_code.id'), nullable=False)
+    district_id = Column(Integer, ForeignKey('tax_district.id'), nullable=False)
+    levy_rate = Column(Float, default=0.0)  # Per $1,000 of assessed value
+    levy_amount = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tax_code = relationship('TaxCode', back_populates='tax_code_districts')
+    district = relationship('TaxDistrict', back_populates='tax_code_districts')
+    
+    __table_args__ = (
+        UniqueConstraint('tax_code_id', 'district_id', name='uix_taxcode_district'),
+    )
     
     def __repr__(self):
-        return f"<ImportLog(id={self.id}, filename='{self.filename}', date='{self.import_date}')>"
+        return f'<TaxCodeDistrict {self.tax_code.code} - {self.district.district_code}>'
 
-class ExportLog(db.Model):
-    """Model for tracking data exports."""
-    __tablename__ = 'export_log'
+
+class Property(db.Model):
+    """Property model representing a real estate property."""
+    __tablename__ = 'property'
     
     id = Column(Integer, primary_key=True)
-    filename = Column(String(255), nullable=False)
-    export_date = Column(DateTime, default=datetime.utcnow)
-    export_type = Column(String(50), nullable=True)  # 'tax_roll', 'compliance_report', etc.
-    rows_exported = Column(Integer, default=0)
-    status = Column(String(50), default='completed')  # 'completed', 'failed', 'partial'
-    notes = Column(Text, nullable=True)
+    parcel_id = Column(String(30), nullable=False, unique=True, index=True)
+    address = Column(String(200))
+    owner_name = Column(String(100))
+    assessed_value = Column(Float, default=0.0)
+    market_value = Column(Float, default=0.0)
+    land_value = Column(Float, default=0.0)
+    improvement_value = Column(Float, default=0.0)
+    property_class = Column(String(20))  # Residential, Commercial, etc.
+    tax_code_id = Column(Integer, ForeignKey('tax_code.id'), nullable=False, index=True)
+    year = Column(Integer, default=datetime.now().year, nullable=False, index=True)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    lot_size = Column(Float)  # Square feet
+    building_size = Column(Float)  # Square feet
+    is_exempt = Column(Boolean, default=False)
+    exemption_amount = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tax_code = relationship('TaxCode', back_populates='properties')
+    exemptions = relationship('PropertyExemption', back_populates='property')
+    
+    __table_args__ = (
+        UniqueConstraint('parcel_id', 'year', name='uix_parcel_year'),
+    )
     
     def __repr__(self):
-        return f"<ExportLog(id={self.id}, filename='{self.filename}', date='{self.export_date}')>"
+        return f'<Property {self.parcel_id} ({self.year})>'
+
+
+class PropertyExemption(db.Model):
+    """Property exemption model for tracking exemptions applied to properties."""
+    __tablename__ = 'property_exemption'
+    
+    id = Column(Integer, primary_key=True)
+    property_id = Column(Integer, ForeignKey('property.id'), nullable=False, index=True)
+    exemption_type = Column(String(50), nullable=False)  # Senior, Veteran, Nonprofit, etc.
+    exemption_amount = Column(Float, default=0.0)
+    is_active = Column(Boolean, default=True)
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    property = relationship('Property', back_populates='exemptions')
+    
+    def __repr__(self):
+        return f'<PropertyExemption {self.exemption_type}: ${self.exemption_amount:,.2f}>'
+
+
+class LevyLimit(db.Model):
+    """Levy limit model for statutory levy limitations."""
+    __tablename__ = 'levy_limit'
+    
+    id = Column(Integer, primary_key=True)
+    district_id = Column(Integer, ForeignKey('tax_district.id'), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
+    limit_type = Column(String(50), nullable=False)  # Statutory, Voted, Banked
+    max_rate = Column(Float)  # Per $1,000 of assessed value
+    max_amount = Column(Float)
+    is_active = Column(Boolean, default=True)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    district = relationship('TaxDistrict', back_populates='levy_limits')
+    
+    __table_args__ = (
+        UniqueConstraint('district_id', 'year', 'limit_type', name='uix_district_year_limittype'),
+    )
+    
+    def __repr__(self):
+        return f'<LevyLimit {self.district.district_code} ({self.year}): {self.limit_type}>'
+
 
 class TaxCodeHistoricalRate(db.Model):
-    """
-    Model for storing historical tax rates for each tax code over multiple years.
-    """
+    """Model for storing historical tax rates for each tax code over multiple years."""
     __tablename__ = 'tax_code_historical_rate'
     
     id = Column(Integer, primary_key=True)
@@ -125,63 +207,149 @@ class TaxCodeHistoricalRate(db.Model):
     # Relationships
     tax_code = relationship('TaxCode', back_populates='historical_rates')
     
-    # Unique constraint for tax_code_id and year
     __table_args__ = (
         UniqueConstraint('tax_code_id', 'year', name='uix_tax_code_year'),
     )
     
     def __repr__(self):
-        return f"<TaxCodeHistoricalRate(tax_code_id={self.tax_code_id}, year={self.year}, rate={self.levy_rate})>"
+        return f'<TaxCodeHistoricalRate {self.tax_code.code} ({self.year}): {self.levy_rate}>'
 
-class ComplianceCheck(db.Model):
-    """Model for storing statutory compliance checks."""
-    __tablename__ = 'compliance_check'
+
+class ImportLog(db.Model):
+    """Import log for tracking data imports."""
+    __tablename__ = 'import_log'
     
     id = Column(Integer, primary_key=True)
-    tax_code_id = Column(Integer, ForeignKey('tax_code.id'), nullable=False, index=True)
-    check_date = Column(DateTime, default=datetime.utcnow)
-    check_type = Column(String(50), nullable=False)  # 'rate_limit', 'increase_limit', etc.
-    is_compliant = Column(Boolean, nullable=False)
-    details = Column(Text, nullable=True)
-    year = Column(Integer, nullable=False, default=lambda: datetime.now().year)
-    
-    # Relationships
-    tax_code = relationship('TaxCode')
+    filename = Column(String(255), nullable=False)
+    import_date = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    record_count = Column(Integer, default=0)
+    success_count = Column(Integer, default=0)
+    error_count = Column(Integer, default=0)
+    import_type = Column(String(50))  # properties, districts, tax_codes, etc.
+    import_year = Column(Integer)
+    status = Column(String(20))  # completed, failed, partial
+    error_log = Column(Text)
     
     def __repr__(self):
-        return f"<ComplianceCheck(id={self.id}, tax_code_id={self.tax_code_id}, compliant={self.is_compliant})>"
+        return f'<ImportLog {self.filename} ({self.import_date})>'
 
-class LevyScenario(db.Model):
-    """Model for storing levy scenario simulations."""
-    __tablename__ = 'levy_scenario'
+
+class AuditLog(db.Model):
+    """Audit log for tracking user actions."""
+    __tablename__ = 'audit_log'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    action = Column(String(50), nullable=False)  # create, update, delete, import, export
+    table_name = Column(String(50))
+    record_id = Column(Integer)
+    changes = Column(Text)  # JSON of changes
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    ip_address = Column(String(45))
+    
+    # Relationships
+    user = relationship('User', back_populates='audit_logs')
+    
+    def __repr__(self):
+        return f'<AuditLog {self.action} by {self.user.username if self.user else "Unknown"} at {self.timestamp}>'
+
+
+class GlossaryTerm(db.Model):
+    """Glossary terms for property tax terminology."""
+    __tablename__ = 'glossary_term'
+    
+    id = Column(Integer, primary_key=True)
+    term = Column(String(100), nullable=False, unique=True)
+    technical_definition = Column(Text, nullable=False)
+    plain_language = Column(Text, nullable=False)
+    example = Column(Text)
+    category = Column(String(50))  # assessment, levy, exemption
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<GlossaryTerm {self.term}>'
+
+
+class ComplianceReport(db.Model):
+    """Compliance report model for tracking statutory compliance."""
+    __tablename__ = 'compliance_report'
+    
+    id = Column(Integer, primary_key=True)
+    report_date = Column(DateTime, default=datetime.utcnow)
+    report_year = Column(Integer, nullable=False, index=True)
+    report_type = Column(String(50), nullable=False)  # annual, levy, special
+    status = Column(String(20), nullable=False)  # draft, submitted, approved
+    submitted_by = Column(Integer, ForeignKey('users.id'))
+    approved_by = Column(Integer, ForeignKey('users.id'))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<ComplianceReport {self.report_type} ({self.report_year}): {self.status}>'
+
+
+class BillImpactEvaluation(db.Model):
+    """Bill impact evaluation for proposed levy changes."""
+    __tablename__ = 'bill_impact_evaluation'
     
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    created_by = Column(String(100), nullable=True)
-    base_year = Column(Integer, nullable=False, default=lambda: datetime.now().year)
-    is_active = Column(Boolean, nullable=False, default=True)
+    description = Column(Text)
+    evaluation_date = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey('users.id'))
+    year = Column(Integer, nullable=False, index=True)
+    is_approved = Column(Boolean, default=False)
+    notes = Column(Text)
     
     # Relationships
-    adjustments = relationship('LevyScenarioAdjustment', back_populates='scenario', cascade='all, delete-orphan')
+    tax_codes = relationship('BillImpactTaxCode', back_populates='evaluation')
     
     def __repr__(self):
-        return f"<LevyScenario(id={self.id}, name='{self.name}')>"
+        return f'<BillImpactEvaluation {self.name} ({self.year})>'
 
-class LevyScenarioAdjustment(db.Model):
-    """Model for storing specific adjustments within a levy scenario."""
-    __tablename__ = 'levy_scenario_adjustment'
+
+class BillImpactTaxCode(db.Model):
+    """Bill impact details for tax codes in an evaluation."""
+    __tablename__ = 'bill_impact_tax_code'
     
     id = Column(Integer, primary_key=True)
-    scenario_id = Column(Integer, ForeignKey('levy_scenario.id'), nullable=False)
+    evaluation_id = Column(Integer, ForeignKey('bill_impact_evaluation.id'), nullable=False, index=True)
     tax_code_id = Column(Integer, ForeignKey('tax_code.id'), nullable=False)
-    adjustment_type = Column(String(50), nullable=False)  # 'percentage', 'fixed_amount', etc.
-    adjustment_value = Column(Float, nullable=False)  # Percentage or amount
+    current_rate = Column(Float, nullable=False)
+    proposed_rate = Column(Float, nullable=False)
+    average_impact_amount = Column(Float)
+    average_impact_percent = Column(Float)
+    median_property_impact = Column(Float)
+    notes = Column(Text)
     
     # Relationships
-    scenario = relationship('LevyScenario', back_populates='adjustments')
-    tax_code = relationship('TaxCode')
+    evaluation = relationship('BillImpactEvaluation', back_populates='tax_codes')
+    
+    __table_args__ = (
+        UniqueConstraint('evaluation_id', 'tax_code_id', name='uix_eval_taxcode'),
+    )
     
     def __repr__(self):
-        return f"<LevyScenarioAdjustment(id={self.id}, tax_code_id={self.tax_code_id}, value={self.adjustment_value})>"
+        return f'<BillImpactTaxCode {self.tax_code.code} in {self.evaluation.name}>'
+
+
+class DataArchive(db.Model):
+    """Data archive for long-term storage of levy data."""
+    __tablename__ = 'data_archive'
+    
+    id = Column(Integer, primary_key=True)
+    archive_date = Column(DateTime, default=datetime.utcnow)
+    archive_type = Column(String(50), nullable=False)  # levy, assessment, collection
+    year = Column(Integer, nullable=False, index=True)
+    file_path = Column(String(255))
+    file_size = Column(Integer)  # In bytes
+    is_encrypted = Column(Boolean, default=False)
+    checksum = Column(String(64))  # SHA-256 hash
+    created_by = Column(Integer, ForeignKey('users.id'))
+    notes = Column(Text)
+    
+    def __repr__(self):
+        return f'<DataArchive {self.archive_type} ({self.year})>'

@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block title %}Export Data - Levy Calculation System{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">Export Data</h1>
+            <p class="lead">Export property, tax district, and tax code data in various formats.</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <!-- Property Export Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-building"></i> Export Property Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Export property assessment data including property IDs, assessed values, and tax codes.</p>
+                    
+                    <form action="{{ url_for('data_management.export_properties') }}" method="post">
+                        <div class="mb-3">
+                            <label for="propertyYear" class="form-label">Year</label>
+                            <select class="form-select" id="propertyYear" name="year">
+                                <option value="">All Years</option>
+                                {% for year in years %}
+                                <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="propertyTaxCode" class="form-label">Tax Code (optional)</label>
+                            <input type="text" class="form-control" id="propertyTaxCode" name="tax_code" placeholder="Leave blank for all tax codes">
+                        </div>
+                        <div class="mb-3">
+                            <label for="propertyFormat" class="form-label">Export Format</label>
+                            <select class="form-select" id="propertyFormat" name="format">
+                                <option value="csv">CSV</option>
+                                <option value="excel">Excel</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-download"></i> Export</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Tax Code Export Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-tags"></i> Export Tax Code Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Export tax code data including codes, descriptions, and levy rates.</p>
+                    
+                    <form action="{{ url_for('data_management.export_tax_codes') }}" method="post">
+                        <div class="mb-3">
+                            <label for="taxCodeYear" class="form-label">Year</label>
+                            <select class="form-select" id="taxCodeYear" name="year">
+                                <option value="">All Years</option>
+                                {% for year in years %}
+                                <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="taxCodeFormat" class="form-label">Export Format</label>
+                            <select class="form-select" id="taxCodeFormat" name="format">
+                                <option value="csv">CSV</option>
+                                <option value="excel">Excel</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-info"><i class="bi bi-download"></i> Export</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <!-- District Export Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-geo-alt"></i> Export Tax District Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Export tax district information including district IDs, names, and levy codes.</p>
+                    
+                    <form action="{{ url_for('data_management.export_districts') }}" method="post">
+                        <div class="mb-3">
+                            <label for="districtYear" class="form-label">Year</label>
+                            <select class="form-select" id="districtYear" name="year">
+                                <option value="">All Years</option>
+                                {% for year in years %}
+                                <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="districtFormat" class="form-label">Export Format</label>
+                            <select class="form-select" id="districtFormat" name="format">
+                                <option value="csv">CSV</option>
+                                <option value="excel">Excel</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success"><i class="bi bi-download"></i> Export</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Recent Exports Card -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Exports</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_exports %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>File</th>
+                                        <th>Type</th>
+                                        <th>Date</th>
+                                        <th>Records</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for export_log in recent_exports %}
+                                    <tr>
+                                        <td>{{ export_log.filename }}</td>
+                                        <td>
+                                            {% if export_log.export_type == 'property' %}
+                                            <span class="badge bg-primary">Property</span>
+                                            {% elif export_log.export_type == 'district' %}
+                                            <span class="badge bg-success">District</span>
+                                            {% elif export_log.export_type == 'tax_code' %}
+                                            <span class="badge bg-info">Tax Code</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">{{ export_log.export_type }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ export_log.export_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>{{ export_log.rows_exported }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No recent exports.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Information Card -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary bg-opacity-25">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Export Information</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Exported Fields</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-primary">Property Data</h6>
+                            <ul>
+                                <li>property_id</li>
+                                <li>address</li>
+                                <li>owner_name</li>
+                                <li>assessed_value</li>
+                                <li>tax_code</li>
+                                <li>property_type</li>
+                                <li>year</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-success">Tax District Data</h6>
+                            <ul>
+                                <li>tax_district_id</li>
+                                <li>district_name</li>
+                                <li>levy_code</li>
+                                <li>statutory_limit</li>
+                                <li>year</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-info">Tax Code Data</h6>
+                            <ul>
+                                <li>code</li>
+                                <li>description</li>
+                                <li>total_assessed_value</li>
+                                <li>levy_rate</li>
+                                <li>levy_amount</li>
+                                <li>year</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-lightbulb"></i> Export files are stored in the 'exports' directory for future reference.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Flash message auto-dismiss
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    });
+</script>
+{% endblock %}

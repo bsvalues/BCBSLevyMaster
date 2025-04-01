@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Data - Levy Calculation System{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">Import Data</h1>
+            <p class="lead">Import property and tax district data from various file formats.</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <!-- Property Import Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-building"></i> Import Property Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Upload property assessment data including property IDs, assessed values, and tax codes.</p>
+                    <p class="text-muted">Supported formats: CSV, Excel, XML, TXT</p>
+                    
+                    <form action="{{ url_for('data_management.import_property') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="propertyFile" class="form-label">Select Property File</label>
+                            <input class="form-control" type="file" id="propertyFile" name="file" required>
+                            <div class="form-text">Required columns: property_id, assessed_value, tax_code</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Import</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Required Columns Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Required Columns</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Property Data</h6>
+                    <ul>
+                        <li><strong>property_id</strong> - Unique identifier for each property</li>
+                        <li><strong>assessed_value</strong> - Assessed value of the property</li>
+                        <li><strong>tax_code</strong> - Tax code associated with the property</li>
+                    </ul>
+                    
+                    <h6 class="mt-3">Tax District Data</h6>
+                    <ul>
+                        <li><strong>tax_district_id</strong> - Unique identifier for each district</li>
+                        <li><strong>district_name</strong> - Name of the tax district</li>
+                        <li><strong>levy_code</strong> - Tax code associated with the district</li>
+                    </ul>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-lightbulb"></i> Optional columns will be imported if present in your data files.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <!-- District Import Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-geo-alt"></i> Import Tax District Data</h5>
+                </div>
+                <div class="card-body">
+                    <p>Upload tax district information including district IDs, names, and levy codes.</p>
+                    <p class="text-muted">Supported formats: CSV, Excel, XML, TXT</p>
+                    
+                    <form action="{{ url_for('data_management.import_district') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="districtFile" class="form-label">Select District File</label>
+                            <input class="form-control" type="file" id="districtFile" name="file" required>
+                            <div class="form-text">Required columns: tax_district_id, district_name, levy_code</div>
+                        </div>
+                        <button type="submit" class="btn btn-success"><i class="bi bi-upload"></i> Import</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Recent Imports Card -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Imports</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_imports %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>File</th>
+                                        <th>Type</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for import_log in recent_imports %}
+                                    <tr>
+                                        <td>{{ import_log.filename }}</td>
+                                        <td>
+                                            {% if import_log.import_type == 'property' %}
+                                            <span class="badge bg-primary">Property</span>
+                                            {% elif import_log.import_type == 'district' %}
+                                            <span class="badge bg-success">District</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">{{ import_log.import_type }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ import_log.import_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            {% if import_log.status == 'completed' %}
+                                            <span class="badge bg-success">Completed</span>
+                                            {% elif import_log.status == 'failed' %}
+                                            <span class="badge bg-danger">Failed</span>
+                                            {% else %}
+                                            <span class="badge bg-warning">{{ import_log.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No recent imports.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Flash message auto-dismiss
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+        
+        // Preview file name on select
+        document.getElementById('propertyFile').addEventListener('change', function() {
+            const fileName = this.files[0]?.name || 'No file chosen';
+            this.nextElementSibling.textContent = `File: ${fileName}`;
+        });
+        
+        document.getElementById('districtFile').addEventListener('change', function() {
+            const fileName = this.files[0]?.name || 'No file chosen';
+            this.nextElementSibling.textContent = `File: ${fileName}`;
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+
+{% block title %}Levy Calculation System{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Dashboard Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h1 class="display-4">Dashboard</h1>
+            <p class="lead text-muted">
+                Property Tax Levy Calculation System for Benton County, WA
+            </p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <div class="btn-group">
+                <a href="#" class="btn btn-primary">
+                    <i class="bi bi-calculator"></i> Calculate Levies
+                </a>
+                <a href="{{ url_for('data_management.import_page') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-upload"></i> Import Data
+                </a>
+                <a href="#" class="btn btn-outline-primary">
+                    <i class="bi bi-file-earmark-text"></i> Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card hover-grow animated-fadeIn" style="animation-delay: 0.1s">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary me-3">
+                            <i class="bi bi-building"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-muted">Properties</h6>
+                            <h2 class="display-6 mb-0">{{ stats.property_count|default('0') }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card hover-grow animated-fadeIn" style="animation-delay: 0.2s">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success me-3">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-muted">Total Assessed Value</h6>
+                            <h2 class="display-6 mb-0">${{ stats.total_assessed_value|default('0')|format_number }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card hover-grow animated-fadeIn" style="animation-delay: 0.3s">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info me-3">
+                            <i class="bi bi-geo-alt"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-muted">Tax Districts</h6>
+                            <h2 class="display-6 mb-0">{{ stats.district_count|default('0') }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card stat-card hover-grow animated-fadeIn" style="animation-delay: 0.4s">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning me-3">
+                            <i class="bi bi-tags"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-muted">Tax Codes</h6>
+                            <h2 class="display-6 mb-0">{{ stats.taxcode_count|default('0') }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Levy Rates Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-percent text-primary me-2"></i>Levy Rates
+                    </h5>
+                    <div class="card-actions">
+                        <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if tax_codes %}
+                        <canvas id="levyRatesChart" height="250" 
+                            data-chart-data='{"labels": {{ labels|tojson }}, "data": {{ rates|tojson }}}'></canvas>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No tax code data available for the selected year.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history text-primary me-2"></i>Recent Activity
+                    </h5>
+                    <div class="card-actions">
+                        <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <div class="list-group list-group-flush">
+                            {% for activity in recent_activity %}
+                                <div class="list-group-item px-0">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ activity.action }}</h6>
+                                        <small class="text-muted">{{ activity.timestamp }}</small>
+                                    </div>
+                                    <p class="mb-1">{{ activity.description }}</p>
+                                    <small class="text-muted">{{ activity.user }}</small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No recent activity to display.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- AI Insights Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center bg-purple text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-robot me-2"></i>AI Insights
+                    </h5>
+                    <span class="badge ai-badge">Powered by Claude</span>
+                </div>
+                <div class="card-body">
+                    {% if ai_insights %}
+                        <div class="ai-insight mb-3">
+                            <h6>Key Trends</h6>
+                            <ul class="mb-0">
+                                {% for trend in ai_insights.trends %}
+                                    <li>{{ trend }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        
+                        <div class="ai-insight mb-3">
+                            <h6>Recommendations</h6>
+                            <ul class="mb-0">
+                                {% for recommendation in ai_insights.recommendations %}
+                                    <li>{{ recommendation }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        
+                        {% if ai_insights.anomalies %}
+                            <div class="ai-insight">
+                                <h6>Anomalies Detected</h6>
+                                <ul class="mb-0">
+                                    {% for anomaly in ai_insights.anomalies %}
+                                        <li>{{ anomaly }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> AI insights will be generated once sufficient data is available.
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center">
+                    <a href="#" class="btn btn-sm btn-outline-primary">Generate New Insights</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions Column -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning-charge text-primary me-2"></i>Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <a href="#" class="card hover-grow text-decoration-none h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-search display-6 mb-3 text-primary"></i>
+                                    <h6 class="card-title">Property Lookup</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="#" class="card hover-grow text-decoration-none h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-graph-up-arrow display-6 mb-3 text-success"></i>
+                                    <h6 class="card-title">Forecasting</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="#" class="card hover-grow text-decoration-none h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-file-earmark-spreadsheet display-6 mb-3 text-info"></i>
+                                    <h6 class="card-title">Export Tax Roll</h6>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="#" class="card hover-grow text-decoration-none h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-sliders display-6 mb-3 text-warning"></i>
+                                    <h6 class="card-title">Scenario Analysis</h6>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+<script>
+    // Animate stat cards on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add the animation class to stat cards with a delay
+        const statCards = document.querySelectorAll('.stat-card');
+        statCards.forEach(card => {
+            setTimeout(() => {
+                card.classList.add('animated-fadeIn');
+            }, 100);
+        });
+    });
+</script>
+{% endblock %}

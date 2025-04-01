@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('forecasting.index') }}">Forecasting</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Generate Forecast</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Generate Levy Rate Forecast</h1>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Forecast Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('forecasting.forecast') }}">
+                        <div class="mb-3">
+                            <label for="tax_code_id" class="form-label">Tax Code *</label>
+                            <select class="form-select" id="tax_code_id" name="tax_code_id" required>
+                                <option value="" selected disabled>Select a tax code</option>
+                                {% for code in tax_codes %}
+                                <option value="{{ code.id }}" {% if tax_code_id == code.id %}selected{% endif %}>
+                                    {{ code.code }} ({{ code.history_count }} years of data)
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the tax code to forecast.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="years_to_forecast" class="form-label">Years to Forecast</label>
+                            <input type="number" class="form-control" id="years_to_forecast" name="years_to_forecast" 
+                                   min="1" max="10" value="{{ years_to_forecast or 3 }}">
+                            <div class="form-text">Number of years to forecast into the future (1-10).</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confidence_level" class="form-label">Confidence Level</label>
+                            <select class="form-select" id="confidence_level" name="confidence_level">
+                                <option value="0.90" {% if confidence_level == 0.90 %}selected{% endif %}>90%</option>
+                                <option value="0.95" {% if confidence_level == 0.95 or not confidence_level %}selected{% endif %}>95%</option>
+                                <option value="0.99" {% if confidence_level == 0.99 %}selected{% endif %}>99%</option>
+                            </select>
+                            <div class="form-text">Confidence level for prediction intervals.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="preferred_model" class="form-label">Preferred Model</label>
+                            <select class="form-select" id="preferred_model" name="preferred_model">
+                                <option value="" {% if not preferred_model %}selected{% endif %}>Auto (Best Fit)</option>
+                                <option value="linear" {% if preferred_model == 'linear' %}selected{% endif %}>Linear Trend</option>
+                                <option value="exponential" {% if preferred_model == 'exponential' %}selected{% endif %}>Exponential Smoothing</option>
+                                <option value="arima" {% if preferred_model == 'arima' %}selected{% endif %}>ARIMA</option>
+                            </select>
+                            <div class="form-text">Select a specific model or let the system choose the best fit based on historical data.</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="include_explanation" name="include_explanation" 
+                                   {% if include_explanation %}checked{% endif %} value="true">
+                            <label class="form-check-label" for="include_explanation">
+                                Include AI-Enhanced Explanation
+                            </label>
+                            <div class="form-text">Generate an AI-enhanced explanation and recommendations based on the forecast results.</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-graph-up me-2"></i>Generate Forecast
+                            </button>
+                            <a href="{{ url_for('forecasting.index') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Back to Forecasting
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">About Forecasting Models</h5>
+                </div>
+                <div class="card-body">
+                    <dl>
+                        <dt><i class="bi bi-graph-up text-primary me-2"></i>Linear Trend</dt>
+                        <dd>Uses linear regression to project future values based on historical trends. Best for data with consistent growth or decline patterns.</dd>
+                        
+                        <dt><i class="bi bi-graph-up-arrow text-success me-2"></i>Exponential Smoothing</dt>
+                        <dd>Applies exponentially decreasing weights to past observations. Works well with data that has seasonality or level shifts.</dd>
+                        
+                        <dt><i class="bi bi-activity text-danger me-2"></i>ARIMA</dt>
+                        <dd>Autoregressive Integrated Moving Average model captures complex patterns in the data. Best for data with autocorrelation and non-stationary characteristics.</dd>
+                    </dl>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>How Models Are Evaluated:</strong> The system evaluates models using metrics like RMSE (Root Mean Squared Error), MAE (Mean Absolute Error), and MAPE (Mean Absolute Percentage Error) to select the most accurate model for your data.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">AI-Enhanced Insights</h5>
+                </div>
+                <div class="card-body">
+                    <p>When the "Include AI-Enhanced Explanation" option is selected, our system uses advanced AI to:</p>
+                    
+                    <ul>
+                        <li>Analyze historical patterns and trends</li>
+                        <li>Explain the forecast results in plain language</li>
+                        <li>Provide strategic recommendations based on the projections</li>
+                        <li>Highlight potential impacts on tax planning</li>
+                        <li>Identify factors influencing the forecasted rates</li>
+                    </ul>
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        <strong>Note:</strong> AI-enhanced analysis requires the Anthropic Claude API key to be configured.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
