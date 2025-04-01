@@ -1338,6 +1338,85 @@ def api_historical_export_preview():
             'message': f"Error generating preview: {str(e)}"
         })
 
+@app.route('/api/compare_tax_codes', methods=['GET'])
+def api_compare_tax_codes():
+    """
+    API endpoint to retrieve historical data for multiple tax codes for comparison.
+    
+    Query parameters:
+    - tax_codes: Comma-separated list of tax codes to compare
+    - years: Optional comma-separated list of years to filter by
+    
+    Returns:
+    - Dictionary containing data for each tax code
+    """
+    try:
+        # Get tax codes from the request
+        tax_codes_param = request.args.get('tax_codes', '')
+        if not tax_codes_param:
+            return jsonify({
+                'success': False,
+                'message': 'No tax codes provided'
+            })
+        
+        tax_codes = [code.strip() for code in tax_codes_param.split(',')]
+        
+        # Get optional year filter
+        years_param = request.args.get('years', '')
+        years_filter = None
+        if years_param:
+            try:
+                years_filter = [int(year.strip()) for year in years_param.split(',')]
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid year format'
+                })
+        
+        # Build response data
+        comparison_data = {
+            'tax_codes': tax_codes,
+            'years_filter': years_filter,
+            'data': {}
+        }
+        
+        # For each tax code, get its historical data
+        for tax_code in tax_codes:
+            code_data = get_historical_rates_by_code(tax_code, years_filter)
+            if code_data:
+                # Calculate multi-year analysis for each tax code
+                multi_year_analysis = calculate_multi_year_changes(tax_code, years=years_filter)
+                
+                comparison_data['data'][tax_code] = {
+                    'historical_data': code_data,
+                    'multi_year_analysis': multi_year_analysis
+                }
+            else:
+                comparison_data['data'][tax_code] = {
+                    'historical_data': [],
+                    'multi_year_analysis': None,
+                    'error': f"No historical data found for tax code {tax_code}"
+                }
+        
+        # Check if any data was found
+        if all('error' in comparison_data['data'][tc] for tc in tax_codes):
+            return jsonify({
+                'success': False,
+                'message': 'No historical data found for any of the specified tax codes'
+            })
+        
+        return jsonify({
+            'success': True,
+            'comparison_data': comparison_data
+        })
+    
+    except Exception as e:
+        app.logger.error(f"Error comparing tax codes: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f"Error comparing tax codes: {str(e)}"
+        })
+
 @app.route('/api/historical_import_preview', methods=['POST'])
 def api_historical_import_preview():
     """

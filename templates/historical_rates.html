@@ -58,6 +58,38 @@
 
                     <hr>
 
+                    <!-- Compare Tax Codes -->
+                    <form id="compareForm" class="mb-4">
+                        <h6 class="mb-3">Compare Tax Codes</h6>
+                        <div class="mb-3">
+                            <label for="compare_tax_codes" class="form-label">Select Tax Codes</label>
+                            <select class="form-select" id="compare_tax_codes" name="compare_tax_codes" multiple size="5" required>
+                                {% for tax_code in tax_codes %}
+                                <option value="{{ tax_code.code }}">
+                                    {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select multiple tax codes by holding Ctrl/Cmd while clicking</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="compare_years" class="form-label">Filter by Years (Optional)</label>
+                            <select class="form-select" id="compare_years" name="compare_years" multiple size="3">
+                                {% for year in available_years %}
+                                <option value="{{ year }}">{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Leave empty to include all available years</div>
+                        </div>
+                        
+                        <button type="button" id="compareTaxCodesBtn" class="btn btn-info">
+                            <i class="bi bi-arrow-left-right"></i> Compare Tax Codes
+                        </button>
+                    </form>
+
+                    <hr>
+
                     <!-- Seed Historical Data (for development) -->
                     <form method="post" action="{{ url_for('historical_rates') }}">
                         <h6 class="mb-3">Generate Test Data</h6>

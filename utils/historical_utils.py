@@ -148,19 +148,20 @@ def get_historical_rates_by_code(tax_code: str, years: Optional[List[int]] = Non
     
     return get_historical_rates(tax_code_obj.id, years)
 
-def calculate_multi_year_changes(tax_code: str, base_year: Optional[int] = None) -> Dict[str, Any]:
+def calculate_multi_year_changes(tax_code: str, years: Optional[List[int]] = None, base_year: Optional[int] = None) -> Dict[str, Any]:
     """
     Calculate multi-year changes in levy rates for a specific tax code.
     
     Args:
         tax_code: The tax code to analyze
+        years: Optional list of specific years to analyze (if None, use all available years)
         base_year: Optional base year for comparisons (if None, use most recent year)
         
     Returns:
         Dictionary with multi-year change analysis
     """
-    # Get historical rates for this tax code
-    historical_data = get_historical_rates_by_code(tax_code)
+    # Get historical rates for this tax code with optional year filter
+    historical_data = get_historical_rates_by_code(tax_code, years)
     
     if not historical_data:
         return {
