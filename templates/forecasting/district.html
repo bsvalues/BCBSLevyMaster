@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block title %}District Levy Rate Forecasting{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('forecasting_dashboard') }}">Forecasting</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">District Forecasting</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">District Levy Rate Forecasting</h1>
+            <p class="lead">Generate forecasts for all tax codes within a district and view aggregate projections.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Generate District Forecast</h5>
+                </div>
+                <div class="card-body">
+                    <form id="district-forecast-form">
+                        <div class="mb-3">
+                            <label for="district-id" class="form-label">Tax District</label>
+                            <select class="form-select" id="district-id" name="district_id" required>
+                                <option value="">Select a district</option>
+                                {% for district in districts %}
+                                <option value="{{ district.tax_district_id }}">District {{ district.tax_district_id }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="model-type" class="form-label">Forecast Model</label>
+                            <select class="form-select" id="model-type" name="model_type">
+                                <option value="linear">Linear Trend</option>
+                                <option value="exponential">Exponential Smoothing</option>
+                                <option value="arima">ARIMA</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="years-ahead" class="form-label">Forecast Years</label>
+                            <input type="number" class="form-control" id="years-ahead" name="years_ahead" min="1" max="10" value="3">
+                            <div class="form-text">Number of future years to forecast (1-10).</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="scenario" class="form-label">Scenario</label>
+                            <select class="form-select" id="scenario" name="scenario">
+                                <option value="baseline">Baseline</option>
+                                <option value="optimistic">Optimistic</option>
+                                <option value="pessimistic">Pessimistic</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Generate District Forecast</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0" id="district-forecast-title">District Forecast Results</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loading" class="text-center d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Generating district forecast...</p>
+                    </div>
+                    
+                    <div id="district-forecast-placeholder" class="text-center">
+                        <div class="mt-5 mb-5">
+                            <i class="bi bi-geo-alt text-muted" style="font-size: 4rem;"></i>
+                            <p class="mt-3 text-muted">Select a district and configure forecast options to generate aggregated projections.</p>
+                        </div>
+                    </div>
+                    
+                    <div id="district-forecast-error" class="alert alert-danger mt-3 d-none">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="error-message"></span>
+                    </div>
+                    
+                    <div id="district-forecast-chart-container" class="d-none">
+                        <div id="district-forecast-chart" style="height: 300px;"></div>
+                    </div>
+                    
+                    <div id="tax-codes-list" class="mt-4 d-none">
+                        <h5>Included Tax Codes</h5>
+                        <div id="tax-codes-badges" class="mb-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4 d-none" id="individual-forecasts-section">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Individual Tax Code Forecasts</h5>
+                </div>
+                <div class="card-body">
+                    <div id="individual-forecasts-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const districtForecastForm = document.getElementById('district-forecast-form');
+        const loadingElement = document.getElementById('loading');
+        const placeholderElement = document.getElementById('district-forecast-placeholder');
+        const errorElement = document.getElementById('district-forecast-error');
+        const errorMessageElement = document.getElementById('error-message');
+        const chartContainer = document.getElementById('district-forecast-chart-container');
+        const districtForecastTitle = document.getElementById('district-forecast-title');
+        const taxCodesList = document.getElementById('tax-codes-list');
+        const taxCodesBadges = document.getElementById('tax-codes-badges');
+        const individualForecastsSection = document.getElementById('individual-forecasts-section');
+        const individualForecastsContainer = document.getElementById('individual-forecasts-container');
+        
+        districtForecastForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading state
+            loadingElement.classList.remove('d-none');
+            placeholderElement.classList.add('d-none');
+            errorElement.classList.add('d-none');
+            chartContainer.classList.add('d-none');
+            taxCodesList.classList.add('d-none');
+            individualForecastsSection.classList.add('d-none');
+            
+            // Get form data
+            const formData = new FormData(districtForecastForm);
+            
+            // Get district ID for display
+            const districtSelect = document.getElementById('district-id');
+            const districtText = districtSelect.options[districtSelect.selectedIndex].text;
+            
+            // Send request
+            fetch('/forecasting/district/generate', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Error generating district forecast');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update title
+                districtForecastTitle.textContent = `Forecast for ${districtText}`;
+                
+                // Display chart for aggregate forecast
+                displayDistrictForecastChart(data);
+                
+                // Display tax codes list
+                displayTaxCodesList(data.tax_codes);
+                
+                // Display individual forecasts
+                displayIndividualForecasts(data.individual_forecasts);
+                
+                // Hide loading state
+                loadingElement.classList.add('d-none');
+            })
+            .catch(error => {
+                // Show error message
+                errorMessageElement.textContent = error.message;
+                errorElement.classList.remove('d-none');
+                
+                // Hide loading state
+                loadingElement.classList.add('d-none');
+            });
+        });
+        
+        function displayDistrictForecastChart(data) {
+            // Create historical data array from the first individual forecast
+            // This is a simplification - in a real app we might need a more robust approach
+            const firstForecast = data.individual_forecasts[0];
+            const historicalYears = firstForecast.historical_data.years;
+            const historicalRates = firstForecast.historical_data.rates;
+            
+            // Get aggregate forecast data
+            const forecastYears = data.aggregate_forecast.years;
+            const forecastRates = data.aggregate_forecast.predicted_rates;
+            
+            // Create chart data
+            const historical = {
+                x: historicalYears,
+                y: historicalRates,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Historical Average',
+                line: {
+                    color: 'blue',
+                    width: 2
+                },
+                marker: {
+                    size: 8
+                }
+            };
+            
+            const forecast = {
+                x: forecastYears,
+                y: forecastRates,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'District Forecast',
+                line: {
+                    color: 'red',
+                    width: 2,
+                    dash: 'dot'
+                },
+                marker: {
+                    size: 8
+                }
+            };
+            
+            const layout = {
+                title: `District Levy Rate Forecast`,
+                xaxis: {
+                    title: 'Year',
+                    tickmode: 'linear'
+                },
+                yaxis: {
+                    title: 'Average Levy Rate',
+                    tickformat: '.4f'
+                },
+                legend: {
+                    x: 0.01,
+                    y: 0.99,
+                    bgcolor: 'rgba(255, 255, 255, 0.5)'
+                },
+                margin: {
+                    l: 70,
+                    r: 30,
+                    b: 50,
+                    t: 60
+                }
+            };
+            
+            // Create chart
+            Plotly.newPlot('district-forecast-chart', [historical, forecast], layout);
+            
+            // Show chart container
+            chartContainer.classList.remove('d-none');
+        }
+        
+        function displayTaxCodesList(taxCodes) {
+            // Clear container
+            taxCodesBadges.innerHTML = '';
+            
+            // Add badge for each tax code
+            taxCodes.forEach(code => {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-secondary me-2 mb-2';
+                badge.textContent = code;
+                taxCodesBadges.appendChild(badge);
+            });
+            
+            // Show tax codes list
+            taxCodesList.classList.remove('d-none');
+        }
+        
+        function displayIndividualForecasts(forecasts) {
+            // Clear container
+            individualForecastsContainer.innerHTML = '';
+            
+            // Create a mini-chart for each individual forecast
+            forecasts.forEach((forecast, index) => {
+                // Create a container for this forecast
+                const forecastDiv = document.createElement('div');
+                forecastDiv.className = 'mb-4';
+                
+                // Add heading
+                const heading = document.createElement('h6');
+                heading.className = 'mb-3';
+                heading.textContent = `${forecast.tax_code} - Forecast`;
+                forecastDiv.appendChild(heading);
+                
+                // Create a row with chart and metrics
+                const row = document.createElement('div');
+                row.className = 'row';
+                
+                // Chart column
+                const chartCol = document.createElement('div');
+                chartCol.className = 'col-md-8';
+                
+                // Create chart div
+                const chartDiv = document.createElement('div');
+                chartDiv.id = `chart-${index}`;
+                chartDiv.style.height = '200px';
+                chartCol.appendChild(chartDiv);
+                
+                // Metrics column
+                const metricsCol = document.createElement('div');
+                metricsCol.className = 'col-md-4';
+                
+                // Create metrics table
+                const metricsTable = document.createElement('table');
+                metricsTable.className = 'table table-sm';
+                
+                // Add rows for current rate and forecast
+                const currentRate = forecast.historical_data.rates[forecast.historical_data.rates.length - 1];
+                const forecastRate = forecast.forecast.predicted_rates[forecast.forecast.predicted_rates.length - 1];
+                const lastYear = forecast.historical_data.years[forecast.historical_data.years.length - 1];
+                const forecastYear = forecast.forecast.years[forecast.forecast.years.length - 1];
+                
+                const tbody = document.createElement('tbody');
+                
+                // Current rate row
+                const currentRow = document.createElement('tr');
+                const currentLabelCell = document.createElement('td');
+                currentLabelCell.textContent = `${lastYear} Rate`;
+                const currentValueCell = document.createElement('td');
+                currentValueCell.textContent = currentRate.toFixed(4);
+                currentRow.appendChild(currentLabelCell);
+                currentRow.appendChild(currentValueCell);
+                tbody.appendChild(currentRow);
+                
+                // Forecast rate row
+                const forecastRow = document.createElement('tr');
+                const forecastLabelCell = document.createElement('td');
+                forecastLabelCell.textContent = `${forecastYear} Forecast`;
+                const forecastValueCell = document.createElement('td');
+                forecastValueCell.textContent = forecastRate.toFixed(4);
+                
+                // Add arrow indicating change
+                if (forecastRate > currentRate) {
+                    forecastValueCell.innerHTML += ' <i class="bi bi-arrow-up-short text-danger"></i>';
+                } else if (forecastRate < currentRate) {
+                    forecastValueCell.innerHTML += ' <i class="bi bi-arrow-down-short text-success"></i>';
+                }
+                
+                forecastRow.appendChild(forecastLabelCell);
+                forecastRow.appendChild(forecastValueCell);
+                tbody.appendChild(forecastRow);
+                
+                // Percent change row
+                const percentChange = ((forecastRate - currentRate) / currentRate) * 100;
+                const changeRow = document.createElement('tr');
+                const changeLabelCell = document.createElement('td');
+                changeLabelCell.textContent = 'Percent Change';
+                const changeValueCell = document.createElement('td');
+                
+                if (percentChange > 0) {
+                    changeValueCell.className = 'text-danger';
+                    changeValueCell.textContent = `+${percentChange.toFixed(2)}%`;
+                } else if (percentChange < 0) {
+                    changeValueCell.className = 'text-success';
+                    changeValueCell.textContent = `${percentChange.toFixed(2)}%`;
+                } else {
+                    changeValueCell.textContent = '0.00%';
+                }
+                
+                changeRow.appendChild(changeLabelCell);
+                changeRow.appendChild(changeValueCell);
+                tbody.appendChild(changeRow);
+                
+                metricsTable.appendChild(tbody);
+                metricsCol.appendChild(metricsTable);
+                
+                // Add columns to row
+                row.appendChild(chartCol);
+                row.appendChild(metricsCol);
+                
+                // Add row to forecast div
+                forecastDiv.appendChild(row);
+                
+                // Add a divider
+                const divider = document.createElement('hr');
+                divider.className = 'my-4';
+                forecastDiv.appendChild(divider);
+                
+                // Add to container
+                individualForecastsContainer.appendChild(forecastDiv);
+                
+                // Create the chart
+                createMiniChart(
+                    `chart-${index}`, 
+                    forecast.historical_data.years, 
+                    forecast.historical_data.rates,
+                    forecast.forecast.years,
+                    forecast.forecast.predicted_rates
+                );
+            });
+            
+            // Show individual forecasts section
+            individualForecastsSection.classList.remove('d-none');
+        }
+        
+        function createMiniChart(elementId, historicalYears, historicalRates, forecastYears, forecastRates) {
+            // Create chart data
+            const historical = {
+                x: historicalYears,
+                y: historicalRates,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Historical',
+                line: {
+                    color: 'blue',
+                    width: 2
+                },
+                marker: {
+                    size: 6
+                }
+            };
+            
+            const forecast = {
+                x: forecastYears,
+                y: forecastRates,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Forecast',
+                line: {
+                    color: 'red',
+                    width: 2,
+                    dash: 'dot'
+                },
+                marker: {
+                    size: 6
+                }
+            };
+            
+            const layout = {
+                margin: {
+                    l: 50,
+                    r: 20,
+                    b: 40,
+                    t: 20,
+                    pad: 0
+                },
+                showlegend: false,
+                xaxis: {
+                    tickmode: 'linear',
+                    dtick: 2
+                },
+                yaxis: {
+                    tickformat: '.4f'
+                }
+            };
+            
+            Plotly.newPlot(elementId, [historical, forecast], layout);
+        }
+    });
+</script>
+{% endblock %}

@@ -226,6 +226,141 @@ class AuditLog(db.Model):
                 changes[key] = (old_val, new_val)
                 
         return changes
+        
+        
+class ForecastModel(db.Model):
+    """
+    Model for storing tax rate forecasts.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    tax_code = db.Column(db.String(20), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    model_type = db.Column(db.String(50), nullable=False)  # 'linear', 'exponential', 'arima'
+    scenario = db.Column(db.String(50), nullable=False, default='baseline')  # 'baseline', 'optimistic', 'pessimistic'
+    years_ahead = db.Column(db.Integer, nullable=False)
+    base_year = db.Column(db.Integer, nullable=False)
+    historical_data = db.Column(db.Text, nullable=False)  # JSON string of historical years and rates
+    forecast_data = db.Column(db.Text, nullable=False)  # JSON string of forecast results
+    metrics = db.Column(db.Text, nullable=True)  # JSON string of accuracy metrics
+    is_published = db.Column(db.Boolean, default=False)
+    name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, nullable=True)  # Optional user ID
+    
+    def __repr__(self):
+        return f"<ForecastModel {self.tax_code} {self.scenario}>"
+    
+    def get_historical_data(self):
+        """Parse and return historical data."""
+        return json.loads(self.historical_data)
+    
+    def get_forecast_data(self):
+        """Parse and return forecast data."""
+        return json.loads(self.forecast_data)
+    
+    def get_metrics(self):
+        """Parse and return accuracy metrics."""
+        if self.metrics:
+            return json.loads(self.metrics)
+        return {}
+
+
+class DistrictForecast(db.Model):
+    """
+    Model for storing district-level forecasts.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    district_id = db.Column(db.Integer, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    model_type = db.Column(db.String(50), nullable=False)  # 'linear', 'exponential', 'arima'
+    scenario = db.Column(db.String(50), nullable=False, default='baseline')
+    years_ahead = db.Column(db.Integer, nullable=False)
+    base_year = db.Column(db.Integer, nullable=False)
+    tax_codes = db.Column(db.Text, nullable=False)  # JSON array of tax codes included in the forecast
+    aggregate_forecast = db.Column(db.Text, nullable=False)  # JSON string of aggregate forecast results
+    is_published = db.Column(db.Boolean, default=False)
+    name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, nullable=True)  # Optional user ID
+    
+    def __repr__(self):
+        return f"<DistrictForecast {self.district_id} {self.scenario}>"
+    
+    def get_tax_codes(self):
+        """Parse and return tax codes list."""
+        return json.loads(self.tax_codes)
+    
+    def get_aggregate_forecast(self):
+        """Parse and return aggregate forecast data."""
+        return json.loads(self.aggregate_forecast)
+
+
+class ReportTemplate(db.Model):
+    """
+    Model for storing report templates.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # 'property', 'tax_code', 'district'
+    sections = db.Column(db.Text, nullable=False)  # JSON string of section configurations
+    sorting = db.Column(db.Text, nullable=True)  # JSON string of sorting configuration
+    filters = db.Column(db.Text, nullable=True)  # JSON string of filter configurations
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, nullable=True)  # Optional user ID
+    is_public = db.Column(db.Boolean, default=False)
+    
+    def __repr__(self):
+        return f"<ReportTemplate {self.name}>"
+    
+    def get_sections(self):
+        """Parse and return sections configuration."""
+        return json.loads(self.sections)
+    
+    def get_sorting(self):
+        """Parse and return sorting configuration."""
+        if self.sorting:
+            return json.loads(self.sorting)
+        return None
+    
+    def get_filters(self):
+        """Parse and return filters configuration."""
+        if self.filters:
+            return json.loads(self.filters)
+        return []
+
+
+class ScheduledReport(db.Model):
+    """
+    Model for storing scheduled report configurations.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('report_template.id'), nullable=False)
+    format = db.Column(db.String(50), nullable=False)  # 'excel', 'pdf', 'csv', 'json'
+    frequency = db.Column(db.String(50), nullable=False)  # 'daily', 'weekly', 'monthly', 'quarterly', 'yearly'
+    day = db.Column(db.String(50), nullable=True)  # Day of week for weekly reports
+    time = db.Column(db.String(50), nullable=True)  # Time of day for execution
+    recipients = db.Column(db.Text, nullable=True)  # JSON array of email addresses
+    subject = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, nullable=True)  # Optional user ID
+    last_run = db.Column(db.DateTime, nullable=True)
+    next_run = db.Column(db.DateTime, nullable=True)
+    
+    # Relationship to template
+    template = db.relationship('ReportTemplate', backref='scheduled_reports')
+    
+    def __repr__(self):
+        return f"<ScheduledReport {self.id} {self.frequency}>"
+    
+    def get_recipients(self):
+        """Parse and return recipients list."""
+        if self.recipients:
+            return json.loads(self.recipients)
+        return []
 
 class DataArchive(db.Model):
     """

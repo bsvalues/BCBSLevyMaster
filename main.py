@@ -14,6 +14,8 @@ import routes_data_management
 import routes_historical_analysis
 import routes_glossary
 import routes_public
+import routes_forecasting
+import routes_reports
 from utils.tooltip_utils import initialize_tooltip_jinja_filters
 
 # Initialize data management routes
@@ -27,6 +29,12 @@ routes_glossary.init_glossary_routes(app)
 
 # Initialize public portal routes
 routes_public.init_public_routes()
+
+# Initialize forecasting routes
+routes_forecasting.init_forecasting_routes()
+
+# Initialize report routes
+routes_reports.init_report_routes()
 
 # Initialize tooltip functionality
 initialize_tooltip_jinja_filters(app)
