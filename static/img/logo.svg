@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="30" height="30" rx="4" fill="#4D74E0" />
+  
+  <!-- Bar Chart (Left) -->
+  <rect x="5" y="17" width="3" height="8" rx="1" fill="white" />
+  <rect x="10" y="14" width="3" height="11" rx="1" fill="white" />
+  <rect x="15" y="11" width="3" height="14" rx="1" fill="white" />
+  
+  <!-- Dollar Sign (Right) -->
+  <path d="M23 8.5C23 7.67157 23.6716 7 24.5 7C25.3284 7 26 7.67157 26 8.5V9H23V8.5Z" fill="white" />
+  <path d="M23 21V21.5C23 22.3284 23.6716 23 24.5 23C25.3284 23 26 22.3284 26 21.5V21H23Z" fill="white" />
+  <rect x="23" y="9" width="3" height="12" fill="white" />
+  <rect x="21" y="12" width="7" height="2" rx="1" fill="#4D74E0" />
+  <rect x="21" y="16" width="7" height="2" rx="1" fill="#4D74E0" />
+</svg>

@@ -1,247 +1,425 @@
 """
-Model Content Protocol (MCP) Core Implementation
+Core Model Content Protocol (MCP) functionality and registry.
 
-This module implements the core components of the Model Content Protocol for the 
-SaaS Levy Calculation Application, enabling AI-driven autonomous operations.
+This module provides the foundation for the MCP framework, including:
+- Function registration and discovery
+- Protocol definition
+- Core utilities
 """
 
 import json
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from enum import Enum
+from typing import Dict, List, Any, Callable, Optional, Union, TypeVar, Generic
 
-# Define the MCP Content Types
-class ContentType(Enum):
-    TEXT = "text"
-    STRUCTURED_DATA = "structured_data"
-    FUNCTION_CALL = "function_call"
-    FUNCTION_RESPONSE = "function_response"
-    MULTI_MODAL = "multi_modal"
+logger = logging.getLogger(__name__)
 
-# Content block structure following MCP standards
-class ContentBlock:
-    def __init__(
-        self, 
-        content_type: ContentType, 
-        content: Any,
-        metadata: Optional[Dict[str, Any]] = None,
-        annotations: Optional[List[Dict[str, Any]]] = None,
-        references: Optional[List[Dict[str, Any]]] = None
-    ):
-        self.content_type = content_type
-        self.content = content
-        self.metadata = metadata or {}
-        self.annotations = annotations or []
-        self.references = references or []
-        self.created_at = datetime.utcnow().isoformat()
+# Type definitions
+T = TypeVar('T')
+FunctionType = Callable[..., Any]
+ParameterType = Dict[str, Any]
+ResultType = Dict[str, Any]
+
+
+class MCPFunction:
+    """Represents a registered MCP function."""
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert ContentBlock to dictionary representation."""
-        return {
-            "content_type": self.content_type.value,
-            "content": self.content,
-            "metadata": self.metadata,
-            "annotations": self.annotations,
-            "references": self.references,
-            "created_at": self.created_at
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ContentBlock':
-        """Create ContentBlock from dictionary."""
-        return cls(
-            content_type=ContentType(data["content_type"]),
-            content=data["content"],
-            metadata=data.get("metadata", {}),
-            annotations=data.get("annotations", []),
-            references=data.get("references", [])
-        )
-
-# MCP Message structure for communication
-class MCPMessage:
     def __init__(
         self,
-        content_blocks: List[ContentBlock],
-        message_id: Optional[str] = None,
-        parent_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        name: str,
+        description: str,
+        func: FunctionType,
+        parameter_schema: Dict[str, Any] = None,
+        return_schema: Dict[str, Any] = None
     ):
-        from uuid import uuid4
+        """
+        Initialize an MCP function.
         
-        self.message_id = message_id or str(uuid4())
-        self.parent_id = parent_id
-        self.content_blocks = content_blocks
-        self.metadata = metadata or {}
-        self.timestamp = datetime.utcnow().isoformat()
+        Args:
+            name: Unique function identifier
+            description: Human-readable function description
+            func: The actual function implementation
+            parameter_schema: JSON Schema for function parameters
+            return_schema: JSON Schema for function return value
+        """
+        self.name = name
+        self.description = description
+        self.func = func
+        self.parameter_schema = parameter_schema or {}
+        self.return_schema = return_schema or {}
+    
+    def execute(self, parameters: ParameterType = None) -> ResultType:
+        """
+        Execute the function with the given parameters.
+        
+        Args:
+            parameters: Function parameters
+            
+        Returns:
+            Function result
+        """
+        parameters = parameters or {}
+        try:
+            result = self.func(**parameters)
+            return result
+        except Exception as e:
+            logger.error(f"Error executing MCP function {self.name}: {str(e)}")
+            raise
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert MCPMessage to dictionary representation."""
+        """
+        Convert the function to a dictionary representation.
+        
+        Returns:
+            Dictionary with function metadata
+        """
         return {
-            "message_id": self.message_id,
-            "parent_id": self.parent_id,
-            "content_blocks": [block.to_dict() for block in self.content_blocks],
-            "metadata": self.metadata,
-            "timestamp": self.timestamp
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameter_schema
         }
+
+
+class MCPRegistry:
+    """Registry for MCP functions and capabilities."""
     
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'MCPMessage':
-        """Create MCPMessage from dictionary."""
-        return cls(
-            content_blocks=[ContentBlock.from_dict(block) for block in data["content_blocks"]],
-            message_id=data.get("message_id"),
-            parent_id=data.get("parent_id"),
-            metadata=data.get("metadata", {})
+    def __init__(self):
+        """Initialize an empty registry."""
+        self.functions: Dict[str, MCPFunction] = {}
+    
+    def register(
+        self,
+        name: str,
+        description: str,
+        parameter_schema: Dict[str, Any] = None,
+        return_schema: Dict[str, Any] = None
+    ) -> Callable[[FunctionType], FunctionType]:
+        """
+        Decorator to register a function with the MCP registry.
+        
+        Args:
+            name: Unique function identifier
+            description: Human-readable function description
+            parameter_schema: JSON Schema for function parameters
+            return_schema: JSON Schema for function return value
+            
+        Returns:
+            Decorator function
+        """
+        def decorator(func: FunctionType) -> FunctionType:
+            self.functions[name] = MCPFunction(
+                name=name,
+                description=description,
+                func=func,
+                parameter_schema=parameter_schema,
+                return_schema=return_schema
+            )
+            return func
+        return decorator
+    
+    def register_function(
+        self,
+        func: FunctionType,
+        name: str = None,
+        description: str = None,
+        parameter_schema: Dict[str, Any] = None,
+        return_schema: Dict[str, Any] = None
+    ) -> None:
+        """
+        Register an existing function with the MCP registry.
+        
+        Args:
+            func: The function to register
+            name: Unique function identifier (defaults to function name)
+            description: Human-readable function description
+            parameter_schema: JSON Schema for function parameters
+            return_schema: JSON Schema for function return value
+        """
+        name = name or func.__name__
+        description = description or (func.__doc__ or "").strip()
+        self.functions[name] = MCPFunction(
+            name=name,
+            description=description,
+            func=func,
+            parameter_schema=parameter_schema,
+            return_schema=return_schema
         )
     
-    def to_json(self) -> str:
-        """Convert MCPMessage to JSON string."""
-        return json.dumps(self.to_dict())
-    
-    @classmethod
-    def from_json(cls, json_str: str) -> 'MCPMessage':
-        """Create MCPMessage from JSON string."""
-        data = json.loads(json_str)
-        return cls.from_dict(data)
-
-# Function Registry following MCP Function System
-class FunctionRegistry:
-    def __init__(self):
-        self.functions = {}
-    
-    def register_function(self, name: str, function, metadata: Dict[str, Any]):
-        """Register a function in the MCP registry."""
-        self.functions[name] = {
-            "function": function,
-            "metadata": metadata
-        }
-        logging.info(f"Registered function: {name}")
-    
-    def get_function(self, name: str):
-        """Get a function from the registry."""
-        if name not in self.functions:
-            raise KeyError(f"Function {name} not registered")
-        return self.functions[name]["function"]
-    
-    def get_metadata(self, name: str) -> Dict[str, Any]:
-        """Get metadata for a function."""
-        if name not in self.functions:
-            raise KeyError(f"Function {name} not registered")
-        return self.functions[name]["metadata"]
-    
-    def list_functions(self) -> List[str]:
-        """List all registered functions."""
-        return list(self.functions.keys())
-    
-    def get_function_catalog(self) -> Dict[str, Dict[str, Any]]:
-        """Get a catalog of all functions with their metadata."""
-        return {name: self.functions[name]["metadata"] for name in self.functions}
-
-# Workflow Orchestrator following MCP Workflow Orchestration
-class WorkflowOrchestrator:
-    def __init__(self, function_registry: FunctionRegistry):
-        self.function_registry = function_registry
-        self.workflows = {}
-    
-    def register_workflow(self, name: str, workflow_definition: Dict[str, Any]):
-        """Register a workflow in the MCP orchestrator."""
-        self.workflows[name] = workflow_definition
-        logging.info(f"Registered workflow: {name}")
-    
-    def execute_workflow(self, name: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a workflow by name with the given input data."""
-        if name not in self.workflows:
-            raise KeyError(f"Workflow {name} not registered")
+    def get_function(self, name: str) -> Optional[MCPFunction]:
+        """
+        Get a function by name.
         
-        workflow = self.workflows[name]
-        current_state = {"input": input_data, "output": {}}
-        
-        for step in workflow.get("steps", []):
-            step_name = step["name"]
-            function_name = step["function"]
+        Args:
+            name: Function name
             
-            # Map inputs from current state
-            mapped_inputs = {}
-            for param, value_path in step.get("input_mapping", {}).items():
-                # Extract nested values using path notation (e.g., "output.previous_step.value")
-                parts = value_path.split(".")
-                current_value = current_state
-                for part in parts:
-                    if part in current_value:
-                        current_value = current_value[part]
-                    else:
-                        current_value = None
-                        break
-                
-                mapped_inputs[param] = current_value
+        Returns:
+            The MCPFunction or None if not found
+        """
+        return self.functions.get(name)
+    
+    def execute_function(self, name: str, parameters: ParameterType = None) -> ResultType:
+        """
+        Execute a function by name.
+        
+        Args:
+            name: Function name
+            parameters: Function parameters
+            
+        Returns:
+            Function result
+            
+        Raises:
+            ValueError: If the function is not found
+        """
+        function = self.get_function(name)
+        if not function:
+            raise ValueError(f"MCP function '{name}' not found")
+        return function.execute(parameters)
+    
+    def list_functions(self) -> List[Dict[str, Any]]:
+        """
+        List all registered functions.
+        
+        Returns:
+            List of function metadata dictionaries
+        """
+        return [func.to_dict() for func in self.functions.values()]
+
+
+class MCPWorkflow:
+    """Represents a sequence of MCP function calls."""
+    
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        steps: List[Dict[str, Any]],
+        registry: MCPRegistry
+    ):
+        """
+        Initialize an MCP workflow.
+        
+        Args:
+            name: Unique workflow identifier
+            description: Human-readable workflow description
+            steps: List of workflow steps, each with a function name and parameters
+            registry: The MCP registry to use for function lookup
+        """
+        self.name = name
+        self.description = description
+        self.steps = steps
+        self.registry = registry
+    
+    def execute(self, initial_parameters: ParameterType = None) -> List[ResultType]:
+        """
+        Execute the workflow.
+        
+        Args:
+            initial_parameters: Initial parameters for the workflow
+            
+        Returns:
+            List of step results
+        """
+        parameters = initial_parameters or {}
+        results = []
+        
+        for step in self.steps:
+            function_name = step["function"]
+            step_parameters = step.get("parameters", {})
+            
+            # Merge initial parameters with step parameters
+            merged_parameters = {**parameters, **step_parameters}
             
             # Execute the function
-            try:
-                function = self.function_registry.get_function(function_name)
-                result = function(**mapped_inputs)
-                
-                # Store the result in the current state
-                if "output" not in current_state:
-                    current_state["output"] = {}
-                current_state["output"][step_name] = result
-                
-            except Exception as e:
-                logging.error(f"Error executing step {step_name}: {str(e)}")
-                if step.get("error_handling", "fail") == "continue":
-                    continue
-                else:
-                    raise
+            result = self.registry.execute_function(function_name, merged_parameters)
+            results.append(result)
+            
+            # Update parameters with results for next step
+            if isinstance(result, dict):
+                parameters.update(result)
         
-        return current_state["output"]
+        return results
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert the workflow to a dictionary representation.
+        
+        Returns:
+            Dictionary with workflow metadata
+        """
+        return {
+            "name": self.name,
+            "description": self.description,
+            "steps": self.steps
+        }
 
-# Create global instances for application-wide use
-mcp_function_registry = FunctionRegistry()
-mcp_workflow_orchestrator = WorkflowOrchestrator(mcp_function_registry)
 
-# Content processing utilities
-def create_text_block(text: str, metadata: Optional[Dict[str, Any]] = None) -> ContentBlock:
-    """Create a ContentBlock with text content."""
-    return ContentBlock(
-        content_type=ContentType.TEXT,
-        content=text,
-        metadata=metadata
-    )
+class MCPWorkflowRegistry:
+    """Registry for MCP workflows."""
+    
+    def __init__(self, function_registry: MCPRegistry):
+        """
+        Initialize a workflow registry.
+        
+        Args:
+            function_registry: The MCP function registry to use
+        """
+        self.workflows: Dict[str, MCPWorkflow] = {}
+        self.function_registry = function_registry
+    
+    def register(
+        self,
+        name: str,
+        description: str,
+        steps: List[Dict[str, Any]]
+    ) -> None:
+        """
+        Register a workflow.
+        
+        Args:
+            name: Unique workflow identifier
+            description: Human-readable workflow description
+            steps: List of workflow steps, each with a function name and parameters
+        """
+        self.workflows[name] = MCPWorkflow(
+            name=name,
+            description=description,
+            steps=steps,
+            registry=self.function_registry
+        )
+    
+    def get_workflow(self, name: str) -> Optional[MCPWorkflow]:
+        """
+        Get a workflow by name.
+        
+        Args:
+            name: Workflow name
+            
+        Returns:
+            The MCPWorkflow or None if not found
+        """
+        return self.workflows.get(name)
+    
+    def execute_workflow(self, name: str, parameters: ParameterType = None) -> List[ResultType]:
+        """
+        Execute a workflow by name.
+        
+        Args:
+            name: Workflow name
+            parameters: Initial parameters for the workflow
+            
+        Returns:
+            List of step results
+            
+        Raises:
+            ValueError: If the workflow is not found
+        """
+        workflow = self.get_workflow(name)
+        if not workflow:
+            raise ValueError(f"MCP workflow '{name}' not found")
+        return workflow.execute(parameters)
+    
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """
+        List all registered workflows.
+        
+        Returns:
+            List of workflow metadata dictionaries
+        """
+        return [workflow.to_dict() for workflow in self.workflows.values()]
 
-def create_structured_data_block(data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> ContentBlock:
-    """Create a ContentBlock with structured data content."""
-    return ContentBlock(
-        content_type=ContentType.STRUCTURED_DATA,
-        content=data,
-        metadata=metadata
-    )
 
-def create_function_call_block(
-    function_name: str, 
-    parameters: Dict[str, Any], 
-    metadata: Optional[Dict[str, Any]] = None
-) -> ContentBlock:
-    """Create a ContentBlock representing a function call."""
-    return ContentBlock(
-        content_type=ContentType.FUNCTION_CALL,
-        content={
-            "function": function_name,
-            "parameters": parameters
+# Create global registry instances
+registry = MCPRegistry()
+workflow_registry = MCPWorkflowRegistry(registry)
+
+
+# Example function registrations
+@registry.register(
+    name="analyze_tax_distribution",
+    description="Analyze distribution of tax burden across properties",
+    parameter_schema={
+        "type": "object",
+        "properties": {
+            "tax_code": {"type": "string", "description": "Tax code to analyze"}
+        }
+    }
+)
+def analyze_tax_distribution(tax_code: str = None) -> Dict[str, Any]:
+    """
+    Analyze distribution of tax burden across properties.
+    
+    Args:
+        tax_code: Tax code to analyze (optional)
+        
+    Returns:
+        Analysis results
+    """
+    # This is a placeholder - the actual implementation would analyze real data
+    return {
+        "analysis": "Tax distribution analysis complete",
+        "distribution": {
+            "median": 2500,
+            "mean": 3200,
+            "std_dev": 1500,
+            "quartiles": [1500, 2500, 4500]
         },
-        metadata=metadata
-    )
+        "insights": [
+            "Properties in this tax code have a relatively even distribution",
+            "No significant outliers detected"
+        ]
+    }
 
-def create_function_response_block(
-    function_name: str, 
-    result: Any, 
-    metadata: Optional[Dict[str, Any]] = None
-) -> ContentBlock:
-    """Create a ContentBlock representing a function response."""
-    return ContentBlock(
-        content_type=ContentType.FUNCTION_RESPONSE,
-        content={
-            "function": function_name,
-            "result": result
+
+@registry.register(
+    name="predict_levy_rates",
+    description="Predict future levy rates based on historical data",
+    parameter_schema={
+        "type": "object",
+        "properties": {
+            "tax_code": {"type": "string", "description": "Tax code to predict"},
+            "years": {"type": "integer", "description": "Number of years to predict"}
+        }
+    }
+)
+def predict_levy_rates(tax_code: str, years: int = 1) -> Dict[str, Any]:
+    """
+    Predict future levy rates based on historical data.
+    
+    Args:
+        tax_code: Tax code to predict
+        years: Number of years to predict
+        
+    Returns:
+        Prediction results
+    """
+    # This is a placeholder - the actual implementation would analyze real data
+    return {
+        "predictions": {
+            "year_1": 3.25,
+            "year_2": 3.31 if years > 1 else None,
+            "year_3": 3.37 if years > 2 else None
         },
-        metadata=metadata
-    )
+        "confidence": 0.85,
+        "factors": [
+            "Historical growth trends",
+            "Statutory limits",
+            "Assessed value projections"
+        ]
+    }
+
+
+# Register example workflows
+workflow_registry.register(
+    name="tax_distribution_analysis",
+    description="Analyze tax distribution and generate insights",
+    steps=[
+        {
+            "function": "analyze_tax_distribution",
+            "parameters": {}
+        },
+        {
+            "function": "predict_levy_rates",
+            "parameters": {"years": 3}
+        }
+    ]
+)

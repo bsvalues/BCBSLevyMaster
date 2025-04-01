@@ -1,7 +1,7 @@
 import os
 import logging
 from app import app
-from utils.mcp_integration import init_mcp, init_mcp_api_routes, enhance_routes_with_mcp
+import routes
 
 # Configure logging
 logging.basicConfig(
@@ -14,8 +14,11 @@ MCP_ENABLED = os.environ.get('ENABLE_MCP', 'true').lower() in ('true', '1', 'yes
 
 if MCP_ENABLED:
     try:
+        # Import MCP modules
+        from utils.mcp_integration import init_mcp, init_mcp_api_routes, enhance_routes_with_mcp
+        
         # Initialize MCP integration
-        mcp_components = init_mcp()
+        init_mcp()
         
         # Initialize MCP API routes
         init_mcp_api_routes(app)
