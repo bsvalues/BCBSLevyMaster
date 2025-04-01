@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import csv
 from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -343,29 +344,126 @@ def levy_calculator():
 @app.route('/reports', methods=['GET', 'POST'])
 def reports():
     """
-    Generate and download tax roll reports.
+    Generate and download tax roll reports with enhanced statutory compliance checks.
     """
+    compliance_report = None
+    report_type = request.args.get('report_type', 'tax_roll')
+
     if request.method == 'POST':
-        # Generate tax roll data as CSV
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        filename = f"tax_roll_{timestamp}.csv"
-        file_path = os.path.join('/tmp', filename)
+        if 'generate_tax_roll' in request.form:
+            # Generate tax roll data as CSV
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            filename = f"tax_roll_{timestamp}.csv"
+            file_path = os.path.join('/tmp', filename)
+            
+            # Generate the tax roll CSV
+            rows_exported = generate_tax_roll(file_path)
+            
+            # Log the export
+            export_log = ExportLog(
+                filename=filename,
+                rows_exported=rows_exported
+            )
+            db.session.add(export_log)
+            db.session.commit()
+            
+            # Return the file for download
+            return send_file(file_path, as_attachment=True, download_name=filename)
         
-        # Generate the tax roll CSV
-        rows_exported = generate_tax_roll(file_path)
-        
-        # Log the export
-        export_log = ExportLog(
-            filename=filename,
-            rows_exported=rows_exported
-        )
-        db.session.add(export_log)
-        db.session.commit()
-        
-        # Return the file for download
-        return send_file(file_path, as_attachment=True, download_name=filename)
+        elif 'generate_compliance_report' in request.form:
+            # Generate compliance report as CSV
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            filename = f"statutory_compliance_{timestamp}.csv"
+            file_path = os.path.join('/tmp', filename)
+            
+            try:
+                from utils.compliance_utils import generate_compliance_report
+                compliance_data = generate_compliance_report()
+                
+                # Convert compliance report to CSV
+                with open(file_path, 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile)
+                    
+                    # Write header
+                    writer.writerow(['Statutory Compliance Report', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+                    writer.writerow(['Overall Compliance', 'Yes' if compliance_data['overall_compliant'] else 'No'])
+                    writer.writerow(['Compliance Percentage', f"{compliance_data['compliance_percentage']:.2f}%"])
+                    writer.writerow([])
+                    
+                    # Write critical issues
+                    writer.writerow(['Critical Issues'])
+                    if compliance_data['critical_issues']:
+                        for issue in compliance_data['critical_issues']:
+                            writer.writerow([issue])
+                    else:
+                        writer.writerow(['No critical issues found'])
+                    writer.writerow([])
+                    
+                    # Write levy rate compliance details
+                    writer.writerow(['Levy Rate Compliance'])
+                    writer.writerow(['Tax Code', 'Levy Rate', 'Previous Rate', 'Regular Levy Compliant', 'Annual Increase Compliant', 'Issues'])
+                    
+                    for code_data in compliance_data['levy_rate_compliance']['regular_levy_compliance']:
+                        writer.writerow([
+                            code_data['code'],
+                            code_data['levy_rate'],
+                            code_data['previous_rate'],
+                            'Yes' if code_data['regular_levy_compliant'] else 'No',
+                            'Yes' if code_data['annual_increase_compliant'] else 'No',
+                            '; '.join(code_data['issues']) if code_data['issues'] else 'None'
+                        ])
+                    writer.writerow([])
+                    
+                    # Write filing deadline compliance
+                    writer.writerow(['Filing Deadline Compliance'])
+                    writer.writerow(['Deadline Date', compliance_data['filing_deadline_compliance']['deadline_date']])
+                    writer.writerow(['Days Remaining', compliance_data['filing_deadline_compliance']['days_remaining']])
+                    writer.writerow(['Status', compliance_data['filing_deadline_compliance']['status']])
+                    writer.writerow(['Warnings', '; '.join(compliance_data['filing_deadline_compliance']['warnings']) if compliance_data['filing_deadline_compliance']['warnings'] else 'None'])
+                    writer.writerow([])
+                    
+                    # Write banked capacity information
+                    writer.writerow(['Banked Capacity Information'])
+                    writer.writerow(['Total Banked Capacity', f"${compliance_data['banked_capacity_compliance']['total_banked_capacity']:,.2f}"])
+                    writer.writerow(['Tax Codes with Banked Capacity', len(compliance_data['banked_capacity_compliance']['tax_codes_with_banked_capacity'])])
+                    writer.writerow([])
+                    
+                    # Write recommendations
+                    writer.writerow(['Recommendations'])
+                    for recommendation in compliance_data['recommendations']:
+                        writer.writerow([recommendation])
+                
+                # Log the export
+                export_log = ExportLog(
+                    filename=filename,
+                    rows_exported=len(compliance_data['levy_rate_compliance']['regular_levy_compliance'])
+                )
+                db.session.add(export_log)
+                db.session.commit()
+                
+                # Return the file for download
+                return send_file(file_path, as_attachment=True, download_name=filename)
+            
+            except Exception as e:
+                logger.error(f"Error generating compliance report: {str(e)}")
+                flash(f"Error generating compliance report: {str(e)}", 'danger')
     
-    return render_template('reports.html')
+    # Generate compliance report for display
+    if report_type == 'compliance':
+        try:
+            from utils.compliance_utils import generate_compliance_report
+            compliance_report = generate_compliance_report()
+        except Exception as e:
+            logger.error(f"Error generating compliance report for display: {str(e)}")
+            flash(f"Error generating compliance report: {str(e)}", 'danger')
+    
+    # Get recent export history
+    recent_exports = ExportLog.query.order_by(ExportLog.export_date.desc()).limit(10).all()
+    
+    return render_template('reports.html', 
+                          compliance_report=compliance_report,
+                          report_type=report_type,
+                          recent_exports=recent_exports)
 
 @app.route('/property-lookup', methods=['GET', 'POST'])
 def property_lookup():
