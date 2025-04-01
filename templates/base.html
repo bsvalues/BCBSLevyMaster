@@ -58,8 +58,14 @@
                                 <li><a class="dropdown-item" href="{{ url_for('reports') }}">Reports</a></li>
                             </ul>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('historical_rates') }}">Historical Rates</a>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="historicalDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Historical Analysis
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="historicalDropdown">
+                                <li><a class="dropdown-item" href="{{ url_for('historical_rates') }}"><i class="bi bi-graph-up"></i> Historical Rates</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('historical_analysis.advanced_historical_analysis') }}"><i class="bi bi-graph-up-arrow"></i> Advanced Analysis</a></li>
+                            </ul>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('mcp_insights') }}">MCP Insights</a>

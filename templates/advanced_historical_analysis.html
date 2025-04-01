@@ -1,0 +1,1304 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Historical Analysis | SaaS Levy Calculation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="mb-3">
+                <i class="bi bi-graph-up-arrow"></i> Advanced Historical Analysis
+            </h2>
+            <p class="lead">Leverage sophisticated analytical tools for multi-year levy data analysis, forecasting, and anomaly detection.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Navigation tabs -->
+        <div class="col-12 mb-4">
+            <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="statistics-tab" data-bs-toggle="tab" data-bs-target="#statistics" type="button" role="tab" aria-controls="statistics" aria-selected="true">
+                        <i class="bi bi-calculator"></i> Statistical Analysis
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="forecast-tab" data-bs-toggle="tab" data-bs-target="#forecast" type="button" role="tab" aria-controls="forecast" aria-selected="false">
+                        <i class="bi bi-graph-up"></i> Trend Forecasting
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="anomalies-tab" data-bs-toggle="tab" data-bs-target="#anomalies" type="button" role="tab" aria-controls="anomalies" aria-selected="false">
+                        <i class="bi bi-exclamation-diamond"></i> Anomaly Detection
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="districts-tab" data-bs-toggle="tab" data-bs-target="#districts" type="button" role="tab" aria-controls="districts" aria-selected="false">
+                        <i class="bi bi-geo-alt"></i> District Analysis
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="comparison-tab" data-bs-toggle="tab" data-bs-target="#comparison" type="button" role="tab" aria-controls="comparison" aria-selected="false">
+                        <i class="bi bi-arrow-left-right"></i> Year Comparison
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="analysisTabContent">
+        <!-- Statistical Analysis -->
+        <div class="tab-pane fade show active" id="statistics" role="tabpanel" aria-labelledby="statistics-tab">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Statistical Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('historical_analysis.advanced_historical_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="stats_tax_code" class="form-label">Select Tax Code</label>
+                                    <select class="form-select" id="stats_tax_code" name="stats_tax_code" required>
+                                        <option value="">Select a tax code...</option>
+                                        {% for tax_code in tax_codes %}
+                                        <option value="{{ tax_code.code }}">
+                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="stats_years" class="form-label">Filter by Years (Optional)</label>
+                                    <select class="form-select" id="stats_years" name="stats_years" multiple size="4">
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Hold Ctrl/Cmd to select multiple years. Leave empty to include all years.</div>
+                                </div>
+
+                                <button type="submit" name="analyze_statistics" class="btn btn-primary">
+                                    <i class="bi bi-calculator"></i> Calculate Statistics
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                {% if stats_data %}
+                                    Statistical Results: {{ stats_data.tax_code }}
+                                {% else %}
+                                    Statistical Results
+                                {% endif %}
+                            </h5>
+                            {% if stats_data %}
+                            <span class="badge bg-success">{{ stats_data.years_analyzed }} Years Analyzed</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if stats_data %}
+                                {% if stats_data.mean_rate is not none %}
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-light mb-3">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Rate Statistics</h5>
+                                                    <table class="table table-sm table-dark">
+                                                        <tr>
+                                                            <th>Mean Rate:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.mean_rate|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Median Rate:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.median_rate|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Min Rate:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.min_rate|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Max Rate:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.max_rate|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Range:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.range|float) }}</td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="card bg-dark text-light">
+                                                <div class="card-body">
+                                                    <h5 class="card-title">Variation Metrics</h5>
+                                                    <table class="table table-sm table-dark">
+                                                        <tr>
+                                                            <th>Std Deviation:</th>
+                                                            <td>{{ '%0.4f'|format(stats_data.std_deviation|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Variance:</th>
+                                                            <td>{{ '%0.6f'|format(stats_data.variance|float) }}</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <th>Coefficient of Variation:</th>
+                                                            <td>
+                                                                {% if stats_data.mean_rate > 0 %}
+                                                                    {{ '%0.2f'|format((stats_data.std_deviation / stats_data.mean_rate * 100)|float) }}%
+                                                                {% else %}
+                                                                    N/A
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Visualization -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h5 class="mb-3">Rate Distribution</h5>
+                                            <div style="height: 300px;">
+                                                <canvas id="statsChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> Insufficient data for statistical analysis.
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill"></i> Select a tax code and click "Calculate Statistics" to view statistical analysis.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trend Forecasting -->
+        <div class="tab-pane fade" id="forecast" role="tabpanel" aria-labelledby="forecast-tab">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Forecast Future Rates</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('historical_analysis.advanced_historical_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="forecast_tax_code" class="form-label">Select Tax Code</label>
+                                    <select class="form-select" id="forecast_tax_code" name="forecast_tax_code" required>
+                                        <option value="">Select a tax code...</option>
+                                        {% for tax_code in tax_codes %}
+                                        <option value="{{ tax_code.code }}">
+                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="forecast_base_years" class="form-label">Base Years for Forecast (Optional)</label>
+                                    <select class="form-select" id="forecast_base_years" name="forecast_base_years" multiple size="4">
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Select years to use as base for forecasting. Leave empty to use all available years.</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="forecast_years" class="form-label">Years to Forecast</label>
+                                    <input type="number" class="form-control" id="forecast_years" name="forecast_years" 
+                                           value="3" min="1" max="10">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="forecast_method" class="form-label">Forecasting Method</label>
+                                    <select class="form-select" id="forecast_method" name="forecast_method">
+                                        <option value="linear">Linear Regression</option>
+                                        <option value="average">Average Method</option>
+                                        <option value="weighted">Weighted Average</option>
+                                    </select>
+                                    <div class="form-text">
+                                        <strong>Linear</strong>: Projects future rates based on linear trend<br>
+                                        <strong>Average</strong>: Uses the overall average of historical rates<br>
+                                        <strong>Weighted</strong>: Gives more weight to recent years
+                                    </div>
+                                </div>
+
+                                <button type="submit" name="forecast_trends" class="btn btn-primary">
+                                    <i class="bi bi-graph-up"></i> Generate Forecast
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                {% if forecast_data %}
+                                    Forecast Results: {{ forecast_data.tax_code }}
+                                {% else %}
+                                    Forecast Results
+                                {% endif %}
+                            </h5>
+                            {% if forecast_data %}
+                            <div>
+                                <span class="badge bg-primary">{{ forecast_data.method|capitalize }} Forecast</span>
+                                <span class="badge bg-success">{{ forecast_data.years_analyzed }} Years Analyzed</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if forecast_data %}
+                                {% if forecast_data.forecasts %}
+                                    <!-- Forecast Chart -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <div style="height: 300px;">
+                                                <canvas id="forecastChart"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Forecast Table -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h5 class="mb-3">Forecast Details</h5>
+                                            <div class="table-responsive">
+                                                <table class="table table-striped table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Year</th>
+                                                            <th>Forecasted Rate</th>
+                                                            <th>Confidence</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for forecast in forecast_data.forecasts %}
+                                                        <tr>
+                                                            <td>{{ forecast.year }}</td>
+                                                            <td>{{ '%0.4f'|format(forecast.forecasted_rate|float) }}</td>
+                                                            <td>
+                                                                {% if forecast.confidence == 'high' %}
+                                                                    <span class="badge bg-success">High</span>
+                                                                {% elif forecast.confidence == 'medium-high' %}
+                                                                    <span class="badge bg-info">Medium-High</span>
+                                                                {% elif forecast.confidence == 'medium' %}
+                                                                    <span class="badge bg-primary">Medium</span>
+                                                                {% elif forecast.confidence == 'medium-low' %}
+                                                                    <span class="badge bg-warning">Medium-Low</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">Low</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <div class="alert alert-info mt-3">
+                                                <i class="bi bi-info-circle-fill"></i> 
+                                                <strong>Note:</strong> Forecasts are based on historical trends and should be used as estimates only. 
+                                                Actual future rates may vary based on policy changes, economic conditions, and other factors.
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> {{ forecast_data.error }}
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill"></i> Select a tax code and click "Generate Forecast" to view trend predictions.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anomaly Detection -->
+        <div class="tab-pane fade" id="anomalies" role="tabpanel" aria-labelledby="anomalies-tab">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Detect Rate Anomalies</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('historical_analysis.advanced_historical_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="anomaly_tax_code" class="form-label">Select Tax Code</label>
+                                    <select class="form-select" id="anomaly_tax_code" name="anomaly_tax_code" required>
+                                        <option value="">Select a tax code...</option>
+                                        {% for tax_code in tax_codes %}
+                                        <option value="{{ tax_code.code }}">
+                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="anomaly_years" class="form-label">Filter by Years (Optional)</label>
+                                    <select class="form-select" id="anomaly_years" name="anomaly_years" multiple size="4">
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Hold Ctrl/Cmd to select multiple years. Leave empty to include all years.</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="anomaly_threshold" class="form-label">Anomaly Threshold (Z-score)</label>
+                                    <input type="number" class="form-control" id="anomaly_threshold" name="anomaly_threshold" 
+                                           value="2.0" min="1.0" max="5.0" step="0.1">
+                                    <div class="form-text">Lower values detect more anomalies. Typically 2.0-3.0 is recommended.</div>
+                                </div>
+
+                                <button type="submit" name="detect_anomalies" class="btn btn-primary">
+                                    <i class="bi bi-exclamation-diamond"></i> Detect Anomalies
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                {% if anomaly_data %}
+                                    Anomaly Detection Results: {{ anomaly_data.tax_code }}
+                                {% else %}
+                                    Anomaly Detection Results
+                                {% endif %}
+                            </h5>
+                            {% if anomaly_data %}
+                            <div>
+                                <span class="badge bg-primary">Z-score Threshold: {{ anomaly_data.threshold }}</span>
+                                <span class="badge bg-success">{{ anomaly_data.years_analyzed }} Years Analyzed</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if anomaly_data %}
+                                <!-- Anomaly Chart -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <div style="height: 300px;">
+                                            <canvas id="anomalyChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Anomaly Results -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Detected Anomalies</h5>
+                                        
+                                        {% if anomaly_data.anomalies %}
+                                            <div class="table-responsive">
+                                                <table class="table table-striped table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Year</th>
+                                                            <th>Rate</th>
+                                                            <th>Z-score</th>
+                                                            <th>% Diff from Mean</th>
+                                                            <th>Direction</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for anomaly in anomaly_data.anomalies %}
+                                                        <tr>
+                                                            <td>{{ anomaly.year }}</td>
+                                                            <td>{{ '%0.4f'|format(anomaly.rate|float) }}</td>
+                                                            <td>{{ '%0.2f'|format(anomaly.z_score|float) }}</td>
+                                                            <td>
+                                                                {% if anomaly.percent_diff_from_mean > 0 %}
+                                                                    <span class="text-success">+{{ '%0.2f'|format(anomaly.percent_diff_from_mean|float) }}%</span>
+                                                                {% else %}
+                                                                    <span class="text-danger">{{ '%0.2f'|format(anomaly.percent_diff_from_mean|float) }}%</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {% if anomaly.direction == 'above' %}
+                                                                    <span class="badge bg-danger">Above Mean</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-warning">Below Mean</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <div class="alert alert-info mt-3">
+                                                <strong>Mean Rate:</strong> {{ '%0.4f'|format(anomaly_data.mean_rate|float) }} | 
+                                                <strong>Std Deviation:</strong> {{ '%0.4f'|format(anomaly_data.std_deviation|float) }}
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-success">
+                                                <i class="bi bi-check-circle-fill"></i> No anomalies detected with the current threshold.
+                                                Try lowering the threshold value for more sensitive detection.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill"></i> Select a tax code and click "Detect Anomalies" to identify unusual rate values.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- District Analysis -->
+        <div class="tab-pane fade" id="districts" role="tabpanel" aria-labelledby="districts-tab">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Analyze Tax District</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('historical_analysis.advanced_historical_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="district_id" class="form-label">Select Tax District</label>
+                                    <select class="form-select" id="district_id" name="district_id" required>
+                                        <option value="">Select a district...</option>
+                                        {% for district in districts %}
+                                        <option value="{{ district }}">District {{ district }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="district_years" class="form-label">Filter by Years (Optional)</label>
+                                    <select class="form-select" id="district_years" name="district_years" multiple size="4">
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">Hold Ctrl/Cmd to select multiple years. Leave empty to include all years.</div>
+                                </div>
+
+                                <button type="submit" name="aggregate_district" class="btn btn-primary">
+                                    <i class="bi bi-geo-alt"></i> Analyze District
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                {% if district_data %}
+                                    District Analysis: District {{ district_data.district_id }}
+                                {% else %}
+                                    District Analysis Results
+                                {% endif %}
+                            </h5>
+                            {% if district_data and district_data.years_analyzed %}
+                            <span class="badge bg-success">{{ district_data.years_analyzed|length }} Years Analyzed</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if district_data and not district_data.error %}
+                                <!-- District Overview -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <div class="card bg-dark text-light mb-3">
+                                            <div class="card-body">
+                                                <h5 class="card-title">District Overview</h5>
+                                                <p>
+                                                    <strong>District ID:</strong> {{ district_data.district_id }}<br>
+                                                    <strong>Total Levy Codes:</strong> {{ district_data.levy_codes|length }}<br>
+                                                    <strong>Years Available:</strong> {{ district_data.years_analyzed|join(', ') }}
+                                                </p>
+                                                <h6>Levy Codes in District:</h6>
+                                                <div class="d-flex flex-wrap">
+                                                    {% for code in district_data.levy_codes %}
+                                                    <span class="badge bg-secondary me-1 mb-1">{{ code }}</span>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- District Chart -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Year-by-Year Analysis</h5>
+                                        <div style="height: 300px;">
+                                            <canvas id="districtChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Year Details -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Yearly Details</h5>
+                                        <div class="accordion" id="yearDetailsAccordion">
+                                            {% for year_data in district_data.aggregated_data %}
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header" id="heading{{ year_data.year }}">
+                                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ year_data.year }}" aria-expanded="false" aria-controls="collapse{{ year_data.year }}">
+                                                        {{ year_data.year }} - {{ year_data.num_levy_codes }} Levy Codes
+                                                        {% if year_data.average_rate %}
+                                                        <span class="ms-2 badge bg-info">Avg Rate: {{ '%0.4f'|format(year_data.average_rate|float) }}</span>
+                                                        {% endif %}
+                                                    </button>
+                                                </h2>
+                                                <div id="collapse{{ year_data.year }}" class="accordion-collapse collapse" aria-labelledby="heading{{ year_data.year }}" data-bs-parent="#yearDetailsAccordion">
+                                                    <div class="accordion-body">
+                                                        {% if year_data.rates %}
+                                                        <div class="row">
+                                                            <div class="col-md-6">
+                                                                <h6>Statistics:</h6>
+                                                                <ul class="list-group">
+                                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                        Average Rate
+                                                                        <span class="badge bg-primary rounded-pill">{{ '%0.4f'|format(year_data.average_rate|float) }}</span>
+                                                                    </li>
+                                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                        Median Rate
+                                                                        <span class="badge bg-primary rounded-pill">{{ '%0.4f'|format(year_data.median_rate|float) }}</span>
+                                                                    </li>
+                                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                        Min Rate
+                                                                        <span class="badge bg-primary rounded-pill">{{ '%0.4f'|format(year_data.min_rate|float) }}</span>
+                                                                    </li>
+                                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                        Max Rate
+                                                                        <span class="badge bg-primary rounded-pill">{{ '%0.4f'|format(year_data.max_rate|float) }}</span>
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <h6>Levy Codes:</h6>
+                                                                <ul class="list-group">
+                                                                    {% for code in year_data.levy_codes %}
+                                                                    <li class="list-group-item">{{ code }}</li>
+                                                                    {% endfor %}
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+
+                                                        <h6 class="mt-3">Detailed Rates:</h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm table-striped">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Levy Code</th>
+                                                                        <th>Rate</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {% for rate in year_data.rates %}
+                                                                    <tr>
+                                                                        <td>{{ rate.code }}</td>
+                                                                        <td>{{ '%0.4f'|format(rate.rate|float) }}</td>
+                                                                    </tr>
+                                                                    {% endfor %}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                        {% else %}
+                                                        <div class="alert alert-warning">
+                                                            No rate data available for this year.
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif district_data and district_data.error %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> {{ district_data.error }}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill"></i> Select a tax district and click "Analyze District" to view aggregated district data.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Year Comparison -->
+        <div class="tab-pane fade" id="comparison" role="tabpanel" aria-labelledby="comparison-tab">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Year-over-Year Comparison</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{{ url_for('historical_analysis.advanced_historical_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="start_year" class="form-label">Start Year</label>
+                                    <select class="form-select" id="start_year" name="start_year" required>
+                                        <option value="">Select start year...</option>
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="end_year" class="form-label">End Year</label>
+                                    <select class="form-select" id="end_year" name="end_year" required>
+                                        <option value="">Select end year...</option>
+                                        {% for year in available_years %}
+                                        <option value="{{ year }}">{{ year }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="min_change" class="form-label">Minimum Change Threshold (%)</label>
+                                    <input type="number" class="form-control" id="min_change" name="min_change" 
+                                           value="1.0" min="0.1" max="50.0" step="0.1">
+                                    <div class="form-text">Only include tax codes with changes exceeding this percentage.</div>
+                                </div>
+
+                                <button type="submit" name="generate_comparison" class="btn btn-primary">
+                                    <i class="bi bi-arrow-left-right"></i> Generate Comparison
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                {% if comparison_report and not comparison_report.error %}
+                                    Comparison Report: {{ comparison_report.start_year }} vs {{ comparison_report.end_year }}
+                                {% else %}
+                                    Comparison Report
+                                {% endif %}
+                            </h5>
+                            {% if comparison_report and not comparison_report.error %}
+                            <span class="badge bg-success">{{ comparison_report.summary.total_tax_codes }} Tax Codes Analyzed</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if comparison_report and not comparison_report.error %}
+                                <!-- Summary Card -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <div class="card bg-dark text-light mb-3">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Comparison Summary</h5>
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <ul class="list-group list-group-flush">
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Total Tax Codes
+                                                                <span class="badge bg-primary rounded-pill">{{ comparison_report.summary.total_tax_codes }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Significant Changes
+                                                                <span class="badge bg-warning rounded-pill">{{ comparison_report.summary.tax_codes_with_significant_change }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Rate Increases
+                                                                <span class="badge bg-success rounded-pill">{{ comparison_report.summary.increases }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Rate Decreases
+                                                                <span class="badge bg-danger rounded-pill">{{ comparison_report.summary.decreases }}</span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                No Change
+                                                                <span class="badge bg-secondary rounded-pill">{{ comparison_report.summary.no_change }}</span>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <ul class="list-group list-group-flush">
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Avg Rate Change
+                                                                <span class="badge {% if comparison_report.summary.average_rate_change > 0 %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                                                                    {{ '%+0.4f'|format(comparison_report.summary.average_rate_change|float) }}
+                                                                </span>
+                                                            </li>
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Avg Percent Change
+                                                                <span class="badge {% if comparison_report.summary.average_percent_change > 0 %}bg-success{% else %}bg-danger{% endif %} rounded-pill">
+                                                                    {{ '%+0.2f'|format(comparison_report.summary.average_percent_change|float) }}%
+                                                                </span>
+                                                            </li>
+                                                            {% if comparison_report.summary.max_increase %}
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Max Increase
+                                                                <span class="badge bg-success rounded-pill">
+                                                                    {{ comparison_report.summary.max_increase.tax_code }}:
+                                                                    {{ '%+0.2f'|format(comparison_report.summary.max_increase.percent_change|float) }}%
+                                                                </span>
+                                                            </li>
+                                                            {% endif %}
+                                                            {% if comparison_report.summary.max_decrease %}
+                                                            <li class="list-group-item d-flex justify-content-between align-items-center bg-dark text-light">
+                                                                Max Decrease
+                                                                <span class="badge bg-danger rounded-pill">
+                                                                    {{ comparison_report.summary.max_decrease.tax_code }}:
+                                                                    {{ '%+0.2f'|format(comparison_report.summary.max_decrease.percent_change|float) }}%
+                                                                </span>
+                                                            </li>
+                                                            {% endif %}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Comparison Chart -->
+                                <div class="row mb-4">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Change Distribution</h5>
+                                        <div style="height: 300px;">
+                                            <canvas id="comparisonChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Detailed Changes -->
+                                <div class="row">
+                                    <div class="col-12">
+                                        <h5 class="mb-3">Detailed Changes</h5>
+                                        
+                                        {% if comparison_report.tax_code_changes %}
+                                            <div class="table-responsive">
+                                                <table class="table table-striped table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Tax Code</th>
+                                                            <th>{{ comparison_report.start_year }} Rate</th>
+                                                            <th>{{ comparison_report.end_year }} Rate</th>
+                                                            <th>Change</th>
+                                                            <th>% Change</th>
+                                                            <th>Direction</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for change in comparison_report.tax_code_changes %}
+                                                        <tr>
+                                                            <td>{{ change.tax_code }}</td>
+                                                            <td>{{ '%0.4f'|format(change.start_rate|float) }}</td>
+                                                            <td>{{ '%0.4f'|format(change.end_rate|float) }}</td>
+                                                            <td>{{ '%+0.4f'|format(change.rate_change|float) }}</td>
+                                                            <td>
+                                                                {% if change.percent_change > 0 %}
+                                                                    <span class="text-success">+{{ '%0.2f'|format(change.percent_change|float) }}%</span>
+                                                                {% else %}
+                                                                    <span class="text-danger">{{ '%0.2f'|format(change.percent_change|float) }}%</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {% if change.direction == 'increase' %}
+                                                                    <span class="badge bg-success">Increase</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">Decrease</span>
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-warning">
+                                                <i class="bi bi-exclamation-triangle-fill"></i> No significant changes found with the current threshold.
+                                                Try lowering the minimum change threshold for more results.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% elif comparison_report and comparison_report.error %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> {{ comparison_report.error }}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill"></i> Select start and end years and click "Generate Comparison" to view year-over-year changes.
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up tab behavior to maintain tab state
+    const triggerTabList = document.querySelectorAll('#analysisTab button');
+    triggerTabList.forEach(tabEl => {
+        tabEl.addEventListener('click', function(event) {
+            event.preventDefault();
+            const tab = new bootstrap.Tab(tabEl);
+            tab.show();
+        });
+    });
+
+    // Stats Chart
+    {% if stats_data and stats_data.years_available %}
+    const statsCtx = document.getElementById('statsChart').getContext('2d');
+    new Chart(statsCtx, {
+        type: 'line',
+        data: {
+            labels: {{ stats_data.years_available|tojson }},
+            datasets: [{
+                label: 'Levy Rate',
+                data: [
+                    {% for year in stats_data.years_available %}
+                    {% for rate in stats_data.historical_data if rate.year == year %}
+                    {{ rate.levy_rate }},
+                    {% endfor %}
+                    {% endfor %}
+                ],
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Forecast Chart
+    {% if forecast_data and forecast_data.historical_data %}
+    const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+    
+    // Extract historical data
+    const histYears = [];
+    const histRates = [];
+    
+    {% for item in forecast_data.historical_data %}
+    histYears.push({{ item.year }});
+    histRates.push({{ item.levy_rate }});
+    {% endfor %}
+    
+    // Extract forecast data
+    const forecastYears = [];
+    const forecastRates = [];
+    
+    {% for item in forecast_data.forecasts %}
+    forecastYears.push({{ item.year }});
+    forecastRates.push({{ item.forecasted_rate }});
+    {% endfor %}
+    
+    new Chart(forecastCtx, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Historical Rates',
+                    data: histYears.map((year, i) => ({
+                        x: year,
+                        y: histRates[i]
+                    })),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true
+                },
+                {
+                    label: 'Forecasted Rates',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: forecastRates[i]
+                    })),
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toString();
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return 'Year: ' + context[0].parsed.x;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Anomaly Chart
+    {% if anomaly_data and anomaly_data.years_analyzed %}
+    const anomalyCtx = document.getElementById('anomalyChart').getContext('2d');
+    
+    // Create arrays for all data points and anomalies
+    const years = [];
+    const rates = [];
+    const anomalyYears = [];
+    const anomalyRates = [];
+    const anomalyLabels = [];
+    
+    // Get sorted data
+    const sortedData = {{ anomaly_data.all_rates|tojson }};
+    sortedData.sort((a, b) => a.year - b.year);
+    
+    // Fill arrays
+    sortedData.forEach(item => {
+        years.push(item.year);
+        rates.push(item.rate);
+        
+        // Check if this is an anomaly
+        const isAnomaly = {{ anomaly_data.anomalies|tojson }}.some(
+            anomaly => anomaly.year === item.year
+        );
+        
+        if (isAnomaly) {
+            anomalyYears.push(item.year);
+            anomalyRates.push(item.rate);
+            
+            // Find this anomaly in the anomalies array to get more info
+            const anomalyInfo = {{ anomaly_data.anomalies|tojson }}.find(
+                anomaly => anomaly.year === item.year
+            );
+            
+            anomalyLabels.push(
+                `${item.year}: ${anomalyInfo.direction.charAt(0).toUpperCase() + anomalyInfo.direction.slice(1)} Mean (${anomalyInfo.percent_diff_from_mean.toFixed(2)}%)`
+            );
+        }
+    });
+    
+    new Chart(anomalyCtx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: [
+                {
+                    label: 'Levy Rate',
+                    data: rates,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true
+                },
+                {
+                    label: 'Mean Rate',
+                    data: Array(years.length).fill({{ anomaly_data.mean_rate }}),
+                    borderColor: 'rgba(128, 128, 128, 1)',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                },
+                {
+                    label: 'Anomalies',
+                    data: anomalyRates.map((rate, i) => ({
+                        x: anomalyYears[i],
+                        y: rate,
+                        label: anomalyLabels[i]
+                    })),
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                    pointRadius: 6,
+                    pointStyle: 'circle',
+                    showLine: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const datasetIndex = context[0].datasetIndex;
+                            const index = context[0].dataIndex;
+                            
+                            if (datasetIndex === 2) { // Anomalies dataset
+                                return anomalyLabels[index];
+                            }
+                            return 'Year: ' + context[0].label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // District Chart
+    {% if district_data and district_data.aggregated_data %}
+    const districtCtx = document.getElementById('districtChart').getContext('2d');
+    
+    // Extract data for chart
+    const districtYears = [];
+    const avgRates = [];
+    const medianRates = [];
+    const minRates = [];
+    const maxRates = [];
+    const numCodes = [];
+    
+    // Sort data by year
+    const sortedDistrictData = {{ district_data.aggregated_data|tojson }};
+    sortedDistrictData.sort((a, b) => a.year - b.year);
+    
+    // Fill arrays
+    sortedDistrictData.forEach(yearData => {
+        districtYears.push(yearData.year);
+        avgRates.push(yearData.average_rate || null);
+        medianRates.push(yearData.median_rate || null);
+        minRates.push(yearData.min_rate || null);
+        maxRates.push(yearData.max_rate || null);
+        numCodes.push(yearData.num_levy_codes);
+    });
+    
+    new Chart(districtCtx, {
+        type: 'line',
+        data: {
+            labels: districtYears,
+            datasets: [
+                {
+                    label: 'Average Rate',
+                    data: avgRates,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true
+                },
+                {
+                    label: 'Median Rate',
+                    data: medianRates,
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    tension: 0.1,
+                    fill: false
+                },
+                {
+                    label: 'Min Rate',
+                    data: minRates,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: false
+                },
+                {
+                    label: 'Max Rate',
+                    data: maxRates,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    // Comparison Chart
+    {% if comparison_report and comparison_report.tax_code_changes %}
+    const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+    
+    // Extract data for chart
+    const taxCodes = [];
+    const startRates = [];
+    const endRates = [];
+    const percentChanges = [];
+    
+    // Get top changes to display
+    const topChanges = {{ comparison_report.tax_code_changes|tojson }}.slice(0, 15);
+    
+    // Fill arrays
+    topChanges.forEach(change => {
+        taxCodes.push(change.tax_code);
+        startRates.push(change.start_rate);
+        endRates.push(change.end_rate);
+        percentChanges.push(change.percent_change);
+    });
+    
+    new Chart(comparisonCtx, {
+        type: 'bar',
+        data: {
+            labels: taxCodes,
+            datasets: [
+                {
+                    label: '{{ comparison_report.start_year }} Rates',
+                    data: startRates,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: '{{ comparison_report.end_year }} Rates',
+                    data: endRates,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Percent Change',
+                    data: percentChanges,
+                    type: 'line',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Percent Change'
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tax Code'
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}
