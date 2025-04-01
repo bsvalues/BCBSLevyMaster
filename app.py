@@ -1,20 +1,27 @@
+"""
+Application factory module for the Levy Calculation System.
+
+This module provides the Flask application factory pattern
+for better test isolation and configuration flexibility.
+"""
+
 import os
 import logging
+from datetime import datetime
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from sqlalchemy.orm import DeclarativeBase
-from config import config_by_name
+
 
 class Base(DeclarativeBase):
     """Base class for all database models."""
     pass
 
-# Initialize SQLAlchemy with the Base class
+
+# Initialize SQLAlchemy with no app yet
 db = SQLAlchemy(model_class=Base)
 
-# Initialize Migration object (will be configured after the app)
-migrate = Migrate()
 
 def create_app(config_name=None):
     """
@@ -26,42 +33,49 @@ def create_app(config_name=None):
     Returns:
         The configured Flask application
     """
-    # Determine configuration environment
-    if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'development')
-    
-    # Create the app
+    # Create and configure the app
     app = Flask(__name__)
     
-    # Load configuration
-    app.config.from_object(config_by_name[config_name])
-    config_by_name[config_name].init_app(app)
+    # Secret key for sessions and CSRF protection
+    app.secret_key = os.environ.get("SESSION_SECRET") or "dev-secret-key"
+    
+    # Configure database
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+    }
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    
+    # Initialize SQLAlchemy with the app
+    db.init_app(app)
     
     # Configure logging
     logging.basicConfig(
-        level=app.config.get('LOG_LEVEL', logging.INFO),
-        format=app.config.get('LOG_FORMAT', '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Initialize the app with extensions
-    db.init_app(app)
+    # Register template filters
+    @app.template_filter('format_number')
+    def format_number(value):
+        """Format a number with commas as thousands separators."""
+        return f"{value:,.0f}" if value else "0"
     
-    # Import models before initializing migrations
+    # Register error handlers
+    @app.errorhandler(404)
+    def page_not_found(e):
+        """Handle 404 errors."""
+        return app.render_template('404.html'), 404
+    
+    @app.errorhandler(500)
+    def server_error(e):
+        """Handle 500 errors."""
+        app.logger.error(f"Server error: {str(e)}")
+        return app.render_template('500.html', error_details=str(e) if app.debug else None), 500
+    
+    # Create database tables if they don't exist
     with app.app_context():
-        import models
-    
-    # Initialize Flask-Migrate
-    migrate.init_app(app, db, directory=app.config.get('MIGRATION_DIR'))
-    
-    # In development mode, create all tables using db.create_all()
-    # In production, migrations should be used
-    if config_name != 'production':
-        with app.app_context():
-            # Only call create_all in development/testing environments
-            # In production, migrations should be used instead
-            db.create_all()
+        db.create_all()
     
     return app
-
-# Create the application instance (default to development config)
-app = create_app()

@@ -3,30 +3,28 @@
 {% block title %}404 - Page Not Found{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                    <h2 class="mb-0"><i class="bi bi-exclamation-triangle-fill"></i> 404 - Page Not Found</h2>
-                </div>
-                <div class="card-body text-center">
-                    <div class="mb-4">
-                        <i class="bi bi-map display-1 text-warning"></i>
-                    </div>
-                    <h4 class="mb-3">Oops! We couldn't find the page you're looking for.</h4>
-                    <p class="mb-4">The page you requested doesn't exist or may have been moved.</p>
-                    <div class="d-grid gap-2 col-6 mx-auto">
-                        <a href="{{ url_for('index') }}" class="btn btn-primary">
-                            <i class="bi bi-house-door"></i> Go to Home Page
-                        </a>
-                        <button class="btn btn-outline-secondary" onclick="window.history.back();">
-                            <i class="bi bi-arrow-left"></i> Go Back
-                        </button>
-                    </div>
-                </div>
+<div class="container">
+    <div class="row vh-100 d-flex justify-content-center align-items-center">
+        <div class="col-md-8 col-lg-6 text-center">
+            <div class="mb-4">
+                <span class="display-1 error-code">404</span>
+            </div>
+            <h1 class="display-5 mb-3">Page Not Found</h1>
+            <p class="lead mb-4">The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.</p>
+            
+            <hr class="error-divider">
+            
+            <div class="d-flex justify-content-center">
+                <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                    <i class="bi bi-house-door"></i> Go to Dashboard
+                </a>
+                <button onclick="history.back()" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Go Back
+                </button>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+{% block sidebar %}{% endblock %}

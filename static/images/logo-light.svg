@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    .logo-text { font: bold 12px sans-serif; fill: #ffffff; }
-    .bar { transition: all 0.3s ease; }
-    .bar:hover { fill: #4dabf7; }
-  </style>
+<svg width="140" height="40" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background shapes -->
+  <rect x="5" y="5" width="30" height="30" rx="6" fill="#3498db" />
+  <rect x="10" y="10" width="30" height="30" rx="6" fill="#2980b9" opacity="0.8" />
   
-  <!-- Background circle -->
-  <circle cx="50" cy="50" r="48" fill="#343a40" stroke="#6c757d" stroke-width="2" />
+  <!-- Calculator icon -->
+  <path d="M20 12H30C31.1 12 32 12.9 32 14V26C32 27.1 31.1 28 30 28H20C18.9 28 18 27.1 18 26V14C18 12.9 18.9 12 20 12Z" fill="white"/>
+  <rect x="20" y="15" width="10" height="3" rx="1" fill="#2c3e50"/>
+  <circle cx="21.5" cy="21.5" r="1.5" fill="#2c3e50"/>
+  <circle cx="25" cy="21.5" r="1.5" fill="#2c3e50"/>
+  <circle cx="28.5" cy="21.5" r="1.5" fill="#2c3e50"/>
+  <circle cx="21.5" cy="25" r="1.5" fill="#2c3e50"/>
+  <circle cx="25" cy="25" r="1.5" fill="#2c3e50"/>
+  <circle cx="28.5" cy="25" r="1.5" fill="#2c3e50"/>
   
-  <!-- Bar chart elements -->
-  <rect class="bar" x="20" y="65" width="10" height="15" fill="#ffffff" />
-  <rect class="bar" x="35" y="55" width="10" height="25" fill="#ffffff" />
-  <rect class="bar" x="50" y="40" width="10" height="40" fill="#ffffff" />
-  <rect class="bar" x="65" y="30" width="10" height="50" fill="#ffffff" />
+  <!-- Building icon -->
+  <path d="M13 28V16L8 20V28H13Z" fill="white"/>
+  <path d="M14 28V12L20 16V28H14Z" fill="white"/>
+  <rect x="10" y="22" width="2" height="2" fill="#2c3e50"/>
+  <rect x="10" y="18" width="2" height="2" fill="#2c3e50"/>
+  <rect x="16" y="22" width="2" height="2" fill="#2c3e50"/>
+  <rect x="16" y="18" width="2" height="2" fill="#2c3e50"/>
+  <rect x="16" y="14" width="2" height="2" fill="#2c3e50"/>
   
-  <!-- House roof -->
-  <polygon points="50,15 25,35 75,35" fill="#ffffff" />
-  
-  <!-- House base -->
-  <rect x="35" y="35" width="30" height="20" fill="#ffffff" />
-  
-  <!-- Dollar sign -->
-  <path d="M50,65 L50,75 M55,67 C55,64 45,64 45,67 C45,70 55,70 55,73 C55,76 45,76 45,73 M47,63 L53,63 M47,77 L53,77" stroke="#343a40" stroke-width="2" fill="none" />
-  
-  <!-- Text at bottom -->
-  <text x="50" y="92" text-anchor="middle" class="logo-text">LEVY CALC</text>
+  <!-- Text -->
+  <text x="45" y="22" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="white">LEVY</text>
+  <text x="45" y="34" font-family="Arial, sans-serif" font-size="10" font-weight="400" fill="#a3c2dc">CALCULATOR</text>
 </svg>
