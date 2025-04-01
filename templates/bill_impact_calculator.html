@@ -1,0 +1,508 @@
+{% extends 'base.html' %}
+
+{% block title %}Bill Impact Calculator{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Bill Impact Calculator</h1>
+    
+    <div class="alert alert-info">
+        <i class="fa fa-info-circle me-2"></i>
+        This tool analyzes the potential impact of pending legislative bills on property taxes and levy rates.
+        Enter the bill details and projected changes to generate an impact analysis.
+    </div>
+    
+    <!-- Bill Impact Form -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Enter Bill Information</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{{ url_for('bill_impact_calculator') }}">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="bill_name" class="form-label">Bill Name/Number</label>
+                        <input type="text" class="form-control" id="bill_name" name="bill_name" 
+                               placeholder="e.g., SB 5302" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="bill_description" class="form-label">Brief Description</label>
+                        <input type="text" class="form-control" id="bill_description" name="bill_description" 
+                               placeholder="e.g., Property Tax Exemption for Seniors">
+                    </div>
+                </div>
+                
+                <!-- Tax Code Rate Changes -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Tax Code Rate Changes</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Tax Code</th>
+                                        <th>Current Rate</th>
+                                        <th>Change Type</th>
+                                        <th>New Rate</th>
+                                        <th>Adjustment %</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for code in tax_codes %}
+                                    <tr>
+                                        <td>{{ code.code }}</td>
+                                        <td>{{ code.levy_rate if code.levy_rate else 'N/A' }}</td>
+                                        <td>
+                                            <select class="form-select form-select-sm change-type" 
+                                                    name="change_type_{{ code.code }}" 
+                                                    data-code="{{ code.code }}">
+                                                <option value="">No Change</option>
+                                                <option value="absolute">New Rate</option>
+                                                <option value="percentage">Percentage Change</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm new-rate" 
+                                                   name="new_rate_{{ code.code }}" step="0.0001" min="0" 
+                                                   placeholder="e.g., 1.5432" disabled>
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control adjustment" 
+                                                       name="adjustment_{{ code.code }}" step="0.01" 
+                                                       placeholder="e.g., 5" disabled>
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Exemption Changes -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Exemption Changes</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="current_exemption" class="form-label">Current Exemption Amount ($)</label>
+                                <input type="number" class="form-control" id="current_exemption" name="current_exemption" 
+                                       placeholder="e.g., 100000" min="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="new_exemption" class="form-label">New Exemption Amount ($)</label>
+                                <input type="number" class="form-control" id="new_exemption" name="new_exemption" 
+                                       placeholder="e.g., 125000" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Statutory Limit Changes -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Statutory Limit Changes</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="max_rate" class="form-label">New Maximum Allowed Rate</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="max_rate" name="max_rate" 
+                                           placeholder="Current: {{ statutory_limits.max_rate }}" 
+                                           step="0.01" min="0">
+                                    <span class="input-group-text">per $1000</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="max_increase" class="form-label">New Maximum Annual Increase</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="max_increase" name="max_increase" 
+                                           placeholder="Current: {{ (statutory_limits.max_increase - 1) * 100 }}%" 
+                                           step="0.1" min="0">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="reset" class="btn btn-secondary me-md-2">Reset</button>
+                    <button type="submit" class="btn btn-primary">Calculate Impact</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Results Display -->
+    {% if results %}
+    <div class="card shadow mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fa fa-chart-line me-2"></i>
+                Impact Analysis: {{ results.summary.bill_name }}
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if results.summary.bill_description %}
+            <div class="alert alert-secondary mb-4">
+                {{ results.summary.bill_description }}
+            </div>
+            {% endif %}
+            
+            <!-- Summary Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Affected Tax Codes</h6>
+                            <h2 class="mb-0">{{ results.summary.affected_tax_codes }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Avg Rate Change</h6>
+                            <h2 class="mb-0">{{ "%.4f"|format(results.summary.avg_rate_change|float) }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Avg % Change</h6>
+                            <h2 class="mb-0">{{ "%.2f"|format(results.summary.avg_rate_change_pct|float) }}%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card bg-light h-100">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Highest Impact</h6>
+                            {% if results.summary.highest_impact_area %}
+                            <h2 class="mb-0">{{ results.summary.highest_impact_area.tax_code }}</h2>
+                            {% else %}
+                            <h2 class="mb-0">N/A</h2>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabs for Different Data Views -->
+            <ul class="nav nav-tabs" id="impactTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tax-code-tab" data-bs-toggle="tab" 
+                            data-bs-target="#tax-code" type="button" role="tab" 
+                            aria-controls="tax-code" aria-selected="true">
+                        Tax Code Impacts
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="property-tab" data-bs-toggle="tab" 
+                            data-bs-target="#property" type="button" role="tab" 
+                            aria-controls="property" aria-selected="false">
+                        Property Impacts
+                    </button>
+                </li>
+                {% if results.exemption_impact %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="exemption-tab" data-bs-toggle="tab" 
+                            data-bs-target="#exemption" type="button" role="tab" 
+                            aria-controls="exemption" aria-selected="false">
+                        Exemption Changes
+                    </button>
+                </li>
+                {% endif %}
+                {% if results.limit_impact %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="limits-tab" data-bs-toggle="tab" 
+                            data-bs-target="#limits" type="button" role="tab" 
+                            aria-controls="limits" aria-selected="false">
+                        Statutory Limits
+                    </button>
+                </li>
+                {% endif %}
+            </ul>
+            
+            <div class="tab-content mt-3" id="impactTabContent">
+                <!-- Tax Code Impact Tab -->
+                <div class="tab-pane fade show active" id="tax-code" role="tabpanel" aria-labelledby="tax-code-tab">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Tax Code</th>
+                                    <th>Current Rate</th>
+                                    <th>New Rate</th>
+                                    <th>Change</th>
+                                    <th>% Change</th>
+                                    <th>Current Levy</th>
+                                    <th>New Levy</th>
+                                    <th>Levy Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for code, impact in results.impacted_tax_codes.items() %}
+                                <tr>
+                                    <td>{{ code }}</td>
+                                    <td>{{ "%.4f"|format(impact.current_rate|float) if impact.current_rate is not none else 'N/A' }}</td>
+                                    <td>{{ "%.4f"|format(impact.new_rate|float) if impact.new_rate is not none else 'N/A' }}</td>
+                                    <td>
+                                        {% if impact.rate_change is not none %}
+                                            <span class="{{ 'text-success' if impact.rate_change < 0 else 'text-danger' if impact.rate_change > 0 else '' }}">
+                                                {{ "%.4f"|format(impact.rate_change|float) }}
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if impact.rate_change_pct is not none %}
+                                            <span class="{{ 'text-success' if impact.rate_change_pct < 0 else 'text-danger' if impact.rate_change_pct > 0 else '' }}">
+                                                {{ "%.2f"|format(impact.rate_change_pct|float) }}%
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ "${:,.2f}".format(impact.current_levy_amount|float) if impact.current_levy_amount is not none else 'N/A' }}</td>
+                                    <td>{{ "${:,.2f}".format(impact.new_levy_amount|float) if impact.new_levy_amount is not none else 'N/A' }}</td>
+                                    <td>
+                                        {% if impact.levy_change is not none %}
+                                            <span class="{{ 'text-success' if impact.levy_change < 0 else 'text-danger' if impact.levy_change > 0 else '' }}">
+                                                {{ "${:,.2f}".format(impact.levy_change|float) }}
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Property Impact Tab -->
+                <div class="tab-pane fade" id="property" role="tabpanel" aria-labelledby="property-tab">
+                    <div class="alert alert-info mb-3">
+                        <i class="fa fa-info-circle me-2"></i>
+                        This tab shows the impact on sample properties of different values for each affected tax code.
+                    </div>
+                    
+                    <!-- Property Value Filter -->
+                    <div class="mb-3">
+                        <label for="propertyFilter" class="form-label">Filter by Property Value:</label>
+                        <select class="form-select" id="propertyFilter">
+                            <option value="all">All Values</option>
+                            {% set property_values = [] %}
+                            {% for impact in results.property_impacts %}
+                                {% if impact.assessed_value not in property_values %}
+                                    {% set property_values = property_values + [impact.assessed_value] %}
+                                    <option value="{{ impact.assessed_value }}">{{ "${:,.0f}".format(impact.assessed_value|float) }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Property Impact Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="propertyImpactTable">
+                            <thead>
+                                <tr>
+                                    <th>Tax Code</th>
+                                    <th>Assessed Value</th>
+                                    <th>Current Tax</th>
+                                    <th>New Tax</th>
+                                    <th>Change</th>
+                                    <th>% Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for impact in results.property_impacts %}
+                                <tr data-value="{{ impact.assessed_value }}">
+                                    <td>{{ impact.tax_code }}</td>
+                                    <td>{{ "${:,.0f}".format(impact.assessed_value|float) }}</td>
+                                    <td>{{ "${:,.2f}".format(impact.current_tax|float) if impact.current_tax is not none else 'N/A' }}</td>
+                                    <td>{{ "${:,.2f}".format(impact.new_tax|float) if impact.new_tax is not none else 'N/A' }}</td>
+                                    <td>
+                                        {% if impact.tax_change is not none %}
+                                            <span class="{{ 'text-success' if impact.tax_change < 0 else 'text-danger' if impact.tax_change > 0 else '' }}">
+                                                {{ "${:,.2f}".format(impact.tax_change|float) }}
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if impact.tax_change_pct is not none %}
+                                            <span class="{{ 'text-success' if impact.tax_change_pct < 0 else 'text-danger' if impact.tax_change_pct > 0 else '' }}">
+                                                {{ "%.2f"|format(impact.tax_change_pct|float) }}%
+                                            </span>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Exemption Changes Tab -->
+                {% if results.exemption_impact %}
+                <div class="tab-pane fade" id="exemption" role="tabpanel" aria-labelledby="exemption-tab">
+                    <div class="row">
+                        <div class="col-md-6 offset-md-3">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Exemption Change Summary</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table">
+                                        <tr>
+                                            <th>Current Exemption:</th>
+                                            <td>{{ "${:,.0f}".format(results.exemption_impact.current_exemption|float) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>New Exemption:</th>
+                                            <td>{{ "${:,.0f}".format(results.exemption_impact.new_exemption|float) }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Exemption Change:</th>
+                                            <td>
+                                                <span class="{{ 'text-success' if results.exemption_impact.exemption_change > 0 else 'text-danger' if results.exemption_impact.exemption_change < 0 else '' }}">
+                                                    {{ "${:,.0f}".format(results.exemption_impact.exemption_change|float) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% if results.exemption_impact.exemption_change_pct is not none %}
+                                        <tr>
+                                            <th>Percentage Change:</th>
+                                            <td>
+                                                <span class="{{ 'text-success' if results.exemption_impact.exemption_change_pct > 0 else 'text-danger' if results.exemption_impact.exemption_change_pct < 0 else '' }}">
+                                                    {{ "%.2f"|format(results.exemption_impact.exemption_change_pct|float) }}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Statutory Limits Tab -->
+                {% if results.limit_impact %}
+                <div class="tab-pane fade" id="limits" role="tabpanel" aria-labelledby="limits-tab">
+                    <div class="row">
+                        <div class="col-md-6 offset-md-3">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Statutory Limit Changes</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table">
+                                        <tr>
+                                            <th>Current Maximum Rate:</th>
+                                            <td>{{ "%.2f"|format(results.limit_impact.current_max_rate|float) }} per $1000</td>
+                                        </tr>
+                                        <tr>
+                                            <th>New Maximum Rate:</th>
+                                            <td>{{ "%.2f"|format(results.limit_impact.new_max_rate|float) }} per $1000</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Rate Limit Change:</th>
+                                            <td>
+                                                <span class="{{ 'text-success' if results.limit_impact.max_rate_change > 0 else 'text-danger' if results.limit_impact.max_rate_change < 0 else '' }}">
+                                                    {{ "%.2f"|format(results.limit_impact.max_rate_change|float) }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Current Annual Increase:</th>
+                                            <td>{{ "%.1f"|format((results.limit_impact.current_max_increase|float - 1) * 100) }}%</td>
+                                        </tr>
+                                        <tr>
+                                            <th>New Annual Increase:</th>
+                                            <td>{{ "%.1f"|format((results.limit_impact.new_max_increase|float - 1) * 100) }}%</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Increase Limit Change:</th>
+                                            <td>
+                                                <span class="{{ 'text-success' if results.limit_impact.max_increase_change > 0 else 'text-danger' if results.limit_impact.max_increase_change < 0 else '' }}">
+                                                    {{ "%.1f"|format(results.limit_impact.max_increase_change|float * 100) }}%
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- JavaScript for Form Interactions -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle change type selection to enable/disable appropriate fields
+    const changeTypeSelects = document.querySelectorAll('.change-type');
+    changeTypeSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            const code = this.getAttribute('data-code');
+            const newRateInput = document.querySelector(`input[name="new_rate_${code}"]`);
+            const adjustmentInput = document.querySelector(`input[name="adjustment_${code}"]`);
+            
+            // Reset and disable all inputs
+            newRateInput.value = '';
+            newRateInput.disabled = true;
+            adjustmentInput.value = '';
+            adjustmentInput.disabled = true;
+            
+            // Enable appropriate input based on selection
+            if (this.value === 'absolute') {
+                newRateInput.disabled = false;
+            } else if (this.value === 'percentage') {
+                adjustmentInput.disabled = false;
+            }
+        });
+    });
+    
+    // Property value filter functionality
+    const propertyFilter = document.getElementById('propertyFilter');
+    if (propertyFilter) {
+        propertyFilter.addEventListener('change', function() {
+            const selectedValue = this.value;
+            const rows = document.querySelectorAll('#propertyImpactTable tbody tr');
+            
+            rows.forEach(row => {
+                if (selectedValue === 'all' || row.getAttribute('data-value') === selectedValue) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

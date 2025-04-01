@@ -10,6 +10,7 @@ from utils.import_utils import validate_and_import_csv
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
 from utils.district_utils import import_district_text_file, import_district_xml_file, import_district_excel_file, get_linked_levy_codes
+from utils.bill_impact_utils import calculate_bill_impact
 from sqlalchemy import func
 
 # Configure logger
@@ -720,6 +721,125 @@ def api_levy_insights():
             'status': 'error',
             'message': f'Error generating AI analysis: {str(e)}'
         }), 500
+
+@app.route('/bill-impact-calculator', methods=['GET', 'POST'])
+def bill_impact_calculator():
+    """
+    Calculate the impact of pending property tax bills on levy rates and property taxes.
+    """
+    bill_impact_results = None
+    available_tax_codes = TaxCode.query.all()
+    
+    if request.method == 'POST':
+        bill_name = request.form.get('bill_name', 'Unnamed Bill')
+        bill_description = request.form.get('bill_description', '')
+        
+        # Get rate changes for each tax code
+        rate_changes = {}
+        for tax_code in available_tax_codes:
+            change_type = request.form.get(f'change_type_{tax_code.code}')
+            
+            if change_type == 'absolute':
+                # Absolute new rate
+                new_rate = request.form.get(f'new_rate_{tax_code.code}')
+                if new_rate:
+                    try:
+                        rate_changes[tax_code.code] = float(new_rate)
+                    except ValueError:
+                        pass
+            elif change_type == 'percentage':
+                # Percentage adjustment
+                adjustment = request.form.get(f'adjustment_{tax_code.code}')
+                if adjustment:
+                    try:
+                        adj_value = float(adjustment) / 100 + 1  # Convert percentage to multiplier
+                        rate_changes[tax_code.code] = {'adjustment': adj_value}
+                    except ValueError:
+                        pass
+        
+        # Get exemption changes
+        exemption_changes = {}
+        current_exemption = request.form.get('current_exemption')
+        new_exemption = request.form.get('new_exemption')
+        
+        if current_exemption and new_exemption:
+            try:
+                exemption_changes = {
+                    'current_exemption': float(current_exemption),
+                    'new_exemption': float(new_exemption)
+                }
+            except ValueError:
+                pass
+        
+        # Get limit changes
+        limit_changes = {}
+        max_rate = request.form.get('max_rate')
+        max_increase = request.form.get('max_increase')
+        
+        if max_rate:
+            try:
+                limit_changes['max_rate'] = float(max_rate)
+            except ValueError:
+                pass
+        
+        if max_increase:
+            try:
+                limit_changes['max_increase'] = float(max_increase) / 100 + 1  # Convert percentage to multiplier
+            except ValueError:
+                pass
+        
+        # Assemble bill data
+        bill_data = {
+            'bill_name': bill_name,
+            'bill_description': bill_description,
+            'rate_changes': rate_changes,
+            'exemption_changes': exemption_changes,
+            'limit_changes': limit_changes
+        }
+        
+        # Calculate impact if we have at least one change
+        if rate_changes or exemption_changes or limit_changes:
+            from utils.bill_impact_utils import calculate_bill_impact
+            bill_impact_results = calculate_bill_impact(bill_data)
+            
+            if bill_impact_results.get('status') == 'success':
+                flash('Bill impact analysis completed successfully.', 'success')
+            else:
+                flash('Error calculating bill impact. Please check your inputs.', 'danger')
+        else:
+            flash('Please specify at least one change to analyze.', 'warning')
+    
+    # Pass the current statutory limits to the template
+    statutory_limits = {
+        'max_rate': 5.90,
+        'max_increase': 1.01
+    }
+    
+    return render_template('bill_impact_calculator.html', 
+                          tax_codes=available_tax_codes,
+                          statutory_limits=statutory_limits,
+                          results=bill_impact_results)
+
+
+@app.route('/api/bill-impacts', methods=['POST'])
+def api_bill_impacts():
+    """
+    API endpoint for calculating bill impacts.
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        from utils.bill_impact_utils import calculate_bill_impact
+        results = calculate_bill_impact(data)
+        
+        return jsonify(results)
+    except Exception as e:
+        logger.error(f"Error calculating bill impact: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/mcp-insights')
 def mcp_insights():
