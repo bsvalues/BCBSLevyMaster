@@ -1,0 +1,206 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Tax Glossary - Benton County Property Tax Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h2 class="mb-0"><i class="bi bi-book me-2"></i>Property Tax Terminology Glossary</h2>
+            </div>
+            <div class="card-body">
+                <p class="lead">This glossary explains common property tax terms used in Benton County and Washington State property tax administration.</p>
+                
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Tip:</strong> Throughout the Property Tax Portal, you'll see terms with dotted underlines. Hover over these terms to see their definitions.
+                </div>
+                
+                <div class="mb-4">
+                    <form class="d-flex">
+                        <input class="form-control me-2" type="search" id="glossarySearch" placeholder="Search for a term..." aria-label="Search">
+                        <button class="btn btn-outline-primary" type="button" onclick="searchGlossary()">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="mb-4">
+                    <ul class="nav nav-tabs" id="glossaryTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">All Terms</button>
+                        </li>
+                        {% for category in categories %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="{{ category.id }}-tab" data-bs-toggle="tab" data-bs-target="#{{ category.id }}" type="button" role="tab" aria-controls="{{ category.id }}" aria-selected="false">{{ category.name }}</button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    
+                    <div class="tab-content p-3 border border-top-0 rounded-bottom" id="glossaryTabContent">
+                        <div class="tab-pane fade show active" id="all" role="tabpanel" aria-labelledby="all-tab">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="list-group glossary-terms">
+                                        {% for letter, terms in all_terms_by_letter.items() %}
+                                        <div class="glossary-letter-section mb-4">
+                                            <h3 class="glossary-letter">{{ letter }}</h3>
+                                            {% for term in terms %}
+                                            <div class="glossary-term-item">
+                                                <h4 class="glossary-term">{{ term.term }}</h4>
+                                                <p class="glossary-definition">{{ term.definition|safe }}</p>
+                                                {% if term.example %}
+                                                <p class="glossary-example text-muted"><em>Example: {{ term.example|safe }}</em></p>
+                                                {% endif %}
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% for category in categories %}
+                        <div class="tab-pane fade" id="{{ category.id }}" role="tabpanel" aria-labelledby="{{ category.id }}-tab">
+                            <div class="mb-3">
+                                <p>{{ category.description }}</p>
+                            </div>
+                            <div class="list-group glossary-terms">
+                                {% for term in category.terms %}
+                                <div class="glossary-term-item">
+                                    <h4 class="glossary-term">{{ term.term }}</h4>
+                                    <p class="glossary-definition">{{ term.definition|safe }}</p>
+                                    {% if term.example %}
+                                    <p class="glossary-example text-muted"><em>Example: {{ term.example|safe }}</em></p>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0"><i class="bi bi-question-circle me-2"></i>Property Tax FAQ</h3>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqHeadingOne">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseOne" aria-expanded="true" aria-controls="faqCollapseOne">
+                                What is the difference between assessed value and market value?
+                            </button>
+                        </h2>
+                        <div id="faqCollapseOne" class="accordion-collapse collapse show" aria-labelledby="faqHeadingOne" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>{{ "Market value is what a property would likely sell for in an open market between a willing buyer and seller. Assessed value is the value determined by the county assessor for property tax purposes."|add_tooltips|safe }}</p>
+                                <p>{{ "In Washington state, properties must be assessed at 100% of their true and fair market value. However, there may be differences between assessed value and actual market value due to timing of assessments, rapidly changing market conditions, or other factors."|add_tooltips|safe }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqHeadingTwo">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseTwo" aria-expanded="false" aria-controls="faqCollapseTwo">
+                                Why might my property taxes increase even when my assessed value stays the same?
+                            </button>
+                        </h2>
+                        <div id="faqCollapseTwo" class="accordion-collapse collapse" aria-labelledby="faqHeadingTwo" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>{{ "Your property taxes can increase even when your assessed value remains the same due to:"|add_tooltips|safe }}</p>
+                                <ul>
+                                    <li>{{ "Voter-approved levies or bonds in your taxing districts"|add_tooltips|safe }}</li>
+                                    <li>{{ "Changes in the levy rates applied by local governments"|add_tooltips|safe }}</li>
+                                    <li>{{ "Expiration of temporary tax exemptions or abatements"|add_tooltips|safe }}</li>
+                                    <li>{{ "Shifts in the tax burden due to changes in other properties' values in your tax code area"|add_tooltips|safe }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="faqHeadingThree">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqCollapseThree" aria-expanded="false" aria-controls="faqCollapseThree">
+                                What are the statutory limits on property tax increases?
+                            </button>
+                        </h2>
+                        <div id="faqCollapseThree" class="accordion-collapse collapse" aria-labelledby="faqHeadingThree" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                <p>{{ "Washington state has several statutory limits on property tax increases:"|add_tooltips|safe }}</p>
+                                <ul>
+                                    <li>{{ "1% Levy Limit: Regular property tax levies cannot increase more than 1% per year, plus an allowance for new construction, unless voters approve a higher amount."|add_tooltips|safe }}</li>
+                                    <li>{{ "Levy Rate Limits: Each taxing district has a maximum statutory rate limit expressed in dollars per $1,000 of assessed value."|add_tooltips|safe }}</li>
+                                    <li>{{ "Constitutional 1% Limit: The total of all regular property tax levies cannot exceed 1% of a property's market value (or $10 per $1,000)."|add_tooltips|safe }}</li>
+                                </ul>
+                                <p>{{ "These limits help provide predictability for property owners while allowing local governments to adjust for growth and inflation."|add_tooltips|safe }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function searchGlossary() {
+        let searchTerm = $('#glossarySearch').val().toLowerCase();
+        let found = false;
+        
+        // First make all terms visible
+        $('.glossary-term-item').show();
+        $('.glossary-letter-section').show();
+        
+        if (searchTerm.length > 0) {
+            // Hide all terms that don't match
+            $('.glossary-term-item').each(function() {
+                let termText = $(this).find('.glossary-term').text().toLowerCase();
+                let definitionText = $(this).find('.glossary-definition').text().toLowerCase();
+                
+                if (termText.includes(searchTerm) || definitionText.includes(searchTerm)) {
+                    $(this).show();
+                    found = true;
+                } else {
+                    $(this).hide();
+                }
+            });
+            
+            // Hide letter sections with no visible terms
+            $('.glossary-letter-section').each(function() {
+                if ($(this).find('.glossary-term-item:visible').length === 0) {
+                    $(this).hide();
+                }
+            });
+            
+            // Switch to "All" tab to show search results
+            $('#glossaryTabs button[data-bs-target="#all"]').tab('show');
+        }
+        
+        // Show no results message
+        if (!found && searchTerm.length > 0) {
+            if ($('#noResults').length === 0) {
+                $('#all').prepend('<div id="noResults" class="alert alert-info">No terms found matching "' + searchTerm + '"</div>');
+            } else {
+                $('#noResults').text('No terms found matching "' + searchTerm + '"').show();
+            }
+        } else {
+            $('#noResults').hide();
+        }
+    }
+    
+    $(document).ready(function() {
+        // Enable search on enter key
+        $('#glossarySearch').on('keyup', function(e) {
+            if (e.key === 'Enter') {
+                searchGlossary();
+            }
+        });
+    });
+</script>
+{% endblock %}

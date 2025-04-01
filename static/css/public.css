@@ -1,0 +1,152 @@
+/* Public Portal Custom Styles */
+
+/* Glossary Term Styling */
+.glossary-letter {
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    color: var(--bs-primary);
+}
+
+.glossary-term-item {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px dashed var(--bs-border-color);
+}
+
+.glossary-term-item:last-child {
+    border-bottom: none;
+}
+
+.glossary-term {
+    color: var(--bs-primary);
+    margin-bottom: 0.5rem;
+}
+
+.glossary-definition {
+    margin-bottom: 0.5rem;
+}
+
+.glossary-example {
+    font-size: 0.9rem;
+}
+
+/* Page Header Styling */
+.page-header {
+    padding: 2rem 0;
+    background-color: var(--bs-dark);
+    margin-bottom: 2rem;
+}
+
+.page-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+/* Property Information Card Styling */
+.property-card {
+    transition: transform 0.3s ease;
+}
+
+.property-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Tax Calendar Styling */
+.tax-calendar-item {
+    border-left: 3px solid var(--bs-primary);
+    padding-left: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tax-calendar-date {
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+/* Feature Item Styling */
+.feature-item {
+    text-align: center;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+    height: 100%;
+    background-color: rgba(var(--bs-dark-rgb), 0.05);
+    transition: background-color 0.3s ease;
+}
+
+.feature-item:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+.feature-icon {
+    font-size: 2.5rem;
+    color: var(--bs-primary);
+    margin-bottom: 1rem;
+}
+
+/* FAQ Styling */
+.accordion-button:not(.collapsed) {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--bs-primary);
+}
+
+/* Footer Styling */
+.footer {
+    margin-top: 3rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 767.98px) {
+    .tax-calendar-item {
+        padding-left: 0.75rem;
+    }
+    
+    .feature-icon {
+        font-size: 2rem;
+    }
+}
+
+/* Property Search Result Styling */
+.property-detail-section {
+    margin-bottom: 2rem;
+}
+
+.tax-rate-change-positive {
+    color: var(--bs-danger);
+}
+
+.tax-rate-change-negative {
+    color: var(--bs-success);
+}
+
+.tax-rate-change-neutral {
+    color: var(--bs-secondary);
+}
+
+/* Print Styles */
+@media print {
+    .navbar, .footer, .btn, form {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa !important;
+        color: #000 !important;
+    }
+    
+    body {
+        color: #000 !important;
+        background-color: #fff !important;
+    }
+    
+    .container {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}

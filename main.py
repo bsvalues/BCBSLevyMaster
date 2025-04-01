@@ -13,6 +13,7 @@ import routes
 import routes_data_management
 import routes_historical_analysis
 import routes_glossary
+import routes_public
 from utils.tooltip_utils import initialize_tooltip_jinja_filters
 
 # Initialize data management routes
@@ -23,6 +24,9 @@ routes_historical_analysis.init_historical_analysis_routes(app)
 
 # Initialize glossary routes
 routes_glossary.init_glossary_routes(app)
+
+# Initialize public portal routes
+routes_public.init_public_routes()
 
 # Initialize tooltip functionality
 initialize_tooltip_jinja_filters(app)

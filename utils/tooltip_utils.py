@@ -5,6 +5,7 @@ This module provides:
 1. A comprehensive dictionary of tax terminology
 2. Jinja2 filters to apply tooltips in templates
 3. Functions to generate HTML tooltip markup
+4. Functions to get glossary terms for display
 """
 
 import re
@@ -249,3 +250,145 @@ def initialize_tooltip_jinja_filters(app):
     app.jinja_env.filters['add_tooltips'] = add_tooltips_filter
     
     logger.info("Tooltip Jinja2 filters initialized")
+
+
+def get_glossary_terms():
+    """
+    Get all tax terminology as a dictionary.
+    
+    Returns:
+        dict: Dictionary of tax terms and their definitions
+    """
+    return TAX_TERMINOLOGY
+
+
+def get_glossary_by_category():
+    """
+    Get tax terminology organized by category.
+    
+    Returns:
+        list: List of category dictionaries with id, name, description, and terms
+    """
+    # Define categories with ID, name, and descriptions
+    categories = [
+        {
+            "id": "levy-terms",
+            "name": "Levy Terms",
+            "description": "Terms related to property tax levies, rates, and statutory limitations.",
+            "keywords": ["Levy", "Capacity", "Statutory", "Enhancement"]
+        },
+        {
+            "id": "assessment-terms",
+            "name": "Assessment Terms",
+            "description": "Terms related to property valuation and assessment processes.",
+            "keywords": ["Assessed", "Market", "Fair", "Collection", "Assessment"]
+        },
+        {
+            "id": "administrative-terms",
+            "name": "Administrative Terms",
+            "description": "Terms related to tax administration, districts, and governance.",
+            "keywords": ["Tax Roll", "Tax District", "Tax Code", "Millage", "Mill", "Abatement", "TIF", "Exemption", "Deferral", "Appeal"]
+        },
+        {
+            "id": "statistical-terms",
+            "name": "Statistical Terms",
+            "description": "Terms related to statistical analysis and data interpretation.",
+            "keywords": ["Mean", "Median", "Variance", "Standard Deviation", "Coefficient", "Z-Score", "Moving Average"]
+        },
+        {
+            "id": "advanced-terms",
+            "name": "Advanced Terms",
+            "description": "Advanced concepts in property tax analysis and forecasting.",
+            "keywords": ["Bill Impact", "Trend", "Confidence", "Multi-year", "Anomaly", "Distribution", "Threshold", "Scatter", "Correlation", "Regression"]
+        }
+    ]
+    
+    # Initialize terms arrays for each category
+    for category in categories:
+        category["terms"] = []
+    
+    # Add a miscellaneous category
+    miscellaneous = {
+        "id": "miscellaneous",
+        "name": "Miscellaneous Terms",
+        "description": "Other property tax related terminology.",
+        "terms": []
+    }
+    
+    # Categorize terms
+    for term, definition in TAX_TERMINOLOGY.items():
+        # Create term object with definition and optional example
+        term_obj = {
+            "term": term,
+            "definition": definition
+        }
+        
+        # Check if definition contains an example (indicated by "Example:" or similar)
+        if "example:" in definition.lower() or "e.g.," in definition.lower():
+            # Split definition and example
+            parts = re.split(r'(example:|e\.g\.,)', definition.lower(), 1, re.IGNORECASE)
+            if len(parts) >= 3:
+                term_obj["definition"] = parts[0].strip()
+                term_obj["example"] = parts[1] + parts[2].strip()
+        
+        # Find appropriate category
+        assigned = False
+        for category in categories:
+            for keyword in category["keywords"]:
+                if keyword.lower() in term.lower():
+                    category["terms"].append(term_obj)
+                    assigned = True
+                    break
+            if assigned:
+                break
+                
+        # If term doesn't match any category, put in "Miscellaneous"
+        if not assigned:
+            miscellaneous["terms"].append(term_obj)
+    
+    # Sort terms alphabetically within each category
+    for category in categories:
+        category["terms"].sort(key=lambda x: x["term"])
+    
+    miscellaneous["terms"].sort(key=lambda x: x["term"])
+    
+    # Remove empty categories and add miscellaneous if it has terms
+    result = [category for category in categories if category["terms"]]
+    if miscellaneous["terms"]:
+        result.append(miscellaneous)
+    
+    return result
+
+
+def get_all_terms_alphabetical():
+    """
+    Get all tax terminology organized alphabetically by first letter.
+    
+    Returns:
+        dict: Dictionary with letter keys, each containing a list of term objects
+    """
+    result = {}
+    
+    for term, definition in sorted(TAX_TERMINOLOGY.items()):
+        first_letter = term[0].upper()
+        
+        if first_letter not in result:
+            result[first_letter] = []
+        
+        # Create term object
+        term_obj = {
+            "term": term,
+            "definition": definition
+        }
+        
+        # Check if definition contains an example
+        if "example:" in definition.lower() or "e.g.," in definition.lower():
+            # Split definition and example
+            parts = re.split(r'(example:|e\.g\.,)', definition.lower(), 1, re.IGNORECASE)
+            if len(parts) >= 3:
+                term_obj["definition"] = parts[0].strip()
+                term_obj["example"] = parts[1] + parts[2].strip()
+        
+        result[first_letter].append(term_obj)
+    
+    return result
