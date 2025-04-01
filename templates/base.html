@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/tooltip.css') }}" rel="stylesheet">
     <!-- Favicon -->
     <link rel="icon" href="{{ url_for('static', filename='img/logo.svg') }}" type="image/svg+xml">
     {% block extra_css %}{% endblock %}
@@ -69,6 +70,11 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('mcp_insights') }}">MCP Insights</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('glossary.glossary') }}">
+                                <i class="bi bi-book"></i> Tax Glossary
+                            </a>
                         </li>
                     </ul>
                     <div class="d-flex">

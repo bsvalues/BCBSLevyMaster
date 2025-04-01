@@ -1,0 +1,49 @@
+/*
+ * Custom styles for tax terminology tooltips
+ */
+ 
+.tooltip-term {
+    border-bottom: 1px dashed var(--bs-info);
+    color: var(--bs-info);
+    cursor: help;
+    text-decoration: none;
+    position: relative;
+}
+
+.tooltip-term:hover {
+    color: var(--bs-info-text);
+}
+
+/* Style the Bootstrap tooltips */
+.tooltip {
+    --bs-tooltip-max-width: 300px;
+    --bs-tooltip-bg: var(--bs-dark);
+    --bs-tooltip-color: var(--bs-light);
+    font-size: 0.875rem;
+}
+
+/* Custom info panel for terminology help */
+.terminology-info {
+    background-color: rgba(13, 202, 240, 0.1);
+    border-left: 4px solid var(--bs-info);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border-radius: 0 0.375rem 0.375rem 0;
+}
+
+/* Custom badges for glossary categories */
+.term-category-badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    margin-left: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+}
+
+/* Term highlight on search */
+.term-highlight {
+    background-color: rgba(255, 193, 7, 0.3);
+    padding: 0.15rem 0.25rem;
+    border-radius: 0.25rem;
+}

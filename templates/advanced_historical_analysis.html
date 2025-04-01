@@ -9,7 +9,13 @@
             <h2 class="mb-3">
                 <i class="bi bi-graph-up-arrow"></i> Advanced Historical Analysis
             </h2>
-            <p class="lead">Leverage sophisticated analytical tools for multi-year levy data analysis, forecasting, and anomaly detection.</p>
+            <p class="lead">Leverage sophisticated analytical tools for {{ 'multi-year levy data analysis'|add_tooltips }}, {{ 'trend forecasting'|add_tooltips }}, and {{ 'anomaly detection'|add_tooltips }} to gain deeper insights into your tax data.</p>
+            <div class="terminology-info">
+                <strong><i class="bi bi-info-circle"></i> Pro Tip:</strong> 
+                Tax terms throughout the application have {{ 'tooltips'|tooltip }} for easy reference. 
+                Hover over blue underlined terms to see definitions, or visit the 
+                <a href="{{ url_for('glossary.glossary') }}">Tax Glossary</a> for a comprehensive reference.
+            </div>
         </div>
     </div>
 
