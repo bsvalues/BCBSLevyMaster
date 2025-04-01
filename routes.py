@@ -8,7 +8,7 @@ from flask import render_template, request, redirect, url_for, flash, session, s
 from werkzeug.utils import secure_filename
 from app import app, db
 from models import Property, TaxCode, ImportLog, ExportLog, TaxDistrict, TaxCodeHistoricalRate
-from utils.import_utils import validate_and_import_csv
+from utils.import_utils import process_import
 from utils.levy_utils import calculate_levy_rates, apply_statutory_limits
 from utils.export_utils import generate_tax_roll
 from utils.district_utils import import_district_text_file, import_district_xml_file, import_district_excel_file, get_linked_levy_codes
@@ -76,27 +76,31 @@ def import_data():
             temp_path = os.path.join('/tmp', filename)
             file.save(temp_path)
             
-            # Validate and import the CSV data
-            result = validate_and_import_csv(temp_path)
+            # Create a FileStorage object from the saved file
+            with open(temp_path, 'rb') as f:
+                file_content = f.read()
+            
+            from werkzeug.datastructures import FileStorage
+            file_obj = FileStorage(
+                stream=io.BytesIO(file_content),
+                filename=filename,
+                name='file'
+            )
+            
+            # Process the import with our new utility
+            result = process_import(file_obj, 'property')
             
             # Remove temp file
             os.remove(temp_path)
             
-            # Log the import
-            import_log = ImportLog(
-                filename=filename,
-                rows_imported=result['imported'],
-                rows_skipped=result['skipped'],
-                warnings='\n'.join(result['warnings']) if result['warnings'] else None,
-                import_type='property'
-            )
-            db.session.add(import_log)
-            db.session.commit()
+            # No need to manually create import log as process_import handles that
             
-            if result['success']:
-                flash(f"Successfully imported {result['imported']} properties. Skipped {result['skipped']} records.", 'success')
+            if result.success:
+                flash(f"Successfully imported {result.imported_count} properties. Skipped {result.skipped_count} records.", 'success')
             else:
-                flash(f"Import completed with warnings. Imported {result['imported']} properties. Skipped {result['skipped']} records.", 'warning')
+                error_msg = "; ".join(result.error_messages) if result.error_messages else "Unknown error"
+                warnings_msg = f" ({len(result.warning_messages)} warnings)" if result.warning_messages else ""
+                flash(f"Import completed with errors: {error_msg}{warnings_msg}. Imported {result.imported_count} properties. Skipped {result.skipped_count} records.", 'warning')
             
             return redirect(url_for('index'))
     
@@ -127,37 +131,29 @@ def district_import():
             temp_path = os.path.join('/tmp', filename)
             file.save(temp_path)
             
-            # Detect file type and import accordingly
-            result = None
-            if filename.lower().endswith('.txt'):
-                result = import_district_text_file(temp_path)
-            elif filename.lower().endswith('.xml'):
-                result = import_district_xml_file(temp_path)
-            elif filename.lower().endswith('.xlsx') or filename.lower().endswith('.xls'):
-                result = import_district_excel_file(temp_path)
-            else:
-                flash("Unsupported file format. Please upload a .txt, .xml, .xlsx, or .xls file.", 'danger')
-                return redirect(request.url)
+            # Create a FileStorage object from the saved file
+            with open(temp_path, 'rb') as f:
+                file_content = f.read()
+            
+            from werkzeug.datastructures import FileStorage
+            file_obj = FileStorage(
+                stream=io.BytesIO(file_content),
+                filename=filename,
+                name='file'
+            )
+            
+            # Use our new process_import function for tax district data
+            result = process_import(file_obj, 'tax_district')
             
             # Remove temp file
             os.remove(temp_path)
             
-            if result:
-                # Log the import
-                import_log = ImportLog(
-                    filename=filename,
-                    rows_imported=result['imported'],
-                    rows_skipped=result['skipped'],
-                    warnings='\n'.join(result['warnings']) if result['warnings'] else None,
-                    import_type='district'
-                )
-                db.session.add(import_log)
-                db.session.commit()
-                
-                if result['success']:
-                    flash(f"Successfully imported {result['imported']} district relationships. Skipped {result['skipped']} records.", 'success')
-                else:
-                    flash(f"Import completed with warnings. Imported {result['imported']} district relationships. Skipped {result['skipped']} records.", 'warning')
+            if result.success:
+                flash(f"Successfully imported {result.imported_count} district relationships. Skipped {result.skipped_count} records.", 'success')
+            else:
+                error_msg = "; ".join(result.error_messages) if result.error_messages else "Unknown error"
+                warnings_msg = f" ({len(result.warning_messages)} warnings)" if result.warning_messages else ""
+                flash(f"Import completed with errors: {error_msg}{warnings_msg}. Imported {result.imported_count} district relationships. Skipped {result.skipped_count} records.", 'warning')
                 
                 return redirect(url_for('districts'))
     
