@@ -202,10 +202,25 @@ def districts():
 def levy_calculator():
     """
     Calculate levy rates based on the imported property data.
+    
+    Enhanced version with:
+    - Statutory limit application
+    - Historical rate comparison
+    - Levy scenario simulation
+    - AI-powered insights
     """
     mcp_insights = None
     limited_rates = None
     levy_rates = None
+    historical_comparison = None
+    scenario_results = None
+    
+    # Always get the historical comparison data for display
+    try:
+        from utils.levy_utils import calculate_historical_comparison
+        historical_comparison = calculate_historical_comparison()
+    except Exception as e:
+        logger.error(f"Error calculating historical comparison: {str(e)}")
     
     if request.method == 'POST':
         # Get all tax codes
@@ -223,24 +238,34 @@ def levy_calculator():
                     return redirect(url_for('levy_calculator'))
         
         # Calculate levy rates
+        from utils.levy_utils import calculate_levy_rates, apply_statutory_limits, update_tax_codes_with_levy_rates
         levy_rates = calculate_levy_rates(levy_amounts)
         
         # Apply statutory limits
         limited_rates = apply_statutory_limits(levy_rates)
         
         # Update TaxCode database with new levy amounts and rates
-        for tax_code, amount in levy_amounts.items():
-            tc = TaxCode.query.filter_by(code=tax_code).first()
-            if tc:
-                tc.levy_amount = amount
-                tc.levy_rate = limited_rates.get(tax_code, 0)
-                db.session.add(tc)
+        update_tax_codes_with_levy_rates(limited_rates, levy_amounts)
         
-        db.session.commit()
+        # Generate scenarios for what-if analysis
+        from utils.levy_utils import simulate_levy_scenarios
+        default_scenarios = [
+            {'name': 'Current', 'adjustments': {}},
+            {'name': '1% Increase', 'adjustments': {code: 1.01 for code in levy_amounts.keys()}},
+            {'name': '5% Increase', 'adjustments': {code: 1.05 for code in levy_amounts.keys()}},
+            {'name': '1% Decrease', 'adjustments': {code: 0.99 for code in levy_amounts.keys()}},
+            {'name': '5% Decrease', 'adjustments': {code: 0.95 for code in levy_amounts.keys()}}
+        ]
         
+        try:
+            scenario_results = simulate_levy_scenarios(default_scenarios)
+        except Exception as e:
+            logger.error(f"Error simulating levy scenarios: {str(e)}")
+            
         # Generate AI-powered insights for levy rates if Claude is available
         try:
             from utils.anthropic_utils import get_claude_service
+            from utils.levy_utils import get_levy_insights
             
             # Prepare data for analysis
             levy_data = {
@@ -248,33 +273,49 @@ def levy_calculator():
                 'original_rates': levy_rates,
                 'limited_rates': limited_rates,
                 'statutory_limits': {
-                    'general': 5.90,  # Example statutory limit
-                    'special': 10.0   # Example statutory limit
-                }
+                    'max_rate': float(5.90),  # Maximum levy rate per $1,000
+                    'max_increase': float(1.01)  # Maximum 1% annual increase
+                },
+                'historical_comparison': historical_comparison,
+                'scenarios': scenario_results
             }
             
-            claude_service = get_claude_service()
-            if claude_service:
-                # Generate AI insights
-                insights = claude_service.generate_levy_insights(levy_data)
+            # Get AI insights
+            insights_result = get_levy_insights(levy_data)
+            
+            if insights_result.get('status') == 'success':
+                insights = insights_result.get('insights', {})
                 
-                # Check for successful analysis
-                if insights and not insights.get('error'):
-                    # Create MCP insights for the template
-                    mcp_insights = {
-                        'narrative': f"""
-                            <p><strong>AI Analysis of Levy Calculations:</strong></p>
-                            <p>{insights.get('compliance', 'The calculated levy rates have been analyzed for statutory compliance.')}</p>
-                            <p>{insights.get('impact', 'Impact analysis on property owners and districts available.')}</p>
-                        """,
-                        'data': {
-                            'levy_codes_count': len(levy_amounts),
-                            'compliance_status': insights.get('compliance_status', 'Within limits'),
-                            'recommendations': insights.get('recommendations', 'No specific recommendations available')
-                        }
+                # Create MCP insights for the template
+                mcp_insights = {
+                    'narrative': f"""
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-robot"></i> AI Analysis</h5>
+                            </div>
+                            <div class="card-body">
+                                <h6>Statutory Compliance:</h6>
+                                <p>{insights.get('compliance', 'The calculated levy rates have been analyzed for statutory compliance.')}</p>
+                                
+                                <h6>Tax Impact Analysis:</h6>
+                                <p>{insights.get('impact', 'Impact analysis on property owners and districts available.')}</p>
+                                
+                                <h6>Recommendations:</h6>
+                                <ul>
+                                    {' '.join([f'<li>{rec}</li>' for rec in insights.get('recommendations', ['No specific recommendations available'])])}
+                                </ul>
+                            </div>
+                        </div>
+                    """,
+                    'data': {
+                        'levy_codes_count': len(levy_amounts),
+                        'compliance_status': insights.get('compliance_status', 'Within limits'),
+                        'key_insights': insights.get('key_insights', []),
+                        'recommendations': insights.get('recommendations', [])
                     }
+                }
             else:
-                logger.info("Claude service not available for levy analysis")
+                logger.info(f"Claude analysis not available: {insights_result.get('message')}")
         except Exception as e:
             logger.error(f"Error generating levy insights: {str(e)}")
         
@@ -287,12 +328,16 @@ def levy_calculator():
                               mcp_insights=mcp_insights,
                               levy_rates=levy_rates,
                               limited_rates=limited_rates,
+                              historical_comparison=historical_comparison,
+                              scenario_results=scenario_results,
                               calculated=True)
     
     # Get all tax codes with their total assessed values
     tax_codes = TaxCode.query.all()
     
-    return render_template('levy_calculator.html', tax_codes=tax_codes)
+    return render_template('levy_calculator.html', 
+                          tax_codes=tax_codes,
+                          historical_comparison=historical_comparison)
 
 @app.route('/reports', methods=['GET', 'POST'])
 def reports():
@@ -434,6 +479,247 @@ def api_district_summary():
     }
     
     return jsonify(data)
+
+@app.route('/api/levy-historical')
+def api_levy_historical():
+    """
+    API endpoint for historical levy rate comparison.
+    """
+    from utils.levy_utils import calculate_historical_comparison
+    
+    try:
+        comparison = calculate_historical_comparison()
+        
+        # Format data for chart display
+        tax_codes = [item['code'] for item in comparison]
+        current_rates = [item['current_rate'] for item in comparison]
+        previous_rates = [item['previous_rate'] for item in comparison]
+        
+        return jsonify({
+            'tax_codes': tax_codes,
+            'current_rates': current_rates,
+            'previous_rates': previous_rates,
+            'comparison': comparison
+        })
+    except Exception as e:
+        logger.error(f"Error generating historical comparison: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/levy-scenarios', methods=['POST'])
+def api_levy_scenarios():
+    """
+    API endpoint for levy scenario analysis.
+    """
+    from utils.levy_utils import simulate_levy_scenarios
+    
+    try:
+        data = request.get_json()
+        scenarios = data.get('scenarios', [])
+        
+        if not scenarios:
+            # Use default scenarios if none provided
+            scenarios = [
+                {'name': 'Current', 'adjustments': {}},
+                {'name': '1% Increase', 'adjustments': {'adjustment_factor': 1.01}},
+                {'name': '5% Increase', 'adjustments': {'adjustment_factor': 1.05}},
+                {'name': '10% Increase', 'adjustments': {'adjustment_factor': 1.10}}
+            ]
+        
+        # Run the simulation
+        results = simulate_levy_scenarios(scenarios)
+        
+        # Format for visualization
+        formatted_results = {
+            'scenarios': []
+        }
+        
+        for scenario in results:
+            scenario_data = {
+                'name': scenario['name'],
+                'rates': [],
+                'limited_rates': [],
+                'impact': []
+            }
+            
+            for code, data in scenario['scenarios'].items():
+                scenario_data['rates'].append({
+                    'code': code,
+                    'rate': data['rate']
+                })
+                
+                scenario_data['limited_rates'].append({
+                    'code': code,
+                    'rate': data['limited_rate'] if data.get('limited') else data['rate']
+                })
+                
+                scenario_data['impact'].append({
+                    'code': code,
+                    'change_pct': data['change_pct']
+                })
+                
+            formatted_results['scenarios'].append(scenario_data)
+            
+        return jsonify(formatted_results)
+    except Exception as e:
+        logger.error(f"Error simulating scenarios: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/levy-distribution')
+def api_levy_distribution():
+    """
+    API endpoint for levy distribution visualization.
+    """
+    try:
+        # Get tax codes with levy amounts
+        tax_codes = TaxCode.query.filter(TaxCode.levy_amount.isnot(None)).all()
+        
+        if not tax_codes:
+            return jsonify({'error': 'No levy data available'}), 404
+            
+        # Format data for visualization
+        districts = []
+        amounts = []
+        
+        for tc in tax_codes:
+            if tc.levy_amount:
+                districts.append(tc.code)
+                amounts.append(float(tc.levy_amount))
+                
+        return jsonify({
+            'districts': districts,
+            'amounts': amounts
+        })
+    except Exception as e:
+        logger.error(f"Error generating levy distribution: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/property-impact', methods=['POST'])
+def api_property_impact():
+    """
+    API endpoint to calculate impact of different levy scenarios on a specific property.
+    """
+    try:
+        data = request.get_json()
+        property_id = data.get('property_id')
+        scenarios = data.get('scenarios', [])
+        
+        if not property_id:
+            return jsonify({'error': 'Property ID is required'}), 400
+            
+        # Find the property
+        property_obj = Property.query.filter_by(property_id=property_id).first()
+        if not property_obj:
+            return jsonify({'error': 'Property not found'}), 404
+            
+        # Get the tax code
+        tax_code_obj = TaxCode.query.filter_by(code=property_obj.tax_code).first()
+        if not tax_code_obj or not tax_code_obj.levy_rate:
+            return jsonify({'error': 'Tax code or levy rate not found'}), 404
+            
+        # Calculate baseline tax
+        base_tax = (property_obj.assessed_value / 1000) * tax_code_obj.levy_rate
+        
+        # Create default scenarios if none provided
+        if not scenarios:
+            scenarios = [
+                {'name': 'Current', 'adjustments': {}},
+                {'name': '1% Increase', 'adjustments': {property_obj.tax_code: 1.01}},
+                {'name': '5% Increase', 'adjustments': {property_obj.tax_code: 1.05}},
+                {'name': '1% Decrease', 'adjustments': {property_obj.tax_code: 0.99}},
+                {'name': '5% Decrease', 'adjustments': {property_obj.tax_code: 0.95}}
+            ]
+            
+        # Calculate impact for each scenario
+        impact_results = {
+            'property_id': property_id,
+            'assessed_value': property_obj.assessed_value,
+            'tax_code': property_obj.tax_code,
+            'base_tax': base_tax,
+            'scenarios': []
+        }
+        
+        for scenario in scenarios:
+            name = scenario.get('name', 'Scenario')
+            adjustments = scenario.get('adjustments', {})
+            
+            # Get adjustment factor for this property's tax code
+            adjustment = adjustments.get(property_obj.tax_code, 1.0)
+            
+            # Calculate adjusted rate and tax
+            adjusted_rate = tax_code_obj.levy_rate * adjustment
+            tax_amount = (property_obj.assessed_value / 1000) * adjusted_rate
+            
+            # Add to results
+            impact_results['scenarios'].append({
+                'name': name,
+                'adjusted_rate': adjusted_rate,
+                'tax_amount': tax_amount,
+                'difference': tax_amount - base_tax,
+                'percent_change': ((tax_amount - base_tax) / base_tax) * 100 if base_tax else 0
+            })
+            
+        return jsonify(impact_results)
+    except Exception as e:
+        logger.error(f"Error calculating property impact: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/levy-insights')
+def api_levy_insights():
+    """
+    API endpoint to get AI-powered insights about levy calculations.
+    """
+    from utils.levy_utils import get_levy_insights, calculate_historical_comparison
+    from utils.levy_utils import simulate_levy_scenarios
+    
+    try:
+        # Get current tax codes with levy data
+        tax_codes = TaxCode.query.filter(
+            TaxCode.levy_amount.isnot(None),
+            TaxCode.levy_rate.isnot(None)
+        ).all()
+        
+        if not tax_codes:
+            return jsonify({'error': 'No levy data available'}), 404
+        
+        # Prepare data for analysis
+        levy_amounts = {tc.code: tc.levy_amount for tc in tax_codes if tc.levy_amount}
+        levy_rates = {tc.code: tc.levy_rate for tc in tax_codes if tc.levy_rate}
+        
+        # Get historical comparison
+        historical_comparison = calculate_historical_comparison()
+        
+        # Create default scenarios
+        default_scenarios = [
+            {'name': 'Current', 'adjustments': {}},
+            {'name': '1% Increase', 'adjustments': {code: 1.01 for code in levy_amounts.keys()}},
+            {'name': '5% Decrease', 'adjustments': {code: 0.95 for code in levy_amounts.keys()}}
+        ]
+        
+        # Run scenario simulation
+        scenario_results = simulate_levy_scenarios(default_scenarios)
+        
+        # Prepare data for AI analysis
+        levy_data = {
+            'levy_amounts': levy_amounts,
+            'levy_rates': levy_rates,
+            'statutory_limits': {
+                'max_rate': float(5.90),
+                'max_increase': float(1.01)
+            },
+            'historical_comparison': historical_comparison,
+            'scenarios': scenario_results
+        }
+        
+        # Get AI insights
+        insights_result = get_levy_insights(levy_data)
+        
+        return jsonify(insights_result)
+    except Exception as e:
+        logger.error(f"Error generating levy insights: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error generating AI analysis: {str(e)}'
+        }), 500
 
 @app.route('/mcp-insights')
 def mcp_insights():
