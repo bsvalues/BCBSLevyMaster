@@ -78,6 +78,12 @@ def create_app(config_name=None):
     # Register template filters
     register_template_filters(app)
     
+    # Register template context processors
+    @app.context_processor
+    def inject_current_year():
+        """Add current_year to all templates."""
+        return {'current_year': datetime.now().year}
+    
     # Configure logging
     configure_logging(app)
     

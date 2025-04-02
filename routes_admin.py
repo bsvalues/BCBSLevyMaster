@@ -46,8 +46,9 @@ def dashboard():
         
     try:
         # Use raw SQL to avoid model-database mismatches
+        from sqlalchemy import text
         tax_code_count = db.session.execute(
-            "SELECT COUNT(*) FROM tax_code WHERE year = :year",
+            text("SELECT COUNT(*) FROM tax_code WHERE year = :year"),
             {"year": current_year}
         ).scalar() or 0
     except Exception as e:
@@ -71,8 +72,9 @@ def dashboard():
     
     # Calculate total assessed value
     try:
+        from sqlalchemy import text
         total_assessed_value = db.session.execute(
-            "SELECT SUM(total_assessed_value) FROM tax_code WHERE year = :year",
+            text("SELECT SUM(total_assessed_value) FROM tax_code WHERE year = :year"),
             {"year": current_year}
         ).scalar() or 0
     except Exception as e:
@@ -81,8 +83,11 @@ def dashboard():
     
     # Calculate total levy amount
     try:
+        # Ensure text is imported
+        if 'text' not in locals():
+            from sqlalchemy import text
         total_levy_amount = db.session.execute(
-            "SELECT SUM(levy_amount) FROM tax_code WHERE year = :year",
+            text("SELECT SUM(levy_amount) FROM tax_code WHERE year = :year"),
             {"year": current_year}
         ).scalar() or 0
     except Exception as e:
@@ -133,7 +138,8 @@ def system_status():
         db_status = "connected"
         db_error = None
         try:
-            db.session.execute("SELECT 1")
+            from sqlalchemy import text
+            db.session.execute(text("SELECT 1"))
         except Exception as e:
             db_status = "error"
             db_error = str(e)

@@ -24,4 +24,5 @@ dependencies = [
     "click>=8.1.8",
     "flask-login>=0.6.3",
     "flask-wtf>=1.2.2",
+    "trafilatura>=2.0.0",
 ]
