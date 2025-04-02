@@ -61,6 +61,45 @@ def test_complex_rate_scenarios():
     limited_rate = apply_statutory_limits(new_rate)
     assert abs(limited_rate - 2.625) < 0.0001
 
+def test_multi_year_levy_comparison():
+    """Test levy comparisons across multiple years."""
+    base_year_data = {
+        'assessed_value': 5000000,
+        'levy_amount': 150000,
+        'year': 2024
+    }
+    
+    comparison_years = [
+        {'assessed_value': 5250000, 'levy_amount': 162750, 'year': 2025},  # 5% increase
+        {'assessed_value': 5512500, 'levy_amount': 176400, 'year': 2026},  # 5% increase
+        {'assessed_value': 5788125, 'levy_amount': 191700, 'year': 2027}   # 5% increase
+    ]
+    
+    # Calculate and verify base year rate
+    base_rate = calculate_levy_rate(base_year_data['levy_amount'], 
+                                  base_year_data['assessed_value'])
+    assert abs(base_rate - 3.0) < 0.0001
+    
+    # Test each comparison year
+    for year_data in comparison_years:
+        rate = calculate_levy_rate(year_data['levy_amount'],
+                                 year_data['assessed_value'])
+        # Rate should remain constant at 3.0 despite value increases
+        assert abs(rate - 3.0) < 0.0001
+
+def test_levy_rate_rounding():
+    """Test levy rate rounding behavior."""
+    test_cases = [
+        (100000, 3001, 3.001),    # Test to 3 decimal places
+        (100000, 3000.5, 3.001),  # Test rounding up
+        (100000, 3000.4, 3.000),  # Test rounding down
+        (100000, 3000.0, 3.000),  # Test exact value
+    ]
+    
+    for assessed_value, levy_amount, expected_rate in test_cases:
+        rate = calculate_levy_rate(levy_amount, assessed_value)
+        assert abs(rate - expected_rate) < 0.0001
+
 def test_levy_rate_validation():
     """Test levy rate validation with edge cases."""
     from utils.validation_framework import levy_consistency_validator
