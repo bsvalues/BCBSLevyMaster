@@ -37,25 +37,57 @@ def dashboard():
     # Get current tax year
     current_year = datetime.now().year
     
-    # Count records for dashboard metrics
-    district_count = TaxDistrict.query.filter_by(year=current_year).count()
-    tax_code_count = TaxCode.query.filter_by(year=current_year).count()
-    property_count = Property.query.filter_by(year=current_year).count()
+    try:
+        # Count records for dashboard metrics
+        district_count = TaxDistrict.query.filter_by(year=current_year).count()
+    except Exception as e:
+        logger.error(f"Error counting tax districts: {str(e)}")
+        district_count = 0
+        
+    try:
+        # Use raw SQL to avoid model-database mismatches
+        tax_code_count = db.session.execute(
+            "SELECT COUNT(*) FROM tax_code WHERE year = :year",
+            {"year": current_year}
+        ).scalar() or 0
+    except Exception as e:
+        logger.error(f"Error counting tax codes: {str(e)}")
+        tax_code_count = 0
+        
+    try:
+        property_count = Property.query.filter_by(year=current_year).count()
+    except Exception as e:
+        logger.error(f"Error counting properties: {str(e)}")
+        property_count = 0
     
     # Get recent imports
-    recent_imports = ImportLog.query.order_by(
-        ImportLog.created_at.desc()
-    ).limit(5).all()
+    try:
+        recent_imports = ImportLog.query.order_by(
+            ImportLog.created_at.desc()
+        ).limit(5).all()
+    except Exception as e:
+        logger.error(f"Error getting recent imports: {str(e)}")
+        recent_imports = []
     
     # Calculate total assessed value
-    total_assessed_value = db.session.query(
-        db.func.sum(TaxCode.total_assessed_value)
-    ).filter_by(year=current_year).scalar() or 0
+    try:
+        total_assessed_value = db.session.execute(
+            "SELECT SUM(total_assessed_value) FROM tax_code WHERE year = :year",
+            {"year": current_year}
+        ).scalar() or 0
+    except Exception as e:
+        logger.error(f"Error calculating total assessed value: {str(e)}")
+        total_assessed_value = 0
     
     # Calculate total levy amount
-    total_levy_amount = db.session.query(
-        db.func.sum(TaxCodeHistoricalRate.levy_amount)
-    ).filter_by(year=current_year).scalar() or 0
+    try:
+        total_levy_amount = db.session.execute(
+            "SELECT SUM(levy_amount) FROM tax_code WHERE year = :year",
+            {"year": current_year}
+        ).scalar() or 0
+    except Exception as e:
+        logger.error(f"Error calculating total levy amount: {str(e)}")
+        total_levy_amount = 0
     
     # Get disk usage
     try:
