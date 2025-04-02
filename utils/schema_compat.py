@@ -185,7 +185,8 @@ def get_total_levy_amount(tax_code=None, year=None):
         logger.error(f"Error getting total levy amount: {str(e)}")
         return 0
 
-def create_import_log(filename, import_type, record_count=None, records_imported=None, status="COMPLETED", description=None):
+def create_import_log(filename, import_type, record_count=None, records_imported=None, 
+                  records_skipped=0, status="COMPLETED", description=None):
     """
     Create an import log entry using raw SQL compatible with the actual schema.
     
@@ -194,8 +195,9 @@ def create_import_log(filename, import_type, record_count=None, records_imported
         import_type: Type of import (e.g., 'TAX_DISTRICT', 'PROPERTY')
         record_count: Number of records imported (ORM model field)
         records_imported: Number of records imported (actual DB field)
+        records_skipped: Number of records skipped during import
         status: Import status
-        description: Additional description of the import
+        description: Additional description of the import (will be stored in notes)
         
     Returns:
         ID of the created record or None if error
@@ -210,29 +212,31 @@ def create_import_log(filename, import_type, record_count=None, records_imported
         if description:
             result = db.session.execute(
                 text("""
-                INSERT INTO import_log (filename, import_type, records_imported, status, import_date, description)
-                VALUES (:filename, :import_type, :records_imported, :status, CURRENT_TIMESTAMP, :description)
+                INSERT INTO import_log (filename, import_type, records_imported, records_skipped, status, import_date, notes)
+                VALUES (:filename, :import_type, :records_imported, :records_skipped, :status, CURRENT_TIMESTAMP, :notes)
                 RETURNING id
                 """),
                 {
                     "filename": filename,
                     "import_type": import_type,
                     "records_imported": records_imported,
+                    "records_skipped": records_skipped,
                     "status": status,
-                    "description": description
+                    "notes": description  # Map description to notes for DB compatibility
                 }
             )
         else:
             result = db.session.execute(
                 text("""
-                INSERT INTO import_log (filename, import_type, records_imported, status, import_date)
-                VALUES (:filename, :import_type, :records_imported, :status, CURRENT_TIMESTAMP)
+                INSERT INTO import_log (filename, import_type, records_imported, records_skipped, status, import_date)
+                VALUES (:filename, :import_type, :records_imported, :records_skipped, :status, CURRENT_TIMESTAMP)
                 RETURNING id
                 """),
                 {
                     "filename": filename,
                     "import_type": import_type,
                     "records_imported": records_imported,
+                    "records_skipped": records_skipped,
                     "status": status
                 }
             )
