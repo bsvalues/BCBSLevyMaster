@@ -56,16 +56,25 @@ def dashboard():
         tax_code_count = 0
         
     try:
-        property_count = Property.query.filter_by(year=current_year).count()
+        # Use raw SQL to avoid model-database mismatches
+        property_count = db.session.execute(
+            text("SELECT COUNT(*) FROM property WHERE year = :year"),
+            {"year": current_year}
+        ).scalar() or 0
     except Exception as e:
         logger.error(f"Error counting properties: {str(e)}")
         property_count = 0
     
     # Get recent imports
     try:
-        recent_imports = ImportLog.query.order_by(
-            ImportLog.created_at.desc()
-        ).limit(5).all()
+        # Use raw SQL to avoid model-database mismatches
+        from sqlalchemy import text
+        result = db.session.execute(
+            text("SELECT id, filename, import_type, record_count, status, created_at FROM import_log ORDER BY created_at DESC LIMIT 5")
+        )
+        recent_imports = [{"id": row[0], "filename": row[1], "import_type": row[2], 
+                          "record_count": row[3], "status": row[4], "created_at": row[5]} 
+                         for row in result]
     except Exception as e:
         logger.error(f"Error getting recent imports: {str(e)}")
         recent_imports = []
