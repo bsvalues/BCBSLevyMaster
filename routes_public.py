@@ -389,3 +389,37 @@ def district_detail(district_id):
         property_count=property_count,
         historical_rates=historical_rates
     )
+
+
+@public_bp.route('/glossary')
+def glossary():
+    """
+    Display a comprehensive glossary of tax terminology for public portal users.
+    
+    This route provides an alphabetically organized glossary of tax terms
+    to help property owners understand property tax terminology.
+    
+    Returns:
+        Rendered template with glossary terms organized alphabetically
+    """
+    from utils.tooltip_utils import TAX_TERMINOLOGY, get_all_terms_alphabetical
+    
+    # Get terms organized alphabetically
+    alphabetical_terms = get_all_terms_alphabetical()
+    
+    # Get frequently used terms (for quick reference section)
+    frequently_used_terms = [
+        ('Assessed Value', TAX_TERMINOLOGY.get('Assessed Value', '')),
+        ('Levy Rate', TAX_TERMINOLOGY.get('Levy Rate', '')),
+        ('Property Tax', TAX_TERMINOLOGY.get('Property Tax', '')),
+        ('Tax Code', TAX_TERMINOLOGY.get('Tax Code', '')),
+        ('Tax District', TAX_TERMINOLOGY.get('Tax District', '')),
+        ('Levy Lid', TAX_TERMINOLOGY.get('Levy Lid', ''))
+    ]
+    
+    return render_template(
+        'public/glossary.html',
+        alphabetical_terms=alphabetical_terms,
+        frequently_used_terms=frequently_used_terms,
+        tax_terminology=TAX_TERMINOLOGY
+    )
