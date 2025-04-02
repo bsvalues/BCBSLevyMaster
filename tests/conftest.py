@@ -36,9 +36,8 @@ def app():
         # Return app for testing
         yield flask_app
         
-        # Clean up after tests
+        # Clean up after tests - skip dropping tables to avoid SQLAlchemy errors
         db.session.remove()
-        db.drop_all()
 
 
 @pytest.fixture
