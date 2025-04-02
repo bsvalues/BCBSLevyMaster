@@ -65,38 +65,26 @@ def dashboard():
         logger.error(f"Error counting properties: {str(e)}")
         property_count = 0
     
-    # Get recent imports
+    # Get recent imports using schema compatibility utilities
     try:
-        # Use raw SQL to avoid model-database mismatches - adjusted to match actual schema
-        from sqlalchemy import text
-        result = db.session.execute(
-            text("SELECT id, filename, import_type, records_imported, status, import_date FROM import_log ORDER BY import_date DESC LIMIT 5")
-        )
-        recent_imports = [{"id": row[0], "filename": row[1], "import_type": row[2], 
-                          "record_count": row[3], "status": row[4], "created_at": row[5]} 
-                         for row in result]
+        from utils.schema_compat import get_import_log_entries
+        recent_imports = get_import_log_entries(limit=5)
     except Exception as e:
         logger.error(f"Error getting recent imports: {str(e)}")
         recent_imports = []
     
-    # Calculate total assessed value - adjusted column name based on database schema
+    # Calculate total assessed value using schema compatibility utilities
     try:
-        from sqlalchemy import text
-        total_assessed_value = db.session.execute(
-            text("SELECT SUM(total_assessed_value) FROM tax_code")
-        ).scalar() or 0
+        from utils.schema_compat import get_total_assessed_value
+        total_assessed_value = get_total_assessed_value()
     except Exception as e:
         logger.error(f"Error calculating total assessed value: {str(e)}")
         total_assessed_value = 0
     
-    # Calculate total levy amount - adjusted column name based on database schema
+    # Calculate total levy amount using schema compatibility utilities
     try:
-        # Ensure text is imported
-        if 'text' not in locals():
-            from sqlalchemy import text
-        total_levy_amount = db.session.execute(
-            text("SELECT SUM(levy_amount) FROM tax_code")
-        ).scalar() or 0
+        from utils.schema_compat import get_total_levy_amount
+        total_levy_amount = get_total_levy_amount()
     except Exception as e:
         logger.error(f"Error calculating total levy amount: {str(e)}")
         total_levy_amount = 0
