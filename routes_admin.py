@@ -67,10 +67,10 @@ def dashboard():
     
     # Get recent imports
     try:
-        # Use raw SQL to avoid model-database mismatches
+        # Use raw SQL to avoid model-database mismatches - adjusted to match actual schema
         from sqlalchemy import text
         result = db.session.execute(
-            text("SELECT id, filename, import_type, record_count, status, created_at FROM import_log ORDER BY created_at DESC LIMIT 5")
+            text("SELECT id, filename, import_type, records_imported, status, import_date FROM import_log ORDER BY import_date DESC LIMIT 5")
         )
         recent_imports = [{"id": row[0], "filename": row[1], "import_type": row[2], 
                           "record_count": row[3], "status": row[4], "created_at": row[5]} 
@@ -79,25 +79,23 @@ def dashboard():
         logger.error(f"Error getting recent imports: {str(e)}")
         recent_imports = []
     
-    # Calculate total assessed value
+    # Calculate total assessed value - adjusted column name based on database schema
     try:
         from sqlalchemy import text
         total_assessed_value = db.session.execute(
-            text("SELECT SUM(total_assessed_value) FROM tax_code WHERE year = :year"),
-            {"year": current_year}
+            text("SELECT SUM(total_assessed_value) FROM tax_code")
         ).scalar() or 0
     except Exception as e:
         logger.error(f"Error calculating total assessed value: {str(e)}")
         total_assessed_value = 0
     
-    # Calculate total levy amount
+    # Calculate total levy amount - adjusted column name based on database schema
     try:
         # Ensure text is imported
         if 'text' not in locals():
             from sqlalchemy import text
         total_levy_amount = db.session.execute(
-            text("SELECT SUM(levy_amount) FROM tax_code WHERE year = :year"),
-            {"year": current_year}
+            text("SELECT SUM(levy_amount) FROM tax_code")
         ).scalar() or 0
     except Exception as e:
         logger.error(f"Error calculating total levy amount: {str(e)}")
