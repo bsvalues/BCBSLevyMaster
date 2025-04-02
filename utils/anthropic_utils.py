@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import anthropic
 from anthropic import Anthropic
 
+from utils.html_sanitizer import sanitize_mcp_insights, sanitize_html
+
 logger = logging.getLogger(__name__)
 
 class ClaudeService:
@@ -101,7 +103,7 @@ class ClaudeService:
             property_data: List of property dictionaries
             
         Returns:
-            Dictionary containing analysis results
+            Dictionary containing analysis results with sanitized content
         """
         if not property_data:
             return {"error": "No property data provided"}
@@ -134,7 +136,9 @@ class ClaudeService:
             # Extract JSON from response
             result = json.loads(response)
             logger.info("Successfully analyzed property data")
-            return result
+            # Sanitize the result to prevent XSS
+            sanitized_result = sanitize_mcp_insights(result)
+            return sanitized_result
         except json.JSONDecodeError:
             logger.error("Failed to parse JSON from Claude response")
             return {
@@ -145,7 +149,7 @@ class ClaudeService:
             }
         except Exception as e:
             logger.error(f"Error analyzing property data: {str(e)}")
-            return {"error": str(e)}
+            return {"error": sanitize_html(str(e))}
     
     def generate_levy_insights(self, 
                               tax_code_data: List[Dict[str, Any]], 
@@ -158,7 +162,7 @@ class ClaudeService:
             historical_data: Historical tax data for comparison
             
         Returns:
-            Dictionary containing insights
+            Dictionary containing sanitized insights
         """
         if not tax_code_data:
             return {"error": "No tax code data provided"}
@@ -196,7 +200,9 @@ class ClaudeService:
             # Extract JSON from response
             result = json.loads(response)
             logger.info("Successfully generated levy insights")
-            return result
+            # Sanitize the result to prevent XSS
+            sanitized_result = sanitize_mcp_insights(result)
+            return sanitized_result
         except json.JSONDecodeError:
             logger.error("Failed to parse JSON from Claude response")
             return {
@@ -207,7 +213,7 @@ class ClaudeService:
             }
         except Exception as e:
             logger.error(f"Error generating levy insights: {str(e)}")
-            return {"error": str(e)}
+            return {"error": sanitize_html(str(e))}
 
 
 # Singleton instance
