@@ -140,6 +140,13 @@ def register_template_filters(app):
                 return value
         return value.strftime("%m/%d/%Y")
 
+    @app.template_filter('format_number')
+    def format_number(value):
+        """Format a number with commas as thousands separators."""
+        if value is None:
+            return "0"
+        return "{:,}".format(int(value))
+
 
 def configure_logging(app):
     """
@@ -180,11 +187,13 @@ from routes_data_management import data_management_bp
 from routes_forecasting import forecasting_bp
 from routes_levy_exports import levy_exports_bp
 from routes_public import public_bp
+from routes_admin import admin_bp
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
 app.register_blueprint(levy_exports_bp)
 app.register_blueprint(public_bp)
+app.register_blueprint(admin_bp)
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():

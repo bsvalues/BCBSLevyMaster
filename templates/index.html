@@ -13,9 +13,9 @@
                     <a href="{{ url_for('public.index') }}" class="btn btn-primary btn-lg me-md-2">
                         <i class="bi bi-search me-2"></i>Public Property Lookup
                     </a>
-                    <button type="button" class="btn btn-outline-secondary btn-lg" disabled>
-                        <i class="bi bi-file-earmark-text me-2"></i>Admin Dashboard
-                    </button>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-speedometer2 me-2"></i>Admin Dashboard
+                    </a>
                 </div>
             </div>
             
@@ -51,9 +51,9 @@
             
             <div class="alert alert-info mt-5" role="alert">
                 <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>System Status</h4>
-                <p>The Public Property Lookup Portal is now available! Use the portal to search properties, view tax information, and explore tax districts.</p>
+                <p>The Public Property Lookup Portal is now available! Use the portal to search properties, view tax information, explore tax districts, and access the comprehensive tax glossary.</p>
                 <hr>
-                <p class="mb-0">Administrative features for levy calculations and reporting are under development.</p>
+                <p class="mb-0">The Admin Dashboard is now available with system monitoring and quick access to key functions. Additional administrative features continue to be enhanced.</p>
             </div>
         </div>
     </div>
