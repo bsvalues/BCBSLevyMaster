@@ -194,12 +194,14 @@ from routes_forecasting import forecasting_bp
 from routes_levy_exports import levy_exports_bp
 from routes_public import public_bp
 from routes_admin import admin_bp
+from routes_glossary import glossary_bp
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
 app.register_blueprint(levy_exports_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(glossary_bp)
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():

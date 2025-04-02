@@ -61,8 +61,9 @@ def glossary():
     statistical_terms.sort(key=lambda x: x[0].lower())
     advanced_terms.sort(key=lambda x: x[0].lower())
     
+    # Use the correct template path
     return render_template(
-        'glossary.html',
+        'public/glossary.html',
         tax_terminology=TAX_TERMINOLOGY,
         levy_terms=levy_terms,
         assessment_terms=assessment_terms,
