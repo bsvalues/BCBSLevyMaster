@@ -120,3 +120,19 @@ def test_levy_rate_validation():
     
     for case in test_cases:
         assert levy_consistency_validator(case), f"Validation failed for case: {case}"
+
+def test_levy_edge_cases():
+    """Test edge cases for levy calculations."""
+    test_cases = [
+        # Minimum possible values
+        (100, 1, 1.000),  # $100 value, $1 levy
+        # Large values
+        (1000000000, 50000000, 5.000),  # $1B value, $50M levy
+        # Precision testing
+        (100000, 3333.33, 3.333),  # Test decimal handling
+        (200000, 6666.67, 3.333),  # Test rounding consistency
+    ]
+    
+    for value, levy, expected in test_cases:
+        rate = calculate_levy_rate(levy, value)
+        assert abs(rate - expected) < 0.0001, f"Failed for case: value={value}, levy={levy}"
