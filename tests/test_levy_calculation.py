@@ -6,26 +6,74 @@ calculates levy amounts, rates, and statutory limits.
 """
 
 import pytest
-from sqlalchemy import text
-from datetime import datetime
+from decimal import Decimal
+from utils.levy_utils import (
+    calculate_levy_rate,
+    apply_statutory_limits,
+    calculate_property_tax
+)
 
 
-def test_basic_levy_calculation(app, db):
-    """Test basic levy calculation."""
-    # The basic levy calculation formula is:
-    # Levy Amount = (Assessed Value / 1000) * Levy Rate
-    
-    # Test with various assessed values and levy rates
+def test_levy_rate_calculation_precision():
+    """Test levy rate calculation with precise decimal values."""
     test_cases = [
-        (100000, 2.5, 250),     # $100,000 property, 2.5 rate, $250 levy
-        (250000, 3.1, 775),     # $250,000 property, 3.1 rate, $775 levy
-        (1000000, 1.8, 1800),   # $1,000,000 property, 1.8 rate, $1,800 levy
-        (0, 2.5, 0),            # $0 property, 2.5 rate, $0 levy
+        (1000000, 30000, 3.0000),    # Basic case
+        (2500000, 125000, 5.0000),   # Maximum statutory rate
+        (1234567, 43210, 3.5000),    # Odd numbers
+        (9999999, 299999, 3.0000),   # Large numbers
     ]
     
-    for assessed_value, levy_rate, expected_levy in test_cases:
-        calculated_levy = (assessed_value / 1000) * levy_rate
-        assert calculated_levy == expected_levy
+    for assessed_value, levy_amount, expected_rate in test_cases:
+        calculated_rate = calculate_levy_rate(levy_amount, assessed_value)
+        assert abs(calculated_rate - expected_rate) < 0.0001
+
+
+def test_statutory_limits():
+    """Test statutory rate limits are properly applied."""
+    test_rates = [
+        (3.0, 3.0),     # Under limit
+        (5.9, 5.9),     # At limit
+        (6.0, 5.9),     # Over limit
+        (10.0, 5.9),    # Well over limit
+    ]
+    
+    for input_rate, expected_rate in test_rates:
+        limited_rate = apply_statutory_limits(input_rate, 5.9)
+        assert abs(limited_rate - expected_rate) < 0.0001
+
+
+def test_property_tax_calculation():
+    """Test property tax calculations."""
+    test_cases = [
+        (100000, 2.5, 250),     # $100,000 property, 2.5 rate
+        (250000, 3.1, 775),     # $250,000 property, 3.1 rate
+        (1000000, 1.8, 1800),   # $1M property, 1.8 rate
+        (0, 2.5, 0),            # $0 property
+    ]
+    
+    for assessed_value, levy_rate, expected_tax in test_cases:
+        calculated_tax = calculate_property_tax(assessed_value, levy_rate)
+        assert abs(calculated_tax - expected_tax) < 0.01
+
+
+def test_edge_cases():
+    """Test edge cases and error conditions."""
+    with pytest.raises(ValueError):
+        calculate_levy_rate(1000, 0)  # Zero assessed value
+        
+    with pytest.raises(ValueError):
+        calculate_levy_rate(-1000, 1000)  # Negative levy
+        
+    with pytest.raises(ValueError):
+        calculate_levy_rate(1000, -1000)  # Negative assessed value
+
+    # Very small values should work
+    small_rate = calculate_levy_rate(0.01, 1000)
+    assert small_rate >= 0
+
+    # Very large values should work
+    large_rate = calculate_levy_rate(1000000000, 100000000000)
+    assert large_rate > 0
 
 
 def test_property_tax_calculation(app, db):
