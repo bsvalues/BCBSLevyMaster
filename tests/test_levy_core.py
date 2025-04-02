@@ -60,3 +60,24 @@ def test_complex_rate_scenarios():
     # Verify statutory limits still apply
     limited_rate = apply_statutory_limits(new_rate)
     assert abs(limited_rate - 2.625) < 0.0001
+
+def test_levy_rate_validation():
+    """Test levy rate validation with edge cases."""
+    from utils.validation_framework import levy_consistency_validator
+    
+    test_cases = [
+        # Valid cases
+        {'levy_rate': 2.5, 'levy_amount': 25000, 'total_assessed_value': 10000000},
+        {'levy_rate': 0.1, 'levy_amount': 100, 'total_assessed_value': 100000},
+        
+        # Edge cases
+        {'levy_rate': 0.0, 'levy_amount': 0, 'total_assessed_value': 1000000},
+        {'levy_rate': 5.9, 'levy_amount': 59000, 'total_assessed_value': 10000000},
+        
+        # Missing values should pass validation
+        {'levy_rate': None, 'levy_amount': 1000, 'total_assessed_value': 100000},
+        {'levy_rate': 2.5, 'levy_amount': None, 'total_assessed_value': 100000}
+    ]
+    
+    for case in test_cases:
+        assert levy_consistency_validator(case), f"Validation failed for case: {case}"
