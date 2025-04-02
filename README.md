@@ -17,6 +17,8 @@ This application is designed for the Benton County Assessor's office in Washingt
 - **Statutory Compliance Reports**: Detailed compliance checks with tabbed interface
 - **Data Management**: Table-level snapshots with configurable retention periods
 - **Audit Trail**: Detailed tracking of all data changes with before/after comparison
+- **Database Management**: Comprehensive backup, restore, and migration tools with version compatibility
+- **Database Verification**: Database connectivity and health checking tools
 - **Public Portal**: Mobile-optimized public interface with property lookup and glossary
 - **Tax Terminology**: Interactive tooltips and comprehensive glossary
 
@@ -59,13 +61,43 @@ This application is designed for the Benton County Assessor's office in Washingt
    gunicorn --bind 0.0.0.0:5000 main:app
    ```
 
-### Database Migrations
+### Database Management
 
-The application uses Flask-Migrate for database schema changes. See [docs/migration_guide.md](docs/migration_guide.md) for detailed instructions.
+The application provides comprehensive tools for database management:
+
+#### Quick Commands
+
+```bash
+# Create a database backup
+python cli_tool.py backup
+
+# Verify database connectivity
+python cli_tool.py verify
+
+# Display database information
+python cli_tool.py info
+```
+
+#### Database Migrations
+
+The application uses Flask-Migrate for database schema changes with enhanced production tools:
+
+```bash
+# Development migrations
+python migrate.py migrate -m "Description of changes"
+python migrate.py upgrade
+
+# Production migrations with safety features
+python production_migrate.py backup    # Create backup before migration
+python production_migrate.py migrate   # Apply migrations with safety checks
+python production_migrate.py verify    # Verify successful migration
+```
+
+See [docs/README_migration_tools.md](docs/README_migration_tools.md) for detailed instructions.
 
 ### Development
 
-```
+```bash
 python main.py
 ```
 
@@ -75,7 +107,10 @@ See [docs/deployment.md](docs/deployment.md) for production deployment instructi
 
 ## Documentation
 
-- [docs/migration_guide.md](docs/migration_guide.md): Database migration guide
+- [docs/README_migration_tools.md](docs/README_migration_tools.md): Database migration tools overview
+- [docs/production_migration_guide.md](docs/production_migration_guide.md): Production migration guide
+- [docs/postgresql_production_migration.md](docs/postgresql_production_migration.md): PostgreSQL migration guide
+- [docs/database_backup_restore.md](docs/database_backup_restore.md): Database backup and restore guide
 - [docs/deployment.md](docs/deployment.md): Production deployment guide
 
 ## License

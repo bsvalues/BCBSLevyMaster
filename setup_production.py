@@ -102,11 +102,34 @@ def setup_migrations():
         if not success:
             return False
     
-    # Apply any pending migrations
-    success, output = run_command(
-        "python migrate.py upgrade",
-        "Apply database migrations"
-    )
+    # Check if we're using PostgreSQL
+    is_postgres = False
+    try:
+        from app import create_app
+        from sqlalchemy import text
+        
+        app = create_app('production')
+        with app.app_context():
+            from app import db
+            result = db.session.execute(text("SELECT version()")).scalar()
+            is_postgres = result and 'postgresql' in result.lower()
+    except Exception as e:
+        logger.warning(f"Could not determine database type: {e}")
+    
+    # Use enhanced PostgreSQL migration script if available and appropriate
+    if is_postgres and os.path.exists('production_migrate.py'):
+        logger.info("Using PostgreSQL-specific migration process")
+        success, output = run_command(
+            "python production_migrate.py migrate",
+            "Apply PostgreSQL database migrations with enhanced safety checks"
+        )
+    else:
+        # Standard migration approach
+        success, output = run_command(
+            "python migrate.py upgrade",
+            "Apply database migrations"
+        )
+    
     return success
 
 def backup_database():
@@ -117,28 +140,83 @@ def backup_database():
     if not create_directory('backups', 'database backups'):
         return False
     
-    # Get the current timestamp for the backup filename
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"backups/database_backup_{timestamp}.sql"
+    # Check if we're using PostgreSQL
+    is_postgres = False
+    try:
+        from app import create_app
+        from sqlalchemy import text
+        
+        app = create_app('production')
+        with app.app_context():
+            from app import db
+            result = db.session.execute(text("SELECT version()")).scalar()
+            is_postgres = result and 'postgresql' in result.lower()
+    except Exception as e:
+        logger.warning(f"Could not determine database type: {e}")
     
-    # Get database connection parameters from environment
-    pg_host = os.environ.get('PGHOST')
-    pg_user = os.environ.get('PGUSER')
-    pg_password = os.environ.get('PGPASSWORD')
-    pg_database = os.environ.get('PGDATABASE')
+    # Use enhanced PostgreSQL backup if available and appropriate
+    if is_postgres and os.path.exists('production_migrate.py'):
+        logger.info("Using PostgreSQL-specific backup process")
+        success, output = run_command(
+            "python production_migrate.py backup",
+            "Creating compressed PostgreSQL backup"
+        )
+        
+        if success:
+            logger.info("Database backup created successfully with enhanced PostgreSQL tools")
+            return True
+        else:
+            logger.error("Enhanced PostgreSQL backup failed, falling back to standard method")
+            # Fall through to standard backup method
     
-    # Build the pg_dump command
-    pg_dump_cmd = f"PGPASSWORD='{pg_password}' pg_dump -h {pg_host} -U {pg_user} -d {pg_database} -f {backup_filename}"
-    
-    # Run the backup command
-    success, output = run_command(pg_dump_cmd, "Backup database")
-    
-    if success:
-        logger.info(f"Database backup created successfully: {backup_filename}")
-        return True
+    # Standard PostgreSQL backup approach
+    if is_postgres:
+        # Get the current timestamp for the backup filename
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"backups/database_backup_{timestamp}.sql"
+        
+        # Get database connection parameters from environment
+        pg_host = os.environ.get('PGHOST')
+        pg_user = os.environ.get('PGUSER')
+        pg_password = os.environ.get('PGPASSWORD')
+        pg_database = os.environ.get('PGDATABASE')
+        
+        # Build the pg_dump command
+        pg_dump_cmd = f"PGPASSWORD='{pg_password}' pg_dump -h {pg_host} -U {pg_user} -d {pg_database} -f {backup_filename}"
+        
+        # Run the backup command
+        success, output = run_command(pg_dump_cmd, "Backup database")
+        
+        if success:
+            logger.info(f"Database backup created successfully: {backup_filename}")
+            return True
+        else:
+            logger.error("Failed to create database backup")
+            return False
     else:
-        logger.error("Failed to create database backup")
-        return False
+        # SQLite or other non-PostgreSQL database
+        logger.info("Non-PostgreSQL database detected, using simple file backup")
+        try:
+            from app import create_app
+            app = create_app('production')
+            db_path = app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')
+            
+            if os.path.exists(db_path):
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = f"backups/sqlite_backup_{timestamp}.db"
+                
+                # Simple file copy for SQLite
+                import shutil
+                shutil.copy2(db_path, backup_path)
+                
+                logger.info(f"SQLite database backup created successfully: {backup_path}")
+                return True
+            else:
+                logger.error(f"SQLite database file not found at: {db_path}")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to backup non-PostgreSQL database: {e}")
+            return False
 
 def verify_application():
     """Perform basic verification of the application."""

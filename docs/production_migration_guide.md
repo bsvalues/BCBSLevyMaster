@@ -1,145 +1,134 @@
 # Production Database Migration Guide
 
-This guide provides instructions for managing database migrations in a production environment for the Levy Calculation System.
+This guide provides step-by-step instructions for managing database migrations in the Levy Calculation System's production environment.
 
-## Overview
+## Quick Migration Steps
 
-The Levy Calculation System uses Flask-Migrate (which is built on Alembic) to handle database schema migrations. This approach allows for:
+### 1. Set Up the Environment
 
-1. Version control of database schema changes
-2. Safe application of changes to production databases
-3. Ability to roll back problematic migrations
-4. Tracking of migration history
+Ensure your PostgreSQL connection details are properly configured:
 
-## Migration Workflow
-
-### Development Environment
-
-1. **Make model changes**: Update your SQLAlchemy models in the `models.py` file
-2. **Generate migration script**: `python migrate.py migrate -m "Description of changes"`
-3. **Review migration script**: Check the generated migration script in `migrations/versions/`
-4. **Apply migration**: `python migrate.py upgrade`
-5. **Test the changes**: Verify the application works with the new schema
-
-### Production Environment
-
-1. **Backup the database**: Always create a full backup before applying migrations
-   ```bash
-   pg_dump -U username -h hostname database_name > backup_$(date +%Y%m%d).sql
-   ```
-
-2. **Deploy updated application code**: Ensure your application code with updated models is deployed
-
-3. **Apply migrations**: Run the migration command
-   ```bash
-   python migrate.py upgrade
-   ```
-
-4. **Verify application functionality**: Run tests or manual checks to ensure everything works
-
-5. **Rollback plan**: If issues occur, use the downgrade command
-   ```bash
-   python migrate.py downgrade
-   ```
-
-## Common Commands
-
-- **Initialize migration repository** (first-time setup):
-  ```bash
-  python migrate.py init
-  ```
-
-- **Create a new migration**:
-  ```bash
-  python migrate.py migrate -m "Description of changes"
-  ```
-
-- **Upgrade to the latest version**:
-  ```bash
-  python migrate.py upgrade
-  ```
-
-- **Downgrade one version**:
-  ```bash
-  python migrate.py downgrade
-  ```
-
-- **Show current version**:
-  ```bash
-  python migrate.py current
-  ```
-
-- **Show migration history**:
-  ```bash
-  python migrate.py history
-  ```
-
-## Best Practices
-
-1. **Clear commit messages**: Use descriptive messages when generating migrations
-2. **One change per migration**: Keep migrations focused on one schema change
-3. **Test migrations thoroughly**: Verify both upgrade and downgrade paths
-4. **Always backup production data**: Before applying any migration
-5. **Schedule migrations during low-traffic periods**: Minimize disruption
-6. **Document schema changes**: Keep track of significant changes
-
-## Handling Data Migrations
-
-For migrations that require data transformations:
-
-1. Use the `op.execute()` function in migration scripts for running custom SQL
-2. For complex data migrations, consider creating separate scripts
-3. For large tables, consider batching updates to prevent timeouts
-
-Example data migration in a migration script:
-
-```python
-def upgrade():
-    # Schema changes
-    op.add_column('users', sa.Column('full_name', sa.String(255)))
-    
-    # Data migration
-    op.execute("UPDATE users SET full_name = first_name || ' ' || last_name")
-    
-    # More schema changes
-    op.drop_column('users', 'first_name')
-    op.drop_column('users', 'last_name')
+```bash
+# Required environment variables
+export DATABASE_URL=postgresql://username:password@hostname:port/dbname
+export FLASK_ENV=production
 ```
+
+### 2. Backup the Current Database
+
+Always create a backup before running migrations:
+
+```bash
+python production_migrate.py backup
+```
+
+This will create a compressed backup file in the `backups/` directory.
+
+### 3. Preview Migrations (Optional)
+
+Preview the migration SQL without applying changes:
+
+```bash
+python production_migrate.py migrate --dry-run
+```
+
+This generates the SQL that would be executed in a file named `migration_preview.sql`.
+
+### 4. Apply Migrations
+
+Run the migrations with safety checks:
+
+```bash
+python production_migrate.py migrate
+```
+
+This process will:
+- Create a backup
+- Record the pre-migration schema
+- Apply migrations
+- Record the post-migration schema
+- Generate a comprehensive migration report
+
+### 5. Verify the Migration
+
+Confirm the migrations were applied correctly:
+
+```bash
+python production_migrate.py verify
+```
+
+### 6. Generate a Database Report
+
+Create a report of the current database state:
+
+```bash
+python production_migrate.py report
+```
+
+## Recovering from Failed Migrations
+
+### Option 1: Downgrade the Database
+
+If the migration fails at a specific step, you can try downgrading:
+
+```bash
+python migrate.py downgrade
+```
+
+### Option 2: Restore from Backup
+
+If downgrade is not possible, restore from a backup:
+
+```bash
+python production_migrate.py restore backups/pg_backup_YYYYMMDD_HHMMSS.sql
+```
+
+## Full Production Setup
+
+To perform a complete production setup including migrations:
+
+```bash
+python setup_production.py
+```
+
+This will:
+1. Create necessary directories (logs, backups)
+2. Check database connection
+3. Backup the current database
+4. Apply migrations
+5. Verify application functionality
+
+## For More Information
+
+For detailed information about PostgreSQL migration strategies and best practices, see:
+- [PostgreSQL Production Database Migration Guide](postgresql_production_migration.md)
+- [Flask-Migrate Documentation](https://flask-migrate.readthedocs.io/)
+- [Alembic Documentation](https://alembic.sqlalchemy.org/)
 
 ## Troubleshooting
 
-### Migration Conflicts
+### Common Issues
 
-If you encounter migration conflicts (multiple heads):
+#### Invalid Database Connection
 
-```bash
-python migrate.py merge heads
-```
+If you encounter connection errors:
+1. Verify your PostgreSQL credentials
+2. Ensure the database exists
+3. Check network access to the database server
 
-### Failed Migrations
+#### Migration Timeout
 
-If a migration fails in production:
+For large databases, migrations may time out:
+1. Increase `statement_timeout` in PostgreSQL configuration
+2. Use the `--sql` flag to generate SQL and run manually in batches
 
-1. Check the error message
-2. Attempt to fix the issue
-3. If unsuccessful, downgrade to the previous version
-4. Restore from backup if necessary
+#### Database Locked
 
-### Database Locks
+If the database is locked during migration:
+1. Check for long-running queries
+2. Terminate blocking connections
+3. Schedule migrations during off-peak hours
 
-If migrations are blocked by locks:
+## Need Help?
 
-1. Identify blocking connections using PostgreSQL query tools
-2. Consider terminating blocking connections (with caution)
-3. Run migrations during maintenance windows
-
-## Production Deployment Checklist
-
-- [ ] Review all model changes and ensure they're covered by migrations
-- [ ] Run migrations in a staging environment with production-like data
-- [ ] Create a full database backup
-- [ ] Document the migration plan including rollback procedures
-- [ ] Schedule maintenance window if needed
-- [ ] Apply migrations to production
-- [ ] Verify application functionality
-- [ ] Monitor application performance after migration
+For additional assistance with database migrations, contact the Levy Calculation System support team.
