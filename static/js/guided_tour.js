@@ -111,8 +111,12 @@ function startTour(tourName) {
   currentTour = tourName;
   
   try {
-    // Initialize intro.js
-    const intro = window.introJs ? window.introJs() : null;
+    // Initialize intro.js - make sure to access it safely
+    let intro = null;
+    if (typeof window.introJs === 'function') {
+      intro = window.introJs();
+    }
+    
     if (!intro) {
       throw new Error("Intro.js is not available");
     }
