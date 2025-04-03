@@ -13,6 +13,12 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
     
+    <!-- Intro.js CSS for guided tours -->
+    <link href="{{ url_for('static', filename='css/vendor/introjs.min.css') }}" rel="stylesheet">
+    
+    <!-- Help Menu CSS -->
+    <link href="{{ url_for('static', filename='css/help_menu.css') }}" rel="stylesheet">
+    
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
     
@@ -59,6 +65,13 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('index') }}">
                                 <i class="bi bi-arrow-up-right-square me-1"></i>Main System
+                            </a>
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        <li class="nav-item me-2">
+                            <a href="#" id="help-button" class="btn btn-outline-light btn-sm" title="Help & Tour">
+                                <i class="bi bi-question-circle"></i>
                             </a>
                         </li>
                     </ul>
@@ -142,6 +155,13 @@
             console.log('Levy Calculation System JS initialized successfully');
         });
     </script>
+    
+    <!-- Intro.js for guided tours -->
+    <script src="{{ url_for('static', filename='js/vendor/intro.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
+    
+    <!-- Help Menu System -->
+    <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     
     <!-- Additional scripts for specific pages -->
     {% block extra_js %}{% endblock %}

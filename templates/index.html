@@ -3,17 +3,18 @@
 {% block title %}Home - Levy Calculation System{% endblock %}
 
 {% block content %}
+<div data-auto-tour="dashboard">
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-10">
-            <div class="text-center mb-5">
+            <div class="text-center mb-5" id="main-header">
                 <h1 class="display-4 fw-bold mb-4">Levy Calculation System</h1>
                 <p class="lead mb-4">A comprehensive property tax levy calculation and management system for Washington state.</p>
                 <div class="d-grid gap-2 d-md-block">
-                    <a href="{{ url_for('public.index') }}" class="btn btn-primary btn-lg me-md-2">
+                    <a href="{{ url_for('public.index') }}" class="btn btn-primary btn-lg me-md-2" data-tour="public-lookup">
                         <i class="bi bi-search me-2"></i>Public Property Lookup
                     </a>
-                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary btn-lg">
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary btn-lg" data-tour="admin-dashboard">
                         <i class="bi bi-speedometer2 me-2"></i>Admin Dashboard
                     </a>
                 </div>
@@ -21,7 +22,7 @@
             
             <div class="row mt-5">
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark">
+                    <div class="card h-100 border-0 bg-dark" data-tour="levy-calculation">
                         <div class="card-body text-center py-4">
                             <i class="bi bi-calculator display-4 text-primary mb-3"></i>
                             <h3 class="card-title h5">Levy Calculation</h3>
@@ -30,7 +31,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark">
+                    <div class="card h-100 border-0 bg-dark" data-tour="data-analysis">
                         <div class="card-body text-center py-4">
                             <i class="bi bi-graph-up-arrow display-4 text-success mb-3"></i>
                             <h3 class="card-title h5">Data Analysis</h3>
@@ -39,7 +40,7 @@
                     </div>
                 </div>
                 <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark">
+                    <div class="card h-100 border-0 bg-dark" data-tour="reports">
                         <div class="card-body text-center py-4">
                             <i class="bi bi-file-earmark-text display-4 text-warning mb-3"></i>
                             <h3 class="card-title h5">Reports</h3>
@@ -49,7 +50,7 @@
                 </div>
             </div>
             
-            <div class="alert alert-info mt-5" role="alert">
+            <div class="alert alert-info mt-5" role="alert" id="system-status">
                 <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>System Status</h4>
                 <p>The Public Property Lookup Portal is now available! Use the portal to search properties, view tax information, explore tax districts, and access the comprehensive tax glossary.</p>
                 <hr>
@@ -58,4 +59,5 @@
         </div>
     </div>
 </div>
+</div> <!-- End data-auto-tour -->
 {% endblock %}
