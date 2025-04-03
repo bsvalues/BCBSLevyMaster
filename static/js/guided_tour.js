@@ -24,12 +24,12 @@ class GuidedTourSystem {
      */
     init() {
         // Check if Intro.js is loaded
-        if (typeof introJs === 'undefined') {
+        if (typeof window.introJs === 'undefined') {
             console.error('Intro.js is required for the guided tour system.');
             return;
         }
         
-        this.introJs = introJs();
+        this.introJs = window.introJs();
         
         // Define tours
         this.defineTours();
