@@ -13,7 +13,15 @@ let helpMenuInitialized = false;
 let helpMenuIsOpen = false;
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', initHelpMenu);
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        console.log('Initializing help menu...');
+        initHelpMenu();
+        console.log('Help menu initialized successfully');
+    } catch (error) {
+        console.error('Error initializing help menu:', error);
+    }
+});
 
 /**
  * Initialize the help menu system

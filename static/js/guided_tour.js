@@ -189,28 +189,32 @@ function resetAllTours() {
 
 // Initialize the guided tour system when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Guided Tour System initialized');
-  
-  // Set up global access to tour functions
-  window.guidedTourSystem = {
-    startTour: startTour,
-    resetTour: resetTour,
-    resetAllTours: resetAllTours
-  };
-  
-  // Check for auto-start tour
-  checkAutoStartTour();
-  
-  // Set up click handler for help button
-  const helpButton = document.getElementById('help-button');
-  if (helpButton) {
-    helpButton.addEventListener('click', function(e) {
-      e.preventDefault();
-      if (window.helpMenuSystem) {
-        window.helpMenuSystem.toggleHelpMenu();
-      } else {
-        startTour('dashboard');
-      }
-    });
+  try {
+    console.log('Guided Tour System initialized');
+    
+    // Set up global access to tour functions
+    window.guidedTourSystem = {
+      startTour: startTour,
+      resetTour: resetTour,
+      resetAllTours: resetAllTours
+    };
+    
+    // Check for auto-start tour
+    checkAutoStartTour();
+    
+    // Set up click handler for help button
+    const helpButton = document.getElementById('help-button');
+    if (helpButton) {
+      helpButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (window.helpMenuSystem && typeof window.helpMenuSystem.toggleHelpMenu === 'function') {
+          window.helpMenuSystem.toggleHelpMenu();
+        } else {
+          startTour('dashboard');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error initializing guided tour system:', error);
   }
 });
