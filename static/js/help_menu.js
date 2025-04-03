@@ -217,7 +217,7 @@ function createHelpMenuStructure() {
                     </div>
                 </div>
                 <div class="help-menu-footer">
-                    Levy Calculation System Help Center &copy; {{ current_year|default(2025) }} Benton County Assessor's Office
+                    Levy Calculation System Help Center &copy; 2025 Benton County Assessor's Office
                 </div>
             </div>
         `;

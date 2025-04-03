@@ -17,6 +17,9 @@
     <!-- Intro.js CSS for guided tours -->
     <link href="{{ url_for('static', filename='css/lib/introjs.min.css') }}" rel="stylesheet">
     
+    <!-- Help Menu CSS -->
+    <link href="{{ url_for('static', filename='css/help_menu.css') }}" rel="stylesheet">
+    
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
     
@@ -284,6 +287,9 @@
     <!-- Intro.js for guided tours -->
     <script src="{{ url_for('static', filename='js/lib/intro.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
+    
+    <!-- Help Menu System -->
+    <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     
     <!-- Additional scripts for specific pages -->
     {% block extra_js %}{% endblock %}
