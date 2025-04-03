@@ -8,39 +8,33 @@
  * - Support
  */
 
-class HelpMenuSystem {
-    constructor() {
-        this.initialized = false;
-        this.isOpen = false;
-        
-        // Initialize when DOM is loaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.init());
-        } else {
-            this.init();
-        }
-    }
+// Help menu state
+let helpMenuInitialized = false;
+let helpMenuIsOpen = false;
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', initHelpMenu);
+
+/**
+ * Initialize the help menu system
+ */
+function initHelpMenu() {
+    if (helpMenuInitialized) return;
     
-    /**
-     * Initialize the help menu system
-     */
-    init() {
-        if (this.initialized) return;
-        
-        // Create the help menu HTML structure
-        this.createHelpMenuStructure();
-        
-        // Set up event listeners
-        this.setupEventListeners();
-        
-        this.initialized = true;
-        console.log('Help Menu System initialized');
-    }
+    // Create the help menu HTML structure
+    createHelpMenuStructure();
     
-    /**
-     * Create the help menu HTML structure and append it to the body
-     */
-    createHelpMenuStructure() {
+    // Set up event listeners
+    setupEventListeners();
+    
+    helpMenuInitialized = true;
+    console.log('Help Menu System initialized');
+}
+
+/**
+ * Create the help menu HTML structure and append it to the body
+ */
+function createHelpMenuStructure() {
         const helpMenuHTML = `
             <div class="help-menu-overlay" id="helpMenuOverlay"></div>
             <div class="help-menu" id="helpMenu">
@@ -239,142 +233,144 @@ class HelpMenuSystem {
     /**
      * Set up event listeners for the help menu
      */
-    setupEventListeners() {
-        // Get elements
-        const helpButton = document.getElementById('help-button');
-        const helpMenu = document.getElementById('helpMenu');
-        const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-        const helpMenuClose = document.getElementById('helpMenuClose');
-        const helpTabs = document.querySelectorAll('.help-tab');
-        
-        // Tour items
-        const dashboardTourItem = document.getElementById('dashboardTourItem');
-        const calculationTourItem = document.getElementById('calculationTourItem');
-        const analysisTourItem = document.getElementById('analysisTourItem');
-        const reportsTourItem = document.getElementById('reportsTourItem');
-        
-        // Support form
-        const supportForm = document.getElementById('supportForm');
-        
-        // Toggle help menu when help button is clicked
-        if (helpButton) {
-            helpButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.toggleHelpMenu();
-            });
-        }
-        
-        // Close help menu when overlay or close button is clicked
-        if (helpMenuOverlay) {
-            helpMenuOverlay.addEventListener('click', () => this.closeHelpMenu());
-        }
-        
-        if (helpMenuClose) {
-            helpMenuClose.addEventListener('click', () => this.closeHelpMenu());
-        }
-        
-        // Tab switching
-        helpTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove active class from all tabs and content
-                helpTabs.forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.help-tab-content').forEach(c => c.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding content
-                tab.classList.add('active');
-                const tabId = tab.getAttribute('data-tab');
-                document.getElementById(`${tabId}Tab`).classList.add('active');
-            });
+function setupEventListeners() {
+    // Get elements
+    const helpButton = document.getElementById('help-button');
+    const helpMenu = document.getElementById('helpMenu');
+    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
+    const helpMenuClose = document.getElementById('helpMenuClose');
+    const helpTabs = document.querySelectorAll('.help-tab');
+    
+    // Tour items
+    const dashboardTourItem = document.getElementById('dashboardTourItem');
+    const calculationTourItem = document.getElementById('calculationTourItem');
+    const analysisTourItem = document.getElementById('analysisTourItem');
+    const reportsTourItem = document.getElementById('reportsTourItem');
+    
+    // Support form
+    const supportForm = document.getElementById('supportForm');
+    
+    // Toggle help menu when help button is clicked
+    if (helpButton) {
+        helpButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleHelpMenu();
         });
+    }
+    
+    // Close help menu when overlay or close button is clicked
+    if (helpMenuOverlay) {
+        helpMenuOverlay.addEventListener('click', () => closeHelpMenu());
+    }
+    
+    if (helpMenuClose) {
+        helpMenuClose.addEventListener('click', () => closeHelpMenu());
+    }
         
-        // Tour items
-        if (dashboardTourItem) {
-            dashboardTourItem.addEventListener('click', () => {
-                this.closeHelpMenu();
-                if (window.guidedTourSystem) {
-                    window.guidedTourSystem.startTour('dashboard');
-                }
-            });
-        }
-        
-        if (calculationTourItem) {
-            calculationTourItem.addEventListener('click', () => {
-                this.closeHelpMenu();
-                // TODO: Start calculation tour when available
-                if (window.guidedTourSystem) {
-                    alert('Levy Calculation tour will be available soon.');
-                }
-            });
-        }
-        
-        if (analysisTourItem) {
-            analysisTourItem.addEventListener('click', () => {
-                this.closeHelpMenu();
-                // TODO: Start analysis tour when available
-                if (window.guidedTourSystem) {
-                    alert('Data Analysis tour will be available soon.');
-                }
-            });
-        }
-        
-        if (reportsTourItem) {
-            reportsTourItem.addEventListener('click', () => {
-                this.closeHelpMenu();
-                // TODO: Start reports tour when available
-                if (window.guidedTourSystem) {
-                    alert('Reports tour will be available soon.');
-                }
-            });
-        }
-        
-        // Support form submission
-        if (supportForm) {
-            supportForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                // TODO: Implement form submission
-                alert('Support request submitted. Our team will contact you soon.');
-                supportForm.reset();
-            });
-        }
-        
-        // Close on escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isOpen) {
-                this.closeHelpMenu();
+    // Tab switching
+    helpTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs and content
+            helpTabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.help-tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(`${tabId}Tab`).classList.add('active');
+        });
+    });
+    
+    // Tour items
+    if (dashboardTourItem) {
+        dashboardTourItem.addEventListener('click', () => {
+            closeHelpMenu();
+            if (window.guidedTourSystem) {
+                window.guidedTourSystem.startTour('dashboard');
             }
         });
     }
     
-    /**
-     * Toggle the help menu open/closed
-     */
-    toggleHelpMenu() {
-        const helpMenu = document.getElementById('helpMenu');
-        const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-        
-        if (this.isOpen) {
-            this.closeHelpMenu();
-        } else {
-            helpMenu.classList.add('show');
-            helpMenuOverlay.classList.add('show');
-            this.isOpen = true;
-        }
+    if (calculationTourItem) {
+        calculationTourItem.addEventListener('click', () => {
+            closeHelpMenu();
+            // TODO: Start calculation tour when available
+            if (window.guidedTourSystem) {
+                alert('Levy Calculation tour will be available soon.');
+            }
+        });
     }
     
-    /**
-     * Close the help menu
-     */
-    closeHelpMenu() {
-        const helpMenu = document.getElementById('helpMenu');
-        const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-        
-        helpMenu.classList.remove('show');
-        helpMenuOverlay.classList.remove('show');
-        this.isOpen = false;
+    if (analysisTourItem) {
+        analysisTourItem.addEventListener('click', () => {
+            closeHelpMenu();
+            // TODO: Start analysis tour when available
+            if (window.guidedTourSystem) {
+                alert('Data Analysis tour will be available soon.');
+            }
+        });
+    }
+    
+    if (reportsTourItem) {
+        reportsTourItem.addEventListener('click', () => {
+            closeHelpMenu();
+            // TODO: Start reports tour when available
+            if (window.guidedTourSystem) {
+                alert('Reports tour will be available soon.');
+            }
+        });
+    }
+    
+    // Support form submission
+    if (supportForm) {
+        supportForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            // TODO: Implement form submission
+            alert('Support request submitted. Our team will contact you soon.');
+            supportForm.reset();
+        });
+    }
+    
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && helpMenuIsOpen) {
+            closeHelpMenu();
+        }
+    });
+}
+
+/**
+ * Toggle the help menu open/closed
+ */
+function toggleHelpMenu() {
+    const helpMenu = document.getElementById('helpMenu');
+    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
+    
+    if (helpMenuIsOpen) {
+        closeHelpMenu();
+    } else {
+        helpMenu.classList.add('show');
+        helpMenuOverlay.classList.add('show');
+        helpMenuIsOpen = true;
     }
 }
 
-// Initialize the help menu system when the DOM is loaded
+/**
+ * Close the help menu
+ */
+function closeHelpMenu() {
+    const helpMenu = document.getElementById('helpMenu');
+    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
+    
+    helpMenu.classList.remove('show');
+    helpMenuOverlay.classList.remove('show');
+    helpMenuIsOpen = false;
+}
+
+// Expose the help menu functions globally
 document.addEventListener('DOMContentLoaded', () => {
-    window.helpMenuSystem = new HelpMenuSystem();
+    window.helpMenuSystem = {
+        toggleHelpMenu: toggleHelpMenu,
+        closeHelpMenu: closeHelpMenu
+    };
 });
