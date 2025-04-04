@@ -25,6 +25,9 @@ from models import (
     PropertyType, ImportType, ExportType
 )
 from utils.import_utils import detect_file_type, read_data_from_file, process_import
+from utils.district_utils import (
+    import_district_text_file, import_district_xml_file, import_excel_xml_file
+)
 
 
 # Create blueprint
@@ -431,6 +434,99 @@ def view_tax_code(tax_code_id):
         tax_code=tax_code
     )
 
+
+@data_management_bp.route("/import/district", methods=["GET", "POST"])
+def import_district():
+    """Handle import of tax district data."""
+    if request.method == "GET":
+        # Render the district import form
+        current_year = datetime.now().year
+        years = list(range(current_year - 5, current_year + 2))
+        
+        return render_template(
+            "data_management/district_import.html",
+            years=years,
+            current_year=current_year
+        )
+    
+    # Process the file upload (POST method)
+    if "file" not in request.files:
+        flash("No file part", "error")
+        return redirect(request.url)
+    
+    file = request.files["file"]
+    if file.filename == "":
+        flash("No selected file", "error")
+        return redirect(request.url)
+    
+    if file:
+        # Save the uploaded file to a temporary location
+        filename = secure_filename(file.filename)
+        with tempfile.NamedTemporaryFile(delete=False) as temp:
+            temp_path = temp.name
+            file.save(temp_path)
+        
+        try:
+            # Determine file type and import
+            result = None
+            extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else None
+            
+            # Get the year from the form if provided, otherwise use current year
+            year = request.form.get("year", datetime.now().year)
+            try:
+                year = int(year)
+            except ValueError:
+                year = datetime.now().year
+                
+            if extension == 'txt':
+                result = import_district_text_file(temp_path)
+            elif extension == 'xml':
+                result = import_district_xml_file(temp_path)
+            elif extension in ['xls', 'xlsx', 'xlsm']:
+                # For Excel files, we need to load the file with openpyxl or xlrd and pass to import function
+                # This is a placeholder; you would need to implement this based on how your Excel parser works
+                from openpyxl import load_workbook
+                wb = load_workbook(temp_path)
+                result = import_excel_xml_file(wb.active)
+            else:
+                flash(f"Unsupported file format: {extension}", "error")
+                os.unlink(temp_path)
+                return redirect(request.url)
+                
+            # Check the result
+            if result and result.get('success', False):
+                flash(f"Successfully imported {result.get('imported', 0)} tax district records. "
+                      f"Skipped {result.get('skipped', 0)} records.", "success")
+                
+                # Create import log
+                import_log = ImportLog(
+                    filename=filename,
+                    import_type=ImportType.TAX_DISTRICT,
+                    record_count=result.get('imported', 0) + result.get('skipped', 0),
+                    success_count=result.get('imported', 0),
+                    error_count=result.get('skipped', 0),
+                    status="completed",
+                    year=year,
+                    import_metadata={"warnings": result.get('warnings', [])}
+                )
+                
+                db.session.add(import_log)
+                db.session.commit()
+            else:
+                warnings = result.get('warnings', []) if result else ["Unknown error"]
+                flash(f"Error importing tax district data: {'; '.join(warnings[:3])}", "error")
+                
+            # Clean up temporary file
+            os.unlink(temp_path)
+            
+            return redirect(url_for("data_management.list_tax_districts"))
+                
+        except Exception as e:
+            logger.error(f"District import error: {str(e)}")
+            flash(f"District import error: {str(e)}", "error")
+            # Clean up temporary file
+            os.unlink(temp_path)
+            return redirect(request.url)
 
 @data_management_bp.route("/properties", methods=["GET"])
 def list_properties():

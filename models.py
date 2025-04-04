@@ -138,6 +138,9 @@ class TaxDistrict(AuditMixin, YearMixin, db.Model):
     contact_email = Column(String(128))
     contact_phone = Column(String(20))
     statutory_limit = Column(Float)  # Maximum levy rate allowed by law
+    tax_district_id = Column(Integer)  # For district import through district_utils
+    levy_code = Column(String(16))  # For district import through district_utils
+    linked_levy_code = Column(String(16))  # For district import through district_utils
     
     # Relationships
     tax_codes = relationship('TaxCode', back_populates='tax_district')
