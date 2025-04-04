@@ -9,7 +9,7 @@ import os
 import logging
 from datetime import datetime
 
-from flask import Flask, render_template, redirect, url_for, jsonify, request
+from flask import Flask, render_template, redirect, url_for, jsonify, request, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
@@ -197,7 +197,13 @@ app = create_app()
 # Root route with welcome page
 @app.route('/')
 def index():
-    """Render welcome page with system status"""
+    """Render welcome page with system status or redirect to dashboard"""
+    from flask_login import current_user
+    
+    # Redirect authenticated users to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
+        
     return render_template('index.html')
 
 
@@ -209,6 +215,7 @@ from routes_public import public_bp
 from routes_admin import admin_bp
 from routes_glossary import glossary_bp
 from routes_auth import auth_bp, init_auth_routes
+from routes_dashboard import dashboard_bp, register_dashboard_routes
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -216,6 +223,7 @@ app.register_blueprint(levy_exports_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(glossary_bp)
+app.register_blueprint(dashboard_bp)
 
 # Initialize authentication routes
 init_auth_routes(app)
