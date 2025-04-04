@@ -40,12 +40,36 @@ def check_api_key():
     """
     try:
         key_status = check_api_key_status()
+        
+        # Add additional details based on status
+        if key_status['status'] == 'no_credits':
+            key_status['details'] = {
+                'help_link': 'https://console.anthropic.com/settings/billing',
+                'suggestion': 'Add credits to your account or use a different API key',
+                'action_required': True
+            }
+        elif key_status['status'] == 'missing':
+            key_status['details'] = {
+                'help_link': 'https://console.anthropic.com/account/keys',
+                'suggestion': 'Configure an Anthropic API key to enable AI-powered insights',
+                'action_required': True
+            }
+        elif key_status['status'] == 'valid':
+            key_status['details'] = {
+                'suggestion': 'Your API key is properly configured',
+                'action_required': False
+            }
+        
         return jsonify(key_status)
     except Exception as e:
         logger.error(f"Error checking API key status: {str(e)}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': str(e),
+            'details': {
+                'suggestion': 'An error occurred while checking API key status',
+                'action_required': True
+            }
         }), 500
 
 @mcp_bp.route('/configure-api-key', methods=['POST'])

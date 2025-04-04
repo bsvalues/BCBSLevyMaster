@@ -317,7 +317,10 @@ def get_claude_service() -> Optional[ClaudeService]:
     
     # Check API key status first
     key_status = check_api_key_status()
-    if key_status['status'] != 'valid':
+    if key_status['status'] == 'no_credits':
+        logger.warning(f"Claude service unavailable: API key is valid but has insufficient credits")
+        return None
+    elif key_status['status'] != 'valid':
         logger.warning(f"Claude service unavailable: {key_status['message']}")
         return None
     

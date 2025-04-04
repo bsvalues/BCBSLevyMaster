@@ -80,6 +80,8 @@ document.addEventListener("DOMContentLoaded", function() {
       .then(response => response.json())
       .then(data => {
         const statusBadge = document.getElementById("apiKeyStatusBadge");
+        const apiKeyMessage = document.getElementById("apiKeyMessage");
+        
         if (statusBadge) {
           if (data.status === "valid") {
             statusBadge.className = "badge bg-success";
@@ -95,9 +97,67 @@ document.addEventListener("DOMContentLoaded", function() {
             statusBadge.innerHTML = "API Key Required";
           }
         }
+        
+        // Display additional details if available
+        if (apiKeyMessage && data.details) {
+          const details = data.details;
+          
+          if (details.action_required) {
+            let messageHTML = `
+              <div class="alert ${data.status === 'no_credits' ? 'alert-danger' : 'alert-warning'} mb-0">
+                <div class="d-flex align-items-center">
+                  <div class="flex-shrink-0">
+                    <i class="bi ${data.status === 'no_credits' ? 'bi-credit-card' : 'bi-key'} fs-3 me-3"></i>
+                  </div>
+                  <div class="flex-grow-1">
+                    <h5 class="alert-heading">${data.status === 'no_credits' ? 'Credit Balance Issue' : 'API Key Required'}</h5>
+                    <p>${details.suggestion || data.message}</p>
+            `;
+            
+            if (details.help_link) {
+              messageHTML += `
+                    <div class="mt-2">
+                      <a href="${details.help_link}" class="btn btn-sm btn-outline-${data.status === 'no_credits' ? 'danger' : 'primary'} me-2" target="_blank">
+                        <i class="bi ${data.status === 'no_credits' ? 'bi-credit-card' : 'bi-key'} me-1"></i>
+                        ${data.status === 'no_credits' ? 'Manage Credits' : 'Get API Key'}
+                      </a>
+                      <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                        <i class="bi bi-gear me-1"></i>Configure Key
+                      </button>
+                    </div>
+              `;
+            }
+            
+            messageHTML += `
+                  </div>
+                </div>
+              </div>
+            `;
+            
+            apiKeyMessage.innerHTML = messageHTML;
+          } else {
+            apiKeyMessage.innerHTML = `
+              <div class="alert alert-success mb-0">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                ${details.suggestion || data.message}
+              </div>
+            `;
+          }
+        }
       })
       .catch(error => {
         console.error("Error checking API key status:", error);
+        
+        // Show error message
+        const apiKeyMessage = document.getElementById("apiKeyMessage");
+        if (apiKeyMessage) {
+          apiKeyMessage.innerHTML = `
+            <div class="alert alert-danger mb-0">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              Error checking API key status: ${error.message}
+            </div>
+          `;
+        }
       });
   }
   

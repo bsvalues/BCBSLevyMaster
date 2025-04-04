@@ -376,11 +376,25 @@
       </div>
       <div class="modal-body">
         <p>To enable AI-powered insights, you need to provide an Anthropic API key. This key will be stored securely in your environment variables.</p>
+        
+        <div class="alert alert-info mb-3">
+          <h6><i class="bi bi-info-circle me-2"></i>About Anthropic API Keys</h6>
+          <ul class="mb-0">
+            <li>API keys start with <code>sk-ant-</code></li>
+            <li>Keys require a credit balance to access Claude 3.5 Sonnet</li>
+            <li>If you encounter credit issues, you can add credits or use a different key</li>
+          </ul>
+        </div>
+        
         <form id="apiKeyForm">
           <div class="mb-3">
             <label for="apiKey" class="form-label">Anthropic API Key</label>
             <input type="password" class="form-control" id="apiKey" placeholder="sk-ant-...">
-            <div class="form-text">Your API key is stored securely and never shared. <a href="https://console.anthropic.com/account/keys" target="_blank">Get an API key</a></div>
+            <div class="form-text">
+              Your API key is stored securely and never shared. 
+              <a href="https://console.anthropic.com/account/keys" target="_blank">Get an API key</a> | 
+              <a href="https://console.anthropic.com/settings/billing" target="_blank">Manage credits</a>
+            </div>
           </div>
         </form>
       </div>
