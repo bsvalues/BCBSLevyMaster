@@ -224,6 +224,7 @@ from routes_dashboard import dashboard_bp, register_dashboard_routes
 from routes_levy_calculator import levy_calculator_bp, register_levy_calculator_routes
 from routes_tours import tours_bp, register_routes as register_tour_routes
 from routes_historical_analysis import historical_analysis_bp, init_historical_analysis_routes
+from routes_mcp import mcp_bp, init_mcp_routes
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -235,6 +236,7 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(levy_calculator_bp)
 app.register_blueprint(tours_bp)
 # Note: historical_analysis_bp is registered via init_historical_analysis_routes
+# Note: mcp_bp is registered via init_mcp_routes
 
 # Initialize authentication routes
 init_auth_routes(app)
@@ -244,6 +246,18 @@ register_tour_routes(app)
 
 # Initialize historical analysis routes
 init_historical_analysis_routes(app)
+
+# Initialize MCP routes
+init_mcp_routes(app)
+
+# Initialize MCP API endpoints
+try:
+    from utils.mcp_integration import init_mcp_api_routes, init_mcp
+    init_mcp()
+    init_mcp_api_routes(app)
+    app.logger.info("MCP framework initialized")
+except Exception as e:
+    app.logger.error(f"Error initializing MCP framework: {str(e)}")
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():
