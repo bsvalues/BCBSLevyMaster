@@ -9,12 +9,14 @@ import json
 import logging
 import os
 import sys
+import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import anthropic
 from anthropic import Anthropic
 
 from utils.html_sanitizer import sanitize_mcp_insights, sanitize_html
+from utils.api_logging import APICallRecord, track_anthropic_api_call, api_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ class ClaudeService:
         )
         logger.info("ClaudeService initialized successfully")
     
+    @track_anthropic_api_call
     def chat(self, 
              messages: List[Dict[str, str]], 
              system_prompt: str = None,
@@ -63,9 +66,26 @@ class ClaudeService:
         attempt = 0
         last_error = None
         
+        # Create API call record
+        api_record = APICallRecord(
+            service="anthropic",
+            endpoint="chat",
+            method="POST",
+            params={
+                "model": "claude-3-5-sonnet-20241022",
+                "message_count": len(messages),
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "has_system_prompt": system_prompt is not None
+            }
+        )
+        
         while attempt < max_retries + 1:  # +1 for the initial attempt
             try:
                 logger.info(f"Sending chat request with {len(messages)} messages (attempt {attempt + 1}/{max_retries + 1})")
+                
+                # Track start time for this attempt
+                start_time = time.time()
                 
                 response = self.client.messages.create(
                     model="claude-3-5-sonnet-20241022",
@@ -75,7 +95,19 @@ class ClaudeService:
                     temperature=temperature
                 )
                 
-                logger.info(f"Received response with {len(response.content)} content blocks")
+                # Log successful API call
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                logger.info(f"Received response with {len(response.content)} content blocks in {duration_ms}ms")
+                
+                # Complete API record
+                api_record.complete(success=True, response={
+                    "content_blocks": len(response.content),
+                    "content_type": response.content[0].type if response.content else "unknown"
+                })
+                
+                # Track API stats
+                api_tracker.record_call(api_record)
+                
                 return response
                 
             except Exception as e:
@@ -85,6 +117,7 @@ class ClaudeService:
                 # Check if the error is related to credit balance
                 if "credit balance is too low" in error_str or "quota exceeded" in error_str:
                     logger.error(f"Credit balance error (non-retriable): {error_str}")
+                    api_record.record_error(f"Credit balance error: {error_str}")
                     break  # Don't retry credit balance errors
                 
                 # Check if it's a temporary error that might resolve with a retry
@@ -102,6 +135,7 @@ class ClaudeService:
                 
                 if not is_retriable:
                     logger.error(f"Non-retriable error in chat request: {error_str}")
+                    api_record.record_error(f"Non-retriable error: {error_str}")
                     break  # Don't retry permanent errors
                 
                 # Only log and retry if this isn't the last attempt
@@ -109,17 +143,24 @@ class ClaudeService:
                     delay = retry_delay * (2 ** attempt)  # Exponential backoff
                     logger.warning(f"Temporary error in chat request: {error_str}. Retrying in {delay:.2f}s...")
                     
+                    # Increment retry count
+                    api_record.record_retry()
+                    
                     # Sleep before retry with exponential backoff
-                    import time
                     time.sleep(delay)
                 else:
                     logger.error(f"Failed chat request after {max_retries + 1} attempts: {error_str}")
+                    api_record.record_error(f"Failed after {max_retries + 1} attempts: {error_str}")
             
             attempt += 1
         
         # If we get here, all retries failed or a non-retriable error occurred
         if last_error:
             logger.error(f"All retries failed: {str(last_error)}")
+            
+            # Track API call failure
+            api_tracker.record_call(api_record)
+            
             raise last_error
     
     def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
@@ -306,9 +347,19 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
             'message': 'Description of the status'
         }
     """
+    # Create API call record
+    api_record = APICallRecord(
+        service="anthropic",
+        endpoint="api_key_validation",
+        method="POST",
+        params={"validate_only": True}
+    )
+    
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     
     if not api_key:
+        api_record.record_error("API key not found in environment variables")
+        api_tracker.record_call(api_record)
         return {
             'status': 'missing',
             'message': 'API key not found in environment variables'
@@ -316,6 +367,8 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
     
     # Check if the API key has the expected format (basic validation)
     if not api_key.startswith('sk-ant-'):
+        api_record.record_error("API key has an invalid format")
+        api_tracker.record_call(api_record)
         return {
             'status': 'invalid',
             'message': 'API key has an invalid format'
@@ -333,12 +386,23 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
             try:
                 logger.info(f"Testing API key status (attempt {attempt + 1}/{max_retries + 1})")
                 
+                # Track start time for this attempt
+                start_time = time.time()
+                
                 # Make a minimal API request to check credits
                 response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=1,
                     messages=[{"role": "user", "content": "Test"}]
                 )
+                
+                # Log successful validation
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                logger.info(f"API key validation successful in {duration_ms}ms")
+                
+                # Complete API record
+                api_record.complete(success=True)
+                api_tracker.record_call(api_record)
                 
                 return {
                     'status': 'valid',
@@ -351,7 +415,13 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
                 
                 # Check if the error is related to credit balance
                 if "credit balance is too low" in error_str or "quota exceeded" in error_str:
-                    logger.warning(f"Anthropic API credit issue: Error code: {getattr(e, 'status_code', 'unknown')} - {error_str}")
+                    status_code = getattr(e, 'status_code', 'unknown')
+                    logger.warning(f"Anthropic API credit issue: Error code: {status_code} - {error_str}")
+                    
+                    # Record specific credit issue
+                    api_record.record_error(f"Credit balance issue (Error code: {status_code})")
+                    api_tracker.record_call(api_record)
+                    
                     return {
                         'status': 'no_credits',
                         'message': 'API key is valid but has insufficient credits'
@@ -372,6 +442,11 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
                 
                 if not is_retriable:
                     logger.error(f"Non-retriable API error: {error_str}")
+                    
+                    # Record non-retriable error
+                    api_record.record_error(f"Non-retriable error: {error_str}")
+                    api_tracker.record_call(api_record)
+                    
                     return {
                         'status': 'invalid',
                         'message': f'API error: {error_str}'
@@ -382,11 +457,18 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
                     delay = retry_delay * (2 ** attempt)  # Exponential backoff
                     logger.warning(f"Temporary API error: {error_str}. Retrying in {delay:.2f}s...")
                     
+                    # Increment retry count
+                    api_record.record_retry()
+                    
                     # Sleep before retry with exponential backoff
-                    import time
                     time.sleep(delay)
                 else:
                     logger.error(f"Failed to validate API key after {max_retries + 1} attempts")
+                    
+                    # Record all retries failed
+                    api_record.record_error(f"Failed after {max_retries + 1} attempts: {error_str}")
+                    api_tracker.record_call(api_record)
+                    
                     return {
                         'status': 'invalid',
                         'message': f'Failed to validate API key after multiple attempts: {error_str}'
@@ -395,12 +477,19 @@ def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict
             attempt += 1
         
         # This should not be reached given the return statements in the loop above
+        api_record.record_error("Unknown error validating API key")
+        api_tracker.record_call(api_record)
+        
         return {
             'status': 'invalid',
             'message': 'Unknown error validating API key'
         }
         
     except Exception as e:
+        # Record general validation error
+        api_record.record_error(f"API key validation error: {str(e)}")
+        api_tracker.record_call(api_record)
+        
         return {
             'status': 'invalid',
             'message': f'API key validation error: {str(e)}'

@@ -16,6 +16,7 @@ from app import db
 from models import TaxDistrict, TaxCode, Property, ImportLog, ExportLog
 from utils.anthropic_utils import get_claude_service, check_api_key_status
 from utils.html_sanitizer import sanitize_html
+from utils.api_logging import get_api_statistics
 from utils.schema_utils import (
     get_recent_import_logs,
     get_recent_export_logs,
@@ -413,6 +414,46 @@ def generate_mcp_insights(tax_codes):
     except Exception as e:
         logger.error(f"Error generating MCP insights: {str(e)}")
         return default_insights
+
+
+@mcp_bp.route('/api/statistics', methods=['GET'])
+def api_statistics():
+    """
+    API endpoint to retrieve API call statistics.
+    
+    This endpoint returns JSON with statistics about API calls, including
+    success rates, error rates, and performance metrics.
+    """
+    try:
+        # Get API statistics from the tracking system
+        statistics = get_api_statistics()
+        
+        # Add timestamp to the response
+        statistics['timestamp'] = datetime.utcnow().isoformat()
+        
+        # Add human-readable summaries for the dashboard
+        if statistics['total_calls'] > 0:
+            statistics['summary'] = {
+                'status': 'active' if statistics['error_rate_percent'] < 25 else 'degraded',
+                'message': (f"{statistics['total_calls']} API calls tracked with "
+                           f"{statistics['error_rate_percent']}% error rate"),
+                'avg_latency': f"{statistics['avg_duration_ms']:.1f}ms"
+            }
+        else:
+            statistics['summary'] = {
+                'status': 'inactive',
+                'message': "No API calls have been tracked yet",
+                'avg_latency': "N/A"
+            }
+        
+        return jsonify(statistics)
+    except Exception as e:
+        logger.error(f"Error retrieving API statistics: {str(e)}")
+        return jsonify({
+            'error': True,
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 
 def init_mcp_routes(app):

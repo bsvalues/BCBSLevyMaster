@@ -9,15 +9,25 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize status checks
     checkApiStatus();
+    loadApiStatistics();
     
     // Set up periodic refresh
     setInterval(checkApiStatus, 30000); // Refresh every 30 seconds
+    setInterval(loadApiStatistics, 60000); // Refresh statistics every 60 seconds
     
     // Attach event listener to Refresh button if it exists
     const refreshButton = document.getElementById('refreshStatus');
     if (refreshButton) {
         refreshButton.addEventListener('click', function() {
             checkApiStatus();
+        });
+    }
+    
+    // Attach event listener to Refresh stats button
+    const refreshStatsButton = document.getElementById('refreshStats');
+    if (refreshStatsButton) {
+        refreshStatsButton.addEventListener('click', function() {
+            loadApiStatistics();
         });
     }
 });
@@ -35,6 +45,147 @@ function checkApiStatus() {
             console.error('Error checking API status:', error);
             updateStatusError();
         });
+}
+
+/**
+ * Load API call statistics and update the statistics UI
+ */
+function loadApiStatistics() {
+    fetch('/mcp/api/statistics')
+        .then(response => response.json())
+        .then(data => {
+            updateStatisticsUI(data);
+        })
+        .catch(error => {
+            console.error('Error loading API statistics:', error);
+            updateStatisticsError();
+        });
+}
+
+/**
+ * Update the API statistics UI with the fetched data
+ */
+function updateStatisticsUI(data) {
+    // Format timestamp
+    const timestamp = data.timestamp ? new Date(data.timestamp) : new Date();
+    const formattedTime = timestamp.toLocaleTimeString();
+    const formattedDate = timestamp.toLocaleDateString();
+    
+    // Update total calls
+    const totalCallsElement = document.getElementById('totalApiCalls');
+    if (totalCallsElement) {
+        totalCallsElement.textContent = data.total_calls || 0;
+    }
+    
+    // Update timestamp
+    const timestampElement = document.getElementById('apiCallsTimestamp');
+    if (timestampElement) {
+        timestampElement.textContent = `Last updated: ${formattedDate} ${formattedTime}`;
+    }
+    
+    // Update success rate
+    const successRateElement = document.getElementById('apiSuccessRate');
+    if (successRateElement) {
+        const successRate = data.total_calls > 0 
+            ? ((data.success_count / data.total_calls) * 100).toFixed(1) 
+            : 0;
+        successRateElement.textContent = `${successRate}%`;
+        
+        // Update progress bar
+        const successRateBar = document.getElementById('apiSuccessRateBar');
+        if (successRateBar) {
+            successRateBar.style.width = `${successRate}%`;
+            successRateBar.setAttribute('aria-valuenow', successRate);
+            
+            // Change color based on success rate
+            if (successRate >= 90) {
+                successRateBar.className = 'progress-bar bg-success';
+            } else if (successRate >= 75) {
+                successRateBar.className = 'progress-bar bg-info';
+            } else if (successRate >= 50) {
+                successRateBar.className = 'progress-bar bg-warning';
+            } else {
+                successRateBar.className = 'progress-bar bg-danger';
+            }
+        }
+    }
+    
+    // Update average response time
+    const avgTimeElement = document.getElementById('apiAvgTime');
+    if (avgTimeElement) {
+        avgTimeElement.textContent = data.avg_duration_ms ? 
+            data.avg_duration_ms.toFixed(1) : '-';
+    }
+    
+    // Update service breakdown table
+    const serviceStatsElement = document.getElementById('apiServiceStats');
+    if (serviceStatsElement && data.calls_by_service) {
+        let tableHTML = '';
+        
+        if (Object.keys(data.calls_by_service).length === 0) {
+            tableHTML = '<tr><td colspan="4" class="text-center">No data available</td></tr>';
+        } else {
+            for (const [service, count] of Object.entries(data.calls_by_service)) {
+                // Estimate success/error counts based on overall rate
+                const successCount = data.total_calls > 0 ? 
+                    Math.round((data.success_count / data.total_calls) * count) : 0;
+                const errorCount = count - successCount;
+                
+                tableHTML += `
+                    <tr>
+                        <td>${service}</td>
+                        <td>${count}</td>
+                        <td><span class="badge bg-success">${successCount}</span></td>
+                        <td><span class="badge bg-danger">${errorCount}</span></td>
+                    </tr>
+                `;
+            }
+        }
+        
+        serviceStatsElement.innerHTML = tableHTML;
+    }
+}
+
+/**
+ * Handle errors when loading API statistics
+ */
+function updateStatisticsError() {
+    // Update total calls
+    const totalCallsElement = document.getElementById('totalApiCalls');
+    if (totalCallsElement) {
+        totalCallsElement.textContent = '-';
+    }
+    
+    // Update timestamp
+    const timestampElement = document.getElementById('apiCallsTimestamp');
+    if (timestampElement) {
+        timestampElement.textContent = 'Error loading statistics';
+    }
+    
+    // Update success rate
+    const successRateElement = document.getElementById('apiSuccessRate');
+    if (successRateElement) {
+        successRateElement.textContent = '-';
+    }
+    
+    // Update average response time
+    const avgTimeElement = document.getElementById('apiAvgTime');
+    if (avgTimeElement) {
+        avgTimeElement.textContent = '-';
+    }
+    
+    // Update service breakdown table
+    const serviceStatsElement = document.getElementById('apiServiceStats');
+    if (serviceStatsElement) {
+        serviceStatsElement.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error loading API statistics
+                </td>
+            </tr>
+        `;
+    }
 }
 
 /**
