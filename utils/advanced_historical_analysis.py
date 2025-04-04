@@ -291,8 +291,8 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                     forecast_results.append({
                         'year': forecast_year,
                         'forecasted_rate': forecast_rate,
-                        'confidence_interval': [max(0.0, forecast_rate - 0.01 * abs(forecast_rate)), 
-                                              forecast_rate + 0.01 * abs(forecast_rate)],
+                        'confidence_interval': {'lower': max(0.0, forecast_rate - 0.01 * abs(forecast_rate)),
+                                              'upper': forecast_rate + 0.01 * abs(forecast_rate)},
                         'method': 'linear regression'
                     })
             
@@ -325,32 +325,110 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                 })
         
         elif method == 'exponential':
-            # Exponential smoothing method (Simple Exponential Smoothing)
+            # Enhanced exponential smoothing methods
             try:
-                # Alpha parameter controls the weight given to recent observations
-                alpha = 0.3  # Smoothing factor
+                # Determine the best exponential smoothing method based on data characteristics
+                n_obs = len(sorted_rates)
                 
-                # Initialize with first value
-                smoothed = [sorted_rates[0]]
-                
-                # Apply exponential smoothing
-                for i in range(1, len(sorted_rates)):
-                    smoothed_val = alpha * sorted_rates[i] + (1 - alpha) * smoothed[i-1]
-                    smoothed.append(smoothed_val)
-                
-                # Last smoothed value
-                last_smoothed = smoothed[-1]
-                
-                # Generate forecast (will be constant for all future periods in simple ES)
-                for i in range(1, forecast_years + 1):
-                    forecast_year = last_year + i
-                    forecast_results.append({
-                        'year': forecast_year,
-                        'forecasted_rate': last_smoothed,
-                        'confidence_interval': [max(0.0, last_smoothed - 0.012 * i), 
-                                              last_smoothed + 0.012 * i],  # Wider interval for further years
-                        'method': 'exponential smoothing'
-                    })
+                # Check for minimum data points required
+                if n_obs < 3:
+                    # Simple Exponential Smoothing
+                    # Alpha parameter controls the weight given to recent observations
+                    alpha = 0.3  # Smoothing factor
+                    
+                    # Initialize with first value
+                    smoothed = [sorted_rates[0]]
+                    
+                    # Apply exponential smoothing
+                    for i in range(1, n_obs):
+                        smoothed_val = alpha * sorted_rates[i] + (1 - alpha) * smoothed[i-1]
+                        smoothed.append(smoothed_val)
+                    
+                    # Last smoothed value
+                    last_smoothed = smoothed[-1]
+                    
+                    # Generate forecast (constant for all future periods in simple ES)
+                    for i in range(1, forecast_years + 1):
+                        forecast_year = last_year + i
+                        ci_width = 0.012 * i  # Wider interval for further years
+                        forecast_results.append({
+                            'year': forecast_year,
+                            'forecasted_rate': last_smoothed,
+                            'confidence_interval': {'lower': max(0.0, last_smoothed - ci_width), 'upper': last_smoothed + ci_width},
+                            'method': 'simple exponential smoothing'
+                        })
+                else:
+                    # Try to detect if there's a trend component
+                    # Simple trend detection using linear regression slope
+                    x = np.array(sorted_years)
+                    y = np.array(sorted_rates)
+                    trend_present = False
+                    
+                    if n_obs >= 3:
+                        # Calculate the slope of the linear regression
+                        slope = np.cov(x, y)[0, 1] / np.var(x)
+                        # Consider a trend exists if the absolute slope is above a threshold
+                        trend_present = abs(slope) > 0.0005
+                    
+                    if trend_present:
+                        # Double Exponential Smoothing (Holt's method) for data with trend
+                        alpha = 0.3  # Level smoothing factor
+                        beta = 0.1   # Trend smoothing factor
+                        
+                        # Initialize level and trend
+                        level = sorted_rates[0]
+                        trend = sorted_rates[1] - sorted_rates[0] if n_obs > 1 else 0
+                        
+                        levels = [level]
+                        trends = [trend]
+                        
+                        # Apply Holt's method
+                        for i in range(1, n_obs):
+                            prev_level = level
+                            level = alpha * sorted_rates[i] + (1 - alpha) * (level + trend)
+                            trend = beta * (level - prev_level) + (1 - beta) * trend
+                            
+                            levels.append(level)
+                            trends.append(trend)
+                        
+                        # Generate forecasts
+                        for i in range(1, forecast_years + 1):
+                            forecast_year = last_year + i
+                            forecast_rate = max(0.0, min(1.0, level + i * trend))  # Keep within bounds
+                            
+                            # Confidence interval widens with forecast horizon
+                            ci_width = 0.015 * i
+                            forecast_results.append({
+                                'year': forecast_year,
+                                'forecasted_rate': forecast_rate,
+                                'confidence_interval': {'lower': max(0.0, forecast_rate - ci_width), 'upper': min(1.0, forecast_rate + ci_width)},
+                                'method': 'double exponential smoothing'
+                            })
+                    else:
+                        # Simple Exponential Smoothing for data without trend
+                        alpha = 0.3  # Smoothing factor
+                        
+                        # Initialize with first value
+                        smoothed = [sorted_rates[0]]
+                        
+                        # Apply exponential smoothing
+                        for i in range(1, n_obs):
+                            smoothed_val = alpha * sorted_rates[i] + (1 - alpha) * smoothed[i-1]
+                            smoothed.append(smoothed_val)
+                        
+                        # Last smoothed value
+                        last_smoothed = smoothed[-1]
+                        
+                        # Generate forecast (constant for all future periods in simple ES)
+                        for i in range(1, forecast_years + 1):
+                            forecast_year = last_year + i
+                            ci_width = 0.012 * i  # Wider interval for further years
+                            forecast_results.append({
+                                'year': forecast_year,
+                                'forecasted_rate': last_smoothed,
+                                'confidence_interval': {'lower': max(0.0, last_smoothed - ci_width), 'upper': last_smoothed + ci_width},
+                                'method': 'simple exponential smoothing'
+                            })
             except Exception as e:
                 logger.error(f"Error applying exponential smoothing: {str(e)}")
                 # Fallback to weighted average if exponential smoothing fails
@@ -363,7 +441,7 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                     forecast_results.append({
                         'year': forecast_year,
                         'forecasted_rate': weighted_sum,
-                        'confidence_interval': [max(0.0, weighted_sum - 0.01), weighted_sum + 0.01],
+                        'confidence_interval': {'lower': max(0.0, weighted_sum - 0.01), 'upper': weighted_sum + 0.01},
                         'method': 'weighted average (fallback)'
                     })
         
@@ -427,8 +505,8 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                     else:
                         # Approximate confidence interval
                         ci_width = 0.01 * (i + 1)  # Widening interval for further years
-                        result['confidence_interval'] = [max(0.0, forecast_rate - ci_width), 
-                                                       forecast_rate + ci_width]
+                        result['confidence_interval'] = {'lower': max(0.0, forecast_rate - ci_width), 
+                                                       'upper': forecast_rate + ci_width}
                     
                     forecast_results.append(result)
                     
@@ -452,8 +530,8 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                     forecast_results.append({
                         'year': forecast_year,
                         'forecasted_rate': forecast_rate,
-                        'confidence_interval': [max(0.0, forecast_rate - 0.015 * i), 
-                                              forecast_rate + 0.015 * i],
+                        'confidence_interval': {'lower': max(0.0, forecast_rate - 0.015 * i), 
+                                              'upper': forecast_rate + 0.015 * i},
                         'method': 'linear regression (fallback)'
                     })
         
