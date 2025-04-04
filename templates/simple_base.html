@@ -158,6 +158,9 @@
     
     <!-- Intro.js for guided tours -->
     <script src="{{ url_for('static', filename='js/lib/intro.min.js') }}"></script>
+    
+    <!-- Tour system - note: order matters! tour_initializer.js must be loaded before guided_tour.js -->
+    <script src="{{ url_for('static', filename='js/tour_initializer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
     
     <!-- Help Menu System -->
