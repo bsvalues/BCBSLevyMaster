@@ -33,7 +33,7 @@ def advanced_historical_analysis():
     Advanced historical analysis dashboard with multiple analytical tools.
     """
     # Get all tax codes for dropdowns
-    tax_codes = TaxCode.query.order_by(TaxCode.code).all()
+    tax_codes = TaxCode.query.order_by(TaxCode.tax_code).all()
     
     # Get all available years from the historical rates table
     years_query = db.session.query(

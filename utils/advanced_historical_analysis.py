@@ -38,7 +38,7 @@ def compute_basic_statistics(tax_code: str, years: Optional[List[int]] = None) -
     """
     try:
         # Get the tax code record
-        tax_code_record = TaxCode.query.filter_by(code=tax_code).first()
+        tax_code_record = TaxCode.query.filter_by(tax_code=tax_code).first()
         if not tax_code_record:
             return {
                 'error': f'Tax code {tax_code} not found',

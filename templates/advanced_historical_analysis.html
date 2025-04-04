@@ -69,8 +69,8 @@
                                     <select class="form-select" id="stats_tax_code" name="stats_tax_code" required>
                                         <option value="">Select a tax code...</option>
                                         {% for tax_code in tax_codes %}
-                                        <option value="{{ tax_code.code }}">
-                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        <option value="{{ tax_code.tax_code }}">
+                                            {{ tax_code.tax_code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
                                         </option>
                                         {% endfor %}
                                     </select>
@@ -210,8 +210,8 @@
                                     <select class="form-select" id="forecast_tax_code" name="forecast_tax_code" required>
                                         <option value="">Select a tax code...</option>
                                         {% for tax_code in tax_codes %}
-                                        <option value="{{ tax_code.code }}">
-                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        <option value="{{ tax_code.tax_code }}">
+                                            {{ tax_code.tax_code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
                                         </option>
                                         {% endfor %}
                                     </select>
@@ -359,8 +359,8 @@
                                     <select class="form-select" id="anomaly_tax_code" name="anomaly_tax_code" required>
                                         <option value="">Select a tax code...</option>
                                         {% for tax_code in tax_codes %}
-                                        <option value="{{ tax_code.code }}">
-                                            {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
+                                        <option value="{{ tax_code.tax_code }}">
+                                            {{ tax_code.tax_code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
                                         </option>
                                         {% endfor %}
                                     </select>
