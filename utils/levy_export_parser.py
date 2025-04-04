@@ -30,6 +30,8 @@ class LevyExportFormat(Enum):
     XLS = 'xls'
     XLSX = 'xlsx'
     XML = 'xml'
+    CSV = 'csv'
+    JSON = 'json'
     UNKNOWN = 'unknown'
 
 
@@ -153,6 +155,17 @@ class LevyExportParser:
         extension = file_path.suffix.lower().lstrip('.')
         
         if extension == 'txt':
+            # Check if it's actually a CSV file
+            try:
+                with open(file_path, 'r', encoding='utf-8-sig') as f:
+                    first_line = f.readline().strip()
+                    if ',' in first_line and len(first_line.split(',')) >= 3:
+                        # If it has commas and at least 3 columns, treat as CSV
+                        logger.info(f"File has .txt extension but detected as CSV format: {file_path}")
+                        return LevyExportFormat.CSV
+            except Exception as e:
+                logger.warning(f"Error checking if TXT file is CSV: {str(e)}")
+            
             return LevyExportFormat.TXT
         elif extension == 'xls':
             return LevyExportFormat.XLS
@@ -160,7 +173,22 @@ class LevyExportParser:
             return LevyExportFormat.XLSX
         elif extension == 'xml':
             return LevyExportFormat.XML
+        elif extension == 'csv':
+            return LevyExportFormat.CSV
+        elif extension == 'json':
+            return LevyExportFormat.JSON
         else:
+            # Try to detect by content
+            try:
+                with open(file_path, 'rb') as f:
+                    header = f.read(4)
+                    if header == b'PK\x03\x04':  # XLSX files start with this signature
+                        return LevyExportFormat.XLSX
+                    if header[:2] == b'\xd0\xcf':  # XLS files start with this signature
+                        return LevyExportFormat.XLS
+            except Exception as e:
+                logger.warning(f"Error detecting file format by content: {str(e)}")
+            
             return LevyExportFormat.UNKNOWN
     
     @classmethod
@@ -188,6 +216,10 @@ class LevyExportParser:
             return cls._parse_xlsx(file_path)
         elif format == LevyExportFormat.XML:
             return cls._parse_xml(file_path)
+        elif format == LevyExportFormat.CSV:
+            return cls._parse_csv(file_path)
+        elif format == LevyExportFormat.JSON:
+            return cls._parse_json(file_path)
         else:
             raise ValueError(f"Unsupported file format: {format}")
     
@@ -481,6 +513,362 @@ class LevyExportParser:
         
         logger.info(f"Parsed {len(records)} records from XLSX file")
         return LevyExportData(records, {'format': 'xlsx', 'year': year})
+    
+    @classmethod
+    def _parse_csv(cls, file_path: Path) -> LevyExportData:
+        """
+        Parse a CSV format levy export file.
+        
+        Args:
+            file_path: Path to the CSV file
+            
+        Returns:
+            LevyExportData object containing the parsed data
+        """
+        logger.info(f"Parsing CSV levy export file: {file_path}")
+        
+        records = []
+        year = datetime.now().year
+        
+        try:
+            # First, read a sample to analyze the file
+            with open(file_path, 'r', encoding='utf-8-sig') as sample_file:
+                sample = sample_file.read(1024)
+                logger.info(f"CSV Sample: {sample[:100]}")
+            
+            # Map common header variations to standardized field names
+            field_mappings = {
+                'LEVY CODE': 'levy_cd',
+                'LEVY_CODE': 'levy_cd',
+                'CODE': 'levy_cd',
+                'LEVY_CD': 'levy_cd',
+                'LEVYCD': 'levy_cd',
+                'LEVY': 'levy_cd',  # Sometimes just "LEVY" is used for the code
+                'TAX_DISTRICT_ID': 'tax_district_id',
+                'TAX DISTRICT': 'tax_district_id',
+                'DISTRICT': 'tax_district_id',
+                'DIST': 'tax_district_id',
+                'RATE': 'levy_rate',
+                'TAX RATE': 'levy_rate',
+                'LEVY RATE': 'levy_rate',
+                'LEVY_RATE': 'levy_rate',
+                'AMOUNT': 'levy_amount',
+                'LEVY AMOUNT': 'levy_amount',
+                'LEVY_AMOUNT': 'levy_amount',
+                'VALUE': 'assessed_value',
+                'ASSESSED VALUE': 'assessed_value',
+                'ASSESSED_VALUE': 'assessed_value',
+                'LINKED': 'levy_cd_linked',
+                'LINKED CODE': 'levy_cd_linked',
+                'LINKED_CODE': 'levy_cd_linked',
+                'LEVY_CD_LINKED': 'levy_cd_linked',
+                'YEAR': 'year'
+            }
+            
+            # Try to extract year from filename
+            filename = file_path.name
+            year_match = re.search(r'(\d{4})', filename)
+            if year_match:
+                try:
+                    year_val = int(year_match.group(1))
+                    if 2000 <= year_val <= 2100:  # Sanity check for year
+                        year = year_val
+                        logger.info(f"Found year in filename: {year}")
+                except ValueError:
+                    pass
+            
+            # Try CSV sniffing approach
+            try:
+                dialect = csv.Sniffer().sniff(sample)
+                has_header = csv.Sniffer().has_header(sample)
+                logger.info(f"CSV dialect detected: delimiter='{dialect.delimiter}', has_header={has_header}")
+            except csv.Error:
+                logger.warning("Could not determine CSV dialect, using default comma delimiter")
+                dialect = csv.excel
+                has_header = True if ',' in sample and len(sample.splitlines()) > 1 else False
+            
+            # Read the file with DictReader
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f, dialect=dialect)
+                
+                # Log field names if available
+                if reader.fieldnames:
+                    logger.info(f"CSV field names: {reader.fieldnames}")
+                else:
+                    logger.warning("No field names detected in CSV")
+                
+                # Create a mapping for this specific CSV's headers
+                header_map = {}
+                if reader.fieldnames:
+                    for header in reader.fieldnames:
+                        if header is None:
+                            continue
+                        upper_header = header.upper()
+                        for key, value in field_mappings.items():
+                            if key == upper_header or key in upper_header:
+                                header_map[header] = value
+                                break
+                
+                logger.info(f"CSV header mapping: {header_map}")
+                
+                row_count = 0
+                # Process each row
+                for row in reader:
+                    row_count += 1
+                    logger.debug(f"Processing CSV row {row_count}: {row}")
+                    
+                    # Skip empty rows
+                    if not row or all(not value for value in row.values()):
+                        continue
+                    
+                    record = {
+                        'tax_district_id': None,
+                        'levy_cd': None,
+                        'levy_cd_linked': None,
+                        'levy_rate': None,
+                        'levy_amount': None,
+                        'assessed_value': None,
+                        'year': year,
+                        'source': 'csv'
+                    }
+                    
+                    # Map values using the header map
+                    for original_header, value in row.items():
+                        if original_header is None or not value:
+                            continue
+                            
+                        mapped_field = header_map.get(original_header)
+                        if mapped_field:
+                            # Special handling for levy code which might include a linked code
+                            if mapped_field == 'levy_cd' and value and '/' in value:
+                                levy_cd, levy_cd_linked = value.split('/', 1)
+                                record['levy_cd'] = levy_cd.strip()
+                                record['levy_cd_linked'] = levy_cd_linked.strip()
+                                if not record['tax_district_id']:
+                                    record['tax_district_id'] = levy_cd.strip()
+                            elif mapped_field == 'levy_cd' and value:
+                                record['levy_cd'] = value.strip()
+                                if not record['tax_district_id']:
+                                    record['tax_district_id'] = value.strip()
+                            # Convert numeric fields
+                            elif mapped_field in ('levy_rate', 'levy_amount', 'assessed_value'):
+                                try:
+                                    # Remove any commas or currency symbols
+                                    clean_value = re.sub(r'[^\d.-]', '', str(value))
+                                    record[mapped_field] = float(clean_value) if clean_value else None
+                                except (ValueError, TypeError):
+                                    logger.warning(f"Could not convert {value} to float for {mapped_field}")
+                            elif mapped_field == 'year' and value:
+                                try:
+                                    year_val = int(value)
+                                    if 1900 <= year_val <= 2100:  # Sanity check for year
+                                        record['year'] = year_val
+                                except (ValueError, TypeError):
+                                    pass
+                            else:
+                                record[mapped_field] = value
+                    
+                    # If we have a tax_district_id but no levy_cd, use tax_district_id as levy_cd
+                    if record['tax_district_id'] and not record['levy_cd']:
+                        record['levy_cd'] = record['tax_district_id']
+                    
+                    # If we have a levy_cd but no tax_district_id, use levy_cd as tax_district_id
+                    if record['levy_cd'] and not record['tax_district_id']:
+                        record['tax_district_id'] = record['levy_cd']
+                    
+                    # Only add record if we have a levy code or tax_district_id
+                    if record['levy_cd'] or record['tax_district_id']:
+                        records.append(record)
+                        logger.debug(f"Added record: {record}")
+            
+            # If no records were found, try parsing without headers as a fallback
+            if not records:
+                logger.info("Attempting to parse CSV without headers")
+                with open(file_path, 'r', encoding='utf-8-sig') as f:
+                    reader = csv.reader(f, dialect=dialect)
+                    first_row = True
+                    row_count = 0
+                    
+                    for row in reader:
+                        row_count += 1
+                        # Skip header row
+                        if first_row and has_header:
+                            first_row = False
+                            continue
+                        
+                        # Skip empty rows
+                        if not row or all(not cell for cell in row):
+                            continue
+                        
+                        # Try to extract data based on position
+                        if len(row) >= 3:  # At minimum need district, levy code, and rate
+                            tax_district_id = row[0].strip() if len(row) > 0 and row[0] else None
+                            levy_cd = row[1].strip() if len(row) > 1 and row[1] else tax_district_id
+                            levy_cd_linked = row[2].strip() if len(row) > 2 and row[2] else None
+                            
+                            try:
+                                levy_rate = float(re.sub(r'[^\d.-]', '', row[3])) if len(row) > 3 and row[3] else None
+                            except (ValueError, TypeError):
+                                levy_rate = None
+                                
+                            try:
+                                levy_amount = float(re.sub(r'[^\d.-]', '', row[4])) if len(row) > 4 and row[4] else None
+                            except (ValueError, TypeError):
+                                levy_amount = None
+                            
+                            try:
+                                year_val = int(row[5]) if len(row) > 5 and row[5] and row[5].isdigit() else year
+                                if not (1900 <= year_val <= 2100):  # Sanity check
+                                    year_val = year
+                            except (ValueError, TypeError):
+                                year_val = year
+                            
+                            record = {
+                                'tax_district_id': tax_district_id,
+                                'levy_cd': levy_cd,
+                                'levy_cd_linked': levy_cd_linked,
+                                'levy_rate': levy_rate,
+                                'levy_amount': levy_amount,
+                                'year': year_val,
+                                'source': 'csv'
+                            }
+                            
+                            # Ensure we have either tax_district_id or levy_cd
+                            if record['tax_district_id'] or record['levy_cd']:
+                                records.append(record)
+                                logger.debug(f"Added record from no-header parsing: {record}")
+        
+        except Exception as e:
+            logger.error(f"Error parsing CSV file {file_path}: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return LevyExportData([], {'format': 'csv', 'year': year, 'error': str(e)})
+        
+        logger.info(f"Parsed {len(records)} records from CSV file")
+        return LevyExportData([r for r in records if isinstance(r, dict)], {'format': 'csv', 'year': year})
+        
+    @classmethod
+    def _parse_json(cls, file_path: Path) -> LevyExportData:
+        """
+        Parse a JSON format levy export file.
+        
+        Args:
+            file_path: Path to the JSON file
+            
+        Returns:
+            LevyExportData object containing the parsed data
+        """
+        logger.info(f"Parsing JSON levy export file: {file_path}")
+        
+        import json
+        records = []
+        year = datetime.now().year
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+            
+            # Try to extract year from metadata if available
+            if isinstance(data, dict):
+                metadata = data.get('metadata', {})
+                if metadata and 'year' in metadata:
+                    try:
+                        year = int(metadata['year'])
+                        logger.info(f"Found year in JSON metadata: {year}")
+                    except (ValueError, TypeError):
+                        pass
+                
+                # Look for records array
+                levy_records = data.get('records', [])
+                if not levy_records and 'levies' in data:
+                    levy_records = data.get('levies', [])
+                if not levy_records and 'districts' in data:
+                    levy_records = data.get('districts', [])
+            elif isinstance(data, list):
+                # Assume the array is the records
+                levy_records = data
+            else:
+                levy_records = []
+                logger.warning(f"Unexpected JSON structure in {file_path}")
+            
+            # Process records
+            for item in levy_records:
+                if not isinstance(item, dict):
+                    continue
+                    
+                # Extract levy code
+                levy_cd = None
+                for key in ('levy_cd', 'levy_code', 'code', 'levy', 'districtId', 'district_id'):
+                    if key in item and item[key]:
+                        levy_cd = str(item[key]).strip()
+                        break
+                
+                if not levy_cd:
+                    continue
+                
+                # Extract other fields
+                levy_cd_linked = None
+                if '/' in levy_cd:
+                    levy_cd, levy_cd_linked = levy_cd.split('/', 1)
+                
+                # Try to extract rate, amount and value
+                rate = None
+                for key in ('rate', 'levy_rate', 'tax_rate'):
+                    if key in item and item[key] is not None:
+                        try:
+                            rate = float(item[key])
+                            break
+                        except (ValueError, TypeError):
+                            pass
+                
+                amount = None
+                for key in ('amount', 'levy_amount', 'levy'):
+                    if key in item and item[key] is not None:
+                        try:
+                            amount = float(item[key])
+                            break
+                        except (ValueError, TypeError):
+                            pass
+                
+                value = None
+                for key in ('value', 'assessed_value', 'assessed'):
+                    if key in item and item[key] is not None:
+                        try:
+                            value = float(item[key])
+                            break
+                        except (ValueError, TypeError):
+                            pass
+                
+                # Extract year from record if available
+                record_year = year
+                for key in ('year', 'tax_year', 'levy_year'):
+                    if key in item and item[key] is not None:
+                        try:
+                            year_val = int(item[key])
+                            if 1900 <= year_val <= 2100:  # Sanity check
+                                record_year = year_val
+                                break
+                        except (ValueError, TypeError):
+                            pass
+                
+                record = {
+                    'tax_district_id': levy_cd,
+                    'levy_cd': levy_cd,
+                    'levy_cd_linked': levy_cd_linked,
+                    'levy_rate': rate,
+                    'levy_amount': amount,
+                    'assessed_value': value,
+                    'year': record_year,
+                    'source': 'json'
+                }
+                records.append(record)
+        
+        except Exception as e:
+            logger.error(f"Error parsing JSON file {file_path}: {str(e)}")
+            raise
+        
+        logger.info(f"Parsed {len(records)} records from JSON file")
+        return LevyExportData(records, {'format': 'json', 'year': year})
     
     @classmethod
     def _parse_xml(cls, file_path: Path) -> LevyExportData:

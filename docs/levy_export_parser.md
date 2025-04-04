@@ -1,156 +1,157 @@
-# Levy Export Parser
-
-The Levy Export Parser is a utility for parsing levy export files from county assessor's offices. It supports multiple file formats including:
-
-- Plain text files (.txt)
-- CSV files (.csv)
-- Excel 97-2003 (.xls)
-- Excel 2007+ (.xlsx)
-- XML Spreadsheet 2003 (.xml)
+# Levy Export Parser Documentation
 
 ## Overview
 
-The parser is designed to handle various file formats and extract standardized data, making it easy to work with levy export data regardless of the source format.
+The Levy Export Parser is a utility for parsing levy export files in various formats. It supports automatic format detection and extraction of levy data from TXT, XLS, XLSX, XML, CSV, and JSON files.
 
-## Key Components
+## Features
 
-### LevyExportFormat
+- **Format Auto-Detection**: Automatically detects the format of the input file based on file extension and content analysis.
+- **Multi-Format Support**: Parses levy data from various file formats including:
+  - Text files (TXT)
+  - Excel files (XLS, XLSX)
+  - XML files
+  - CSV files
+  - JSON files
+- **Flexible Parsing**: Accommodates various data structures and header formats within each file type.
+- **Year Detection**: Automatically detects the levy year from file metadata when available.
+- **Linked Levy Codes**: Properly handles levy codes with linked codes (e.g., "123/456").
+- **Error Handling**: Robust error handling with detailed logging for better troubleshooting.
+- **Standardized Output**: Returns a consistent data structure regardless of the input format.
 
-An enumeration of supported file formats:
+## Usage
 
-- `TXT`: Plain text files
-- `CSV`: CSV files
-- `XLS`: Excel 97-2003 files
-- `XLSX`: Excel 2007+ files
-- `XML`: XML files
-- `UNKNOWN`: Unsupported or unknown file formats
+### Basic Example
+
+```python
+from utils.levy_export_parser import LevyExportParser
+
+# Parse a levy export file
+data = LevyExportParser.parse_file("path/to/levy_export.xlsx")
+
+# Get number of records
+print(f"Found {len(data)} records")
+
+# Get years in the data
+print(f"Years: {data.get_years()}")
+
+# Get tax districts in the data
+print(f"Districts: {data.get_tax_districts()}")
+
+# Access the first record
+if data.records:
+    record = data.records[0]
+    print(f"Levy Code: {record['levy_cd']}")
+    print(f"Levy Rate: {record['levy_rate']}")
+    print(f"Levy Amount: {record['levy_amount']}")
+```
+
+### Format Detection
+
+```python
+from utils.levy_export_parser import LevyExportParser, LevyExportFormat
+
+# Detect the format of a file
+format = LevyExportParser.detect_format("path/to/levy_export.csv")
+print(f"Detected format: {format.name}")  # Output: CSV
+
+# Check if the format is supported
+if format != LevyExportFormat.UNKNOWN:
+    data = LevyExportParser.parse_file("path/to/levy_export.csv")
+else:
+    print("Unsupported file format")
+```
+
+### Handling Different Formats
+
+The parser automatically handles different file formats:
+
+```python
+# Parse files of different formats
+txt_data = LevyExportParser.parse_file("levy_data.txt")
+xlsx_data = LevyExportParser.parse_file("levy_data.xlsx")
+csv_data = LevyExportParser.parse_file("levy_data.csv")
+json_data = LevyExportParser.parse_file("levy_data.json")
+```
+
+## Data Model
 
 ### LevyExportData
 
-A class that stores parsed levy export data and metadata:
+The `LevyExportData` class is a container for the parsed levy data:
 
-- `records`: List of records extracted from the levy export file
-- `metadata`: Dictionary containing metadata about the file and extracted data
+- `records`: List of `LevyRecord` objects containing the parsed levy records
+- `metadata`: Dictionary containing metadata about the export (e.g., format, year)
+- `get_years()`: Returns a list of years found in the records
+- `get_tax_districts()`: Returns a list of unique tax district IDs
+- `get_levy_codes()`: Returns a list of unique levy codes
 
-Methods:
-- `add_record(record)`: Add a record to the levy export data
-- `to_dataframe()`: Convert the levy export data to a pandas DataFrame
-- `get_years()`: Get a sorted list of unique years in the levy export data
-- `get_tax_districts()`: Get a sorted list of unique tax districts in the levy export data
-- `get_levy_codes()`: Get a sorted list of unique levy codes in the levy export data
+### LevyRecord
 
-### LevyExportParser
+The `LevyRecord` class represents a single levy record:
 
-The base class for all levy export file parsers:
+- `data`: Dictionary containing the record data
+- `__getitem__(key)`: Access record data with dictionary syntax (e.g., `record['levy_cd']`)
+- `get(key, default)`: Get a value with a default if not found
 
-Static Methods:
-- `detect_format(file_path)`: Detect the format of a levy export file based on its extension
-- `create_parser(file_format)`: Create a parser for the specified file format
-- `parse_file(file_path)`: Parse a levy export file, automatically detecting the format
+Record fields include:
+- `tax_district_id`: Tax district identifier
+- `levy_cd`: Levy code
+- `levy_cd_linked`: Linked levy code (if applicable)
+- `levy_rate`: Levy rate value
+- `levy_amount`: Levy amount value
+- `assessed_value`: Assessed value
+- `year`: Tax year
+- `source`: Source format (e.g., 'txt', 'xlsx', 'csv')
 
-### Format-Specific Parsers
+## Format-Specific Considerations
 
-- `TextLevyExportParser`: Parser for text/CSV levy export files
-- `CsvLevyExportParser`: Parser for CSV levy export files
-- `ExcelLevyExportParser`: Parser for Excel (XLS/XLSX) levy export files
-- `XmlLevyExportParser`: Parser for XML levy export files
+### TXT Files
 
-## Utility Functions
+Text files are expected to be in a fixed-width or space-separated format with columns for levy code, rate, amount, and value. Headers are automatically detected.
 
-- `merge_levy_export_data(data_list)`: Merge multiple levy export data objects into one
-- `filter_levy_export_data_by_year(data, year)`: Filter levy export data to only include records for a specific year
-- `get_levy_data_summary(data)`: Generate a summary of levy export data
+### Excel Files (XLS/XLSX)
 
-## Usage Examples
+Excel files can have various structures. The parser tries to:
+1. Find a header row containing levy code, rate, amount, and value columns
+2. Extract the year from metadata rows
+3. Parse data rows according to the detected column structure
 
-### Detecting File Format
+### CSV Files
 
-```python
-from utils.levy_export_parser import LevyExportParser
+CSV files are parsed with automatic dialect detection. Headers are mapped to standard field names.
 
-file_path = "levy_export.xlsx"
-file_format = LevyExportParser.detect_format(file_path)
-print(f"Detected format: {file_format.name}")
-```
+### JSON Files
 
-### Parsing a File
+JSON files can have various structures:
+1. An object with a `records` or `levies` array
+2. An array of levy records
+3. Metadata can be included in a `metadata` object
 
-```python
-from utils.levy_export_parser import LevyExportParser
+### XML Files
 
-file_path = "levy_export.xlsx"
-levy_data = LevyExportParser.parse_file(file_path)
-
-# Print summary of parsed data
-print(f"Parsed {len(levy_data)} records")
-print(f"Years: {levy_data.get_years()}")
-print(f"Tax Districts: {len(levy_data.metadata['tax_districts'])}")
-print(f"Levy Codes: {len(levy_data.metadata['levy_codes'])}")
-```
-
-### Converting to DataFrame
-
-```python
-from utils.levy_export_parser import LevyExportParser
-
-file_path = "levy_export.xlsx"
-levy_data = LevyExportParser.parse_file(file_path)
-
-# Convert to pandas DataFrame
-df = levy_data.to_dataframe()
-
-# Perform data analysis
-print(df.describe())
-```
-
-### Filtering by Year
-
-```python
-from utils.levy_export_parser import LevyExportParser, filter_levy_export_data_by_year
-
-file_path = "levy_export.xlsx"
-levy_data = LevyExportParser.parse_file(file_path)
-
-# Filter data for a specific year
-year_data = filter_levy_export_data_by_year(levy_data, 2022)
-print(f"Records for 2022: {len(year_data)}")
-```
-
-## Integration with the Application
-
-The levy export parser is integrated with the application in the following ways:
-
-1. **Direct Parsing**: The `/levy-exports/parse-direct` route allows users to parse levy export files directly without importing them into the database.
-
-2. **Enhanced Import Process**: The levy export routes use the parser to handle uploads and imports of levy export files in various formats.
-
-3. **Fallback Mechanism**: The application uses the enhanced parser first, but falls back to legacy parsers if needed.
-
-## Schema Expectations
-
-The parser expects the following columns to be present in the levy export files:
-
-- `tax_district_id`: The ID of the tax district (int)
-- `year`: The tax year (int)
-- `levy_cd`: The levy code (string)
-- `levy_cd_linked`: The linked levy code (string)
-
-Additional columns may be present and will be preserved in the parsed data, but these four columns are required for full functionality.
+XML files are parsed using ElementTree, with support for various element naming conventions.
 
 ## Error Handling
 
-The parser includes comprehensive error handling:
+The parser includes comprehensive error handling and logging:
 
-- Format detection based on file extension
-- Graceful handling of missing or invalid data
-- Exception handling for file I/O issues
-- Fallback mechanisms when enhanced parsing fails
+```python
+import logging
+logging.basicConfig(level=logging.INFO)
 
-## Testing
+try:
+    data = LevyExportParser.parse_file("path/to/file.xlsx")
+except ValueError as e:
+    print(f"Invalid file format: {e}")
+except Exception as e:
+    print(f"Error parsing file: {e}")
+```
 
-Unit tests for the levy export parser are available in `tests/test_levy_export_parser.py`. These tests verify:
+## Best Practices
 
-- Format detection based on file extension
-- Parser creation for different formats
-- Adding records and updating metadata
-- Accessing records and metadata through getter methods
+1. **File Validation**: Always validate that the file exists before parsing
+2. **Error Handling**: Wrap parsing code in try-except blocks to handle potential errors
+3. **Logging**: Enable logging to get more detailed information about the parsing process
+4. **Format Detection**: Use the format detection method to check if a file format is supported before parsing
+5. **Data Validation**: Validate the parsed data before using it (e.g., check if records were found)
