@@ -207,6 +207,83 @@ def api_analytics():
     return render_template('api_analytics.html')
 
 
+@mcp_bp.route('/api/service-breakdown', methods=['GET'])
+def api_service_breakdown():
+    """
+    API endpoint to retrieve a breakdown of API calls by service.
+    
+    This endpoint returns JSON with statistics about API calls grouped by service,
+    including success rates, error rates, and performance metrics.
+    
+    Query Parameters:
+    - timeframe: Filter by time period (day, week, month, all)
+    """
+    try:
+        from models import APICallLog, db
+        from sqlalchemy import func
+        
+        # Parse query parameters
+        timeframe = request.args.get('timeframe', 'week')
+        
+        # Build query
+        query = db.session.query(
+            APICallLog.service,
+            func.count().label('total'),
+            func.sum(case((APICallLog.success == True, 1), else_=0)).label('success_count'),
+            func.sum(case((APICallLog.success == False, 1), else_=0)).label('error_count'),
+            func.avg(APICallLog.duration_ms).label('avg_duration')
+        )
+        
+        # Apply timeframe filter
+        if timeframe == 'day':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+            )
+        elif timeframe == 'week':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+            )
+        elif timeframe == 'month':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+            )
+        
+        # Group by service
+        query = query.group_by(APICallLog.service)
+        
+        # Order by total calls descending
+        query = query.order_by(func.count().desc())
+        
+        # Execute query
+        results = query.all()
+        
+        # Format results
+        services = []
+        for result in results:
+            services.append({
+                'service': result.service,
+                'total_calls': result.total,
+                'success_count': result.success_count or 0,
+                'error_count': result.error_count or 0,
+                'error_rate_percent': round((result.error_count or 0) / result.total * 100, 2) if result.total > 0 else 0,
+                'avg_duration_ms': round(result.avg_duration or 0, 2)
+            })
+        
+        # Return JSON response
+        return jsonify({
+            'services': services,
+            'timeframe': timeframe,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving service breakdown: {str(e)}")
+        return jsonify({
+            'error': True,
+            'message': str(e)
+        }), 500
+
+
 @mcp_bp.route('/api/timeseries', methods=['GET'])
 def api_timeseries():
     """
@@ -247,8 +324,8 @@ def api_timeseries():
         query = db.session.query(
             date_trunc.label('interval'),
             func.count().label('total'),
-            func.sum(case([(APICallLog.success == True, 1)], else_=0)).label('success'),
-            func.sum(case([(APICallLog.success == False, 1)], else_=0)).label('error'),
+            func.sum(case((APICallLog.success == True, 1), else_=0)).label('success'),
+            func.sum(case((APICallLog.success == False, 1), else_=0)).label('error'),
             func.avg(APICallLog.duration_ms).label('avg_duration')
         )
         
@@ -297,6 +374,105 @@ def api_timeseries():
         
     except Exception as e:
         logger.error(f"Error retrieving API time series data: {str(e)}")
+        return jsonify({
+            'error': True,
+            'message': str(e)
+        }), 500
+
+
+@mcp_bp.route('/api/response-time-distribution', methods=['GET'])
+def api_response_time_distribution():
+    """
+    API endpoint to retrieve distribution of API call response times.
+    
+    This endpoint returns JSON with the distribution of API calls by response time buckets,
+    which can be used to analyze performance and identify slow calls.
+    
+    Query Parameters:
+    - timeframe: Filter by time period (day, week, month, all)
+    - service: Filter by service name (optional)
+    """
+    try:
+        from models import APICallLog, db
+        from sqlalchemy import func, case
+        
+        # Parse query parameters
+        timeframe = request.args.get('timeframe', 'week')
+        service_filter = request.args.get('service')
+        
+        # Build query
+        query = db.session.query(APICallLog)
+        
+        # Apply timeframe filter
+        if timeframe == 'day':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+            )
+        elif timeframe == 'week':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+            )
+        elif timeframe == 'month':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+            )
+        
+        # Apply service filter if provided
+        if service_filter:
+            query = query.filter(APICallLog.service == service_filter)
+        
+        # Get all response times
+        calls = query.all()
+        
+        # Define buckets for response time distribution
+        buckets = {
+            'under_500ms': 0,
+            '500ms_to_1s': 0,
+            '1s_to_2s': 0,
+            '2s_to_5s': 0,
+            'over_5s': 0
+        }
+        
+        # Count calls in each bucket
+        for call in calls:
+            duration = call.duration_ms
+            if duration is None:
+                continue
+                
+            if duration < 500:
+                buckets['under_500ms'] += 1
+            elif duration < 1000:
+                buckets['500ms_to_1s'] += 1
+            elif duration < 2000:
+                buckets['1s_to_2s'] += 1
+            elif duration < 5000:
+                buckets['2s_to_5s'] += 1
+            else:
+                buckets['over_5s'] += 1
+        
+        # Calculate total calls and percentages
+        total_calls = sum(buckets.values())
+        percentages = {}
+        
+        if total_calls > 0:
+            for key, value in buckets.items():
+                percentages[key] = round((value / total_calls) * 100, 2)
+        else:
+            for key in buckets.keys():
+                percentages[key] = 0
+        
+        # Return JSON response
+        return jsonify({
+            'buckets': buckets,
+            'percentages': percentages,
+            'total_calls': total_calls,
+            'timeframe': timeframe,
+            'service': service_filter or 'all',
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving response time distribution: {str(e)}")
         return jsonify({
             'error': True,
             'message': str(e)
@@ -364,7 +540,8 @@ def api_historical_calls():
         # Format results
         results = []
         for call in calls:
-            results.append({
+            # Create a result dictionary with all available fields
+            result = {
                 'id': call.id,
                 'timestamp': call.timestamp.isoformat(),
                 'service': call.service,
@@ -372,8 +549,15 @@ def api_historical_calls():
                 'duration_ms': call.duration_ms,
                 'success': call.success,
                 'error_message': call.error_message,
-                'details': call.details
-            })
+            }
+            
+            # Add additional fields if they exist
+            if hasattr(call, 'details'):
+                result['details'] = call.details
+            elif hasattr(call, 'response_summary'):
+                result['details'] = call.response_summary
+            
+            results.append(result)
         
         # Build pagination metadata
         total_pages = (total_count + per_page - 1) // per_page
@@ -649,8 +833,8 @@ def api_statistics():
             # Build query based on timeframe
             query = db.session.query(
                 func.count().label('total'),
-                func.sum(case([(APICallLog.success == True, 1)], else_=0)).label('success_count'),
-                func.sum(case([(APICallLog.success == False, 1)], else_=0)).label('error_count'),
+                func.sum(case((APICallLog.success == True, 1), else_=0)).label('success_count'),
+                func.sum(case((APICallLog.success == False, 1), else_=0)).label('error_count'),
                 func.avg(APICallLog.duration_ms).label('avg_duration'),
                 func.sum(APICallLog.duration_ms).label('total_duration')
             )

@@ -308,18 +308,16 @@ function updateCharts(data) {
     }
     
     // Update API Calls Over Time Chart
-    // (In a real implementation, this would use data from a time series endpoint)
     updateApiCallsTimeChart(data);
     
-    // Update Calls by Service Chart
-    updateServicesChart(data.calls_by_service || {});
+    // Update Calls by Service Chart - Using dedicated endpoint
+    updateServicesChart();
     
     // Update Success vs Error Chart
     updateSuccessErrorChart(data.success_count || 0, data.error_count || 0);
     
-    // Update Response Time Distribution Chart
-    // (In a real implementation, this would use data from a dedicated endpoint)
-    updateResponseTimeChart(data);
+    // Update Response Time Distribution Chart - Using dedicated endpoint
+    updateResponseTimeChart();
 }
 
 /**
@@ -352,68 +350,200 @@ function updateChartsWithNoData() {
  * Function to update the API Calls Over Time Chart
  */
 function updateApiCallsTimeChart(data) {
-    // In a real implementation, this would use data from a time series endpoint
-    // For now, we'll simulate data based on the total calls
+    // Show loading state
+    apiCallsChart.data.labels = ['Loading...'];
+    apiCallsChart.data.datasets[0].data = [0];
+    apiCallsChart.update();
     
-    // Generate dates for the last 7 days
-    const dates = [];
-    const callCounts = [];
-    const today = new Date();
+    // Get the current time period
+    const period = document.querySelector('.time-period-btn.active').dataset.period;
     
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(today.getDate() - i);
-        dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        
-        // Simulate a distribution of calls
-        // More calls in the middle of the week, fewer at the beginning and end
-        const factor = 1 - Math.abs((i - 3) / 6);
-        const callCount = Math.round((data.total_calls / 7) * (factor * 1.5 + 0.5));
-        callCounts.push(callCount);
+    // Determine appropriate interval based on time period
+    let interval = 'day';
+    if (period === 'day') {
+        interval = 'hour';
+    } else if (period === 'month') {
+        interval = 'day';
+    } else if (period === 'all') {
+        interval = 'week';
     }
     
-    // Update chart
-    apiCallsChart.data.labels = dates;
-    apiCallsChart.data.datasets[0].data = callCounts;
-    apiCallsChart.update();
+    // Fetch data from the timeseries endpoint
+    fetch(`/mcp/api/timeseries?timeframe=${period}&interval=${interval}`)
+        .then(response => response.json())
+        .then(timeData => {
+            if (timeData.error) {
+                console.error('Error from timeseries endpoint:', timeData.message);
+                return;
+            }
+            
+            // Format the data for the chart
+            const labels = [];
+            const totalCalls = [];
+            const successCalls = [];
+            const errorCalls = [];
+            
+            if (timeData.data_points && timeData.data_points.length > 0) {
+                timeData.data_points.forEach(point => {
+                    // Format the timestamp based on interval
+                    const date = new Date(point.timestamp);
+                    let formattedDate;
+                    
+                    if (interval === 'hour') {
+                        formattedDate = date.toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                    } else if (interval === 'day') {
+                        formattedDate = date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                    } else if (interval === 'week') {
+                        formattedDate = `Week of ${date.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        })}`;
+                    } else {
+                        formattedDate = date.toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            year: 'numeric' 
+                        });
+                    }
+                    
+                    labels.push(formattedDate);
+                    totalCalls.push(point.total);
+                    successCalls.push(point.success);
+                    errorCalls.push(point.error);
+                });
+                
+                // Update chart with real data
+                apiCallsChart.data.labels = labels;
+                apiCallsChart.data.datasets = [
+                    {
+                        label: 'Total Calls',
+                        data: totalCalls,
+                        borderColor: chartColors.primary,
+                        backgroundColor: hexToRgba(chartColors.primary, 0.1),
+                        borderWidth: 2,
+                        pointBackgroundColor: chartColors.primary,
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'Success',
+                        data: successCalls,
+                        borderColor: chartColors.success,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointBackgroundColor: chartColors.success,
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: false
+                    },
+                    {
+                        label: 'Error',
+                        data: errorCalls,
+                        borderColor: chartColors.danger,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointBackgroundColor: chartColors.danger,
+                        pointRadius: 3,
+                        tension: 0.3,
+                        fill: false
+                    }
+                ];
+            } else {
+                // No data available
+                apiCallsChart.data.labels = ['No Data'];
+                apiCallsChart.data.datasets = [{
+                    label: 'API Calls',
+                    data: [0],
+                    borderColor: chartColors.primary,
+                    backgroundColor: hexToRgba(chartColors.primary, 0.1),
+                    borderWidth: 2,
+                    pointBackgroundColor: chartColors.primary,
+                    pointRadius: 3,
+                    tension: 0.3,
+                    fill: true
+                }];
+            }
+            
+            apiCallsChart.update();
+        })
+        .catch(error => {
+            console.error('Error fetching time series data:', error);
+            // Show error state
+            apiCallsChart.data.labels = ['Error loading data'];
+            apiCallsChart.data.datasets[0].data = [0];
+            apiCallsChart.update();
+        });
 }
 
 /**
  * Function to update the Calls by Service Chart
  */
-function updateServicesChart(serviceData) {
-    const labels = [];
-    const data = [];
-    const backgroundColors = [];
-    
-    // Process the service data
-    let index = 0;
-    for (const [service, count] of Object.entries(serviceData)) {
-        labels.push(service);
-        data.push(count);
-        
-        // Assign a color from the color list
-        if (index < chartColors.additionalColors.length) {
-            backgroundColors.push(chartColors.additionalColors[index]);
-        } else {
-            // If we run out of colors, generate a random one
-            backgroundColors.push(getRandomColor());
-        }
-        index++;
-    }
-    
-    // If no services, show a placeholder
-    if (labels.length === 0) {
-        labels.push('No Data');
-        data.push(1);
-        backgroundColors.push(chartColors.secondary);
-    }
-    
-    // Update chart
-    servicesChart.data.labels = labels;
-    servicesChart.data.datasets[0].data = data;
-    servicesChart.data.datasets[0].backgroundColor = backgroundColors;
+function updateServicesChart() {
+    // Show loading state
+    servicesChart.data.labels = ['Loading...'];
+    servicesChart.data.datasets[0].data = [1];
+    servicesChart.data.datasets[0].backgroundColor = [chartColors.secondary];
     servicesChart.update();
+    
+    // Get the current time period
+    const period = document.querySelector('.time-period-btn.active').dataset.period;
+    
+    // Fetch data from the service breakdown endpoint
+    fetch(`/mcp/api/service-breakdown?timeframe=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error from service breakdown endpoint:', data.message);
+                return;
+            }
+            
+            const labels = [];
+            const callData = [];
+            const backgroundColors = [];
+            
+            // Process the service data
+            if (data.services && data.services.length > 0) {
+                let index = 0;
+                data.services.forEach(service => {
+                    labels.push(service.service);
+                    callData.push(service.total_calls);
+                    
+                    // Assign a color from the color list
+                    if (index < chartColors.additionalColors.length) {
+                        backgroundColors.push(chartColors.additionalColors[index]);
+                    } else {
+                        // If we run out of colors, generate a random one
+                        backgroundColors.push(getRandomColor());
+                    }
+                    index++;
+                });
+            } else {
+                // No data available
+                labels.push('No Data');
+                callData.push(1);
+                backgroundColors.push(chartColors.secondary);
+            }
+            
+            // Update chart
+            servicesChart.data.labels = labels;
+            servicesChart.data.datasets[0].data = callData;
+            servicesChart.data.datasets[0].backgroundColor = backgroundColors;
+            servicesChart.update();
+        })
+        .catch(error => {
+            console.error('Error fetching service breakdown data:', error);
+            // Show error state
+            servicesChart.data.labels = ['Error loading data'];
+            servicesChart.data.datasets[0].data = [1];
+            servicesChart.data.datasets[0].backgroundColor = [chartColors.danger];
+            servicesChart.update();
+        });
 }
 
 /**
@@ -437,170 +567,161 @@ function updateSuccessErrorChart(successCount, errorCount) {
 /**
  * Function to update the Response Time Distribution Chart
  */
-function updateResponseTimeChart(data) {
-    // In a real implementation, this would use data from a dedicated endpoint
-    // For now, we'll simulate data based on the average response time
-    
-    // Initialize buckets for response time distribution
-    const buckets = [0, 0, 0, 0, 0]; // < 500ms, 500ms-1s, 1s-2s, 2s-5s, > 5s
-    
-    if (data.total_calls > 0 && data.avg_duration_ms) {
-        // Simulate a normal distribution around the average
-        const avgMs = data.avg_duration_ms;
-        const totalCalls = data.total_calls;
-        
-        if (avgMs < 250) {
-            // Mostly fast responses
-            buckets[0] = Math.round(totalCalls * 0.7);
-            buckets[1] = Math.round(totalCalls * 0.2);
-            buckets[2] = Math.round(totalCalls * 0.07);
-            buckets[3] = Math.round(totalCalls * 0.02);
-            buckets[4] = Math.round(totalCalls * 0.01);
-        } else if (avgMs < 750) {
-            // Mix of fast and medium responses
-            buckets[0] = Math.round(totalCalls * 0.4);
-            buckets[1] = Math.round(totalCalls * 0.4);
-            buckets[2] = Math.round(totalCalls * 0.15);
-            buckets[3] = Math.round(totalCalls * 0.04);
-            buckets[4] = Math.round(totalCalls * 0.01);
-        } else if (avgMs < 1500) {
-            // Mostly medium responses
-            buckets[0] = Math.round(totalCalls * 0.1);
-            buckets[1] = Math.round(totalCalls * 0.5);
-            buckets[2] = Math.round(totalCalls * 0.3);
-            buckets[3] = Math.round(totalCalls * 0.08);
-            buckets[4] = Math.round(totalCalls * 0.02);
-        } else if (avgMs < 3500) {
-            // Slower responses
-            buckets[0] = Math.round(totalCalls * 0.05);
-            buckets[1] = Math.round(totalCalls * 0.15);
-            buckets[2] = Math.round(totalCalls * 0.4);
-            buckets[3] = Math.round(totalCalls * 0.3);
-            buckets[4] = Math.round(totalCalls * 0.1);
-        } else {
-            // Very slow responses
-            buckets[0] = Math.round(totalCalls * 0.02);
-            buckets[1] = Math.round(totalCalls * 0.08);
-            buckets[2] = Math.round(totalCalls * 0.2);
-            buckets[3] = Math.round(totalCalls * 0.4);
-            buckets[4] = Math.round(totalCalls * 0.3);
-        }
-    }
-    
-    // Ensure the sum equals the total calls
-    let sum = buckets.reduce((a, b) => a + b, 0);
-    if (sum < data.total_calls) {
-        buckets[2] += (data.total_calls - sum);
-    }
-    
-    // Update chart
-    responseTimeChart.data.datasets[0].data = buckets;
+function updateResponseTimeChart() {
+    // Show loading state
+    responseTimeChart.data.datasets[0].data = [0, 0, 0, 0, 0];
     responseTimeChart.update();
+    
+    // Get the current time period
+    const period = document.querySelector('.time-period-btn.active').dataset.period;
+    
+    // Fetch data from the response time distribution endpoint
+    fetch(`/mcp/api/response-time-distribution?timeframe=${period}`)
+        .then(response => response.json())
+        .then(timeData => {
+            if (timeData.error) {
+                console.error('Error from response time distribution endpoint:', timeData.message);
+                return;
+            }
+            
+            // Format the data for the chart
+            const buckets = [
+                timeData.buckets.under_500ms || 0,
+                timeData.buckets['500ms_to_1s'] || 0,
+                timeData.buckets['1s_to_2s'] || 0,
+                timeData.buckets['2s_to_5s'] || 0,
+                timeData.buckets.over_5s || 0
+            ];
+            
+            // Update chart
+            responseTimeChart.data.datasets[0].data = buckets;
+            responseTimeChart.update();
+        })
+        .catch(error => {
+            console.error('Error fetching response time distribution data:', error);
+            // Show error state
+            responseTimeChart.data.datasets[0].data = [0, 0, 0, 0, 0];
+            responseTimeChart.update();
+        });
 }
 
 /**
- * Function to fetch recent API calls
+ * Function to fetch recent API calls for a given time period, page, and per page count
  */
 function fetchRecentCalls(period, page, perPage, append = false) {
-    const tableBody = document.getElementById('api-calls-table-body');
-    const loadMoreBtn = document.getElementById('load-more-calls');
-    
-    // Show loading state if not appending
+    // Show loading state
     if (!append) {
-        tableBody.innerHTML = `
+        document.getElementById('recent-calls-table').innerHTML = `
             <tr>
-                <td colspan="6" class="text-center">
-                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    Loading recent API calls...
+                <td colspan="5" class="text-center">
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Loading...
                 </td>
             </tr>
         `;
     }
     
-    // Disable load more button while loading
-    loadMoreBtn.disabled = true;
-    loadMoreBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
-    
     // Fetch data from the historical calls endpoint
     fetch(`/mcp/api/historical-calls?timeframe=${period}&page=${page}&per_page=${perPage}`)
         .then(response => response.json())
         .then(data => {
-            // Re-enable load more button
-            loadMoreBtn.disabled = false;
-            loadMoreBtn.innerHTML = 'Load More';
-            
-            // Hide load more button if no more pages
-            if (!data.meta.has_next) {
-                loadMoreBtn.style.display = 'none';
-            } else {
-                loadMoreBtn.style.display = 'block';
-            }
-            
-            // Clear table if not appending
-            if (!append) {
-                tableBody.innerHTML = '';
-            }
-            
-            // If no calls, show a message
-            if (data.calls.length === 0) {
-                tableBody.innerHTML = `
+            if (data.error) {
+                console.error('Error from historical calls endpoint:', data.message);
+                document.getElementById('recent-calls-table').innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center">
-                            <i class="bi bi-info-circle me-2"></i>
-                            No API calls found for this time period
+                        <td colspan="5" class="text-center text-danger">
+                            Error loading data
                         </td>
                     </tr>
                 `;
                 return;
             }
             
-            // Add rows to the table
-            data.calls.forEach(call => {
-                const row = document.createElement('tr');
-                
-                // Format timestamp
-                const timestamp = new Date(call.timestamp);
-                const formattedDate = timestamp.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
-                
-                // Create table cells
-                row.innerHTML = `
-                    <td>${formattedDate}</td>
-                    <td><span class="service-tag">${call.service || 'N/A'}</span></td>
-                    <td>${call.method || 'N/A'}</td>
-                    <td>${call.duration_ms ? call.duration_ms.toFixed(0) + 'ms' : 'N/A'}</td>
-                    <td class="status-${call.success ? 'success' : 'error'}">
-                        ${call.success ? 
-                            '<i class="bi bi-check-circle me-1"></i>Success' : 
-                            '<i class="bi bi-x-circle me-1"></i>Error'}
-                    </td>
-                    <td>${call.error_message || '-'}</td>
+            // If no data, show empty state
+            if (!data.calls || data.calls.length === 0) {
+                document.getElementById('recent-calls-table').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            No API calls found for this time period
+                        </td>
+                    </tr>
                 `;
                 
-                tableBody.appendChild(row);
+                // Hide load more button
+                document.getElementById('load-more-calls').style.display = 'none';
+                return;
+            }
+            
+            // Format and display recent calls
+            let tableHtml = '';
+            if (append) {
+                tableHtml = document.getElementById('recent-calls-table').innerHTML;
+            }
+            
+            data.calls.forEach(call => {
+                // Format the timestamp
+                const date = new Date(call.timestamp);
+                const formattedTime = date.toLocaleString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+                
+                // Format the status badge
+                const statusClass = call.success ? 'success' : 'danger';
+                const statusText = call.success ? 'Success' : 'Error';
+                
+                // Format the duration with appropriate units
+                let duration = 'N/A';
+                if (call.duration_ms) {
+                    duration = call.duration_ms.toFixed(0) + 'ms';
+                }
+                
+                // Format the error message (truncate if too long)
+                let errorMessage = call.error_message || '';
+                if (errorMessage.length > 50) {
+                    errorMessage = errorMessage.substring(0, 47) + '...';
+                }
+                
+                tableHtml += `
+                    <tr>
+                        <td>${formattedTime}</td>
+                        <td>${call.service}</td>
+                        <td>${call.method}</td>
+                        <td>${duration}</td>
+                        <td>
+                            <span class="badge bg-${statusClass}">${statusText}</span>
+                            ${errorMessage ? `<div class="small text-muted mt-1">${errorMessage}</div>` : ''}
+                        </td>
+                    </tr>
+                `;
             });
+            
+            // Update table with the data
+            document.getElementById('recent-calls-table').innerHTML = tableHtml;
+            
+            // Update pagination controls
+            document.getElementById('load-more-calls').style.display = data.meta.has_next ? 'block' : 'none';
+            
+            // If pagination info is available, update the info text
+            if (data.meta) {
+                const start = (data.meta.page - 1) * data.meta.per_page + 1;
+                const end = Math.min(start + data.meta.per_page - 1, data.meta.total_count);
+                document.getElementById('pagination-info').innerHTML = `
+                    Showing <span class="fw-bold">${start}-${end}</span> of <span class="fw-bold">${data.meta.total_count}</span> calls
+                `;
+            }
         })
         .catch(error => {
-            console.error('Error fetching historical calls:', error);
-            
-            // Re-enable load more button
-            loadMoreBtn.disabled = false;
-            loadMoreBtn.innerHTML = 'Load More';
-            
-            // Show error message if not appending
+            console.error('Error fetching recent calls:', error);
+            // Show error state
             if (!append) {
-                tableBody.innerHTML = `
+                document.getElementById('recent-calls-table').innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center text-danger">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            Error loading API calls: ${error.message}
+                        <td colspan="5" class="text-center text-danger">
+                            Error loading data
                         </td>
                     </tr>
                 `;
@@ -609,17 +730,15 @@ function fetchRecentCalls(period, page, perPage, append = false) {
 }
 
 /**
- * Helper function to convert hex color to rgba with opacity
+ * Helper function to convert hex color to rgba
  */
-function hexToRgba(hex, opacity) {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+function hexToRgba(hex, alpha = 1) {
+    const [r, g, b] = hex.match(/\w\w/g).map(x => parseInt(x, 16));
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 /**
- * Helper function to generate random color
+ * Helper function to generate a random color
  */
 function getRandomColor() {
     const letters = '0123456789ABCDEF';
@@ -628,4 +747,15 @@ function getRandomColor() {
         color += letters[Math.floor(Math.random() * 16)];
     }
     return color;
+}
+
+/**
+ * Helper function to format a date as a string
+ */
+function formatDate(date) {
+    return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+    });
 }
