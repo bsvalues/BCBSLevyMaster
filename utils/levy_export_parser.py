@@ -1,717 +1,604 @@
 """
-Levy Export Parser.
+Levy Export Parser for the SaaS Levy Calculation System.
 
-This module provides utilities for parsing levy export files 
-in various formats (TXT, XLS, XLSX, XML).
+This module provides classes for parsing levy export files in various formats,
+including text (.txt), Excel (.xls, .xlsx), and XML formats.
 """
 
 import os
-import csv
 import re
+import csv
 import logging
-from enum import Enum, auto
+import tempfile
+from enum import Enum
+from typing import List, Dict, Any, Union, Optional, Tuple
+from datetime import datetime
+from pathlib import Path
+
+# Third-party libraries
+import openpyxl
 import pandas as pd
-import xml.etree.ElementTree as ET
+import xlrd
 
-
-class LevyExportFormat(Enum):
-    """
-    Enumeration of levy export file formats.
-    """
-    TXT = auto()
-    XLS = auto()
-    XLSX = auto()
-    XML = auto()
-    
-    @classmethod
-    def from_extension(cls, extension):
-        """
-        Get format from file extension.
-        
-        Args:
-            extension: File extension (with or without leading dot)
-            
-        Returns:
-            LevyExportFormat enum value or None if not supported
-        """
-        extension = extension.lower().lstrip('.')
-        
-        if extension == 'txt':
-            return cls.TXT
-        elif extension == 'xls':
-            return cls.XLS
-        elif extension == 'xlsx':
-            return cls.XLSX
-        elif extension == 'xml':
-            return cls.XML
-        else:
-            return None
-
-# Configure logger
+# Setup logging
 logger = logging.getLogger(__name__)
 
 
-class LevyExportParser:
-    """
-    Parser for levy export files from tax assessment systems.
-    Supports various file formats and extracts structured data.
-    """
+class LevyExportFormat(Enum):
+    """Enumeration of supported levy export file formats."""
+    TXT = 'txt'
+    XLS = 'xls'
+    XLSX = 'xlsx'
+    XML = 'xml'
+    UNKNOWN = 'unknown'
+
+
+class LevyRecord:
+    """A single levy record extracted from a levy export file."""
     
-    def __init__(self, file_path):
+    def __init__(self, data: Dict[str, Any]):
         """
-        Initialize the parser with a file path.
+        Initialize a levy record with the provided data.
         
         Args:
-            file_path: Path to the levy export file
-            
-        Raises:
-            FileNotFoundError: If the file does not exist
-            ValueError: If the file type is not supported
+            data: Dictionary of levy record data
         """
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: {file_path}")
-            
-        self.file_path = file_path
-        self.file_type = self._determine_file_type(file_path)
+        self.data = data
         
-        if self.file_type not in ["txt", "xls", "xlsx", "xml"]:
-            raise ValueError(f"Unsupported file type: {self.file_type}")
-    
-    def _determine_file_type(self, file_path):
+    def __getitem__(self, key: str) -> Any:
         """
-        Determine the file type from the extension.
+        Get a value from the record data.
+        
+        Args:
+            key: The key to look up
+            
+        Returns:
+            The value for the key or None if not found
+        """
+        return self.data.get(key)
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a value from the record data with a default.
+        
+        Args:
+            key: The key to look up
+            default: Default value if key not found
+            
+        Returns:
+            The value for the key or the default if not found
+        """
+        return self.data.get(key, default)
+
+
+class LevyExportData:
+    """Container for levy export data extracted from a file."""
+    
+    def __init__(self, records: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None):
+        """
+        Initialize with records and optional metadata.
+        
+        Args:
+            records: List of levy record dictionaries
+            metadata: Optional metadata about the export
+        """
+        self.records = [LevyRecord(record) for record in records]
+        self.metadata = metadata or {}
+        
+    def __len__(self) -> int:
+        """Get the number of records."""
+        return len(self.records)
+    
+    def get_years(self) -> List[int]:
+        """
+        Get a list of all years in the data.
+        
+        Returns:
+            List of years found in the records
+        """
+        years = set()
+        for record in self.records:
+            year = record['year']
+            if year:
+                try:
+                    years.add(int(year))
+                except (ValueError, TypeError):
+                    pass
+        return sorted(list(years))
+    
+    def get_tax_districts(self) -> List[str]:
+        """
+        Get a list of all tax districts in the data.
+        
+        Returns:
+            List of unique tax district IDs
+        """
+        districts = set()
+        for record in self.records:
+            district = record['tax_district_id']
+            if district:
+                districts.add(str(district))
+        return sorted(list(districts))
+    
+    def get_levy_codes(self) -> List[str]:
+        """
+        Get a list of all levy codes in the data.
+        
+        Returns:
+            List of unique levy codes
+        """
+        codes = set()
+        for record in self.records:
+            code = record['levy_cd']
+            if code:
+                codes.add(str(code))
+        return sorted(list(codes))
+
+
+class LevyExportParser:
+    """Parser for levy export files in various formats."""
+    
+    @classmethod
+    def detect_format(cls, file_path: Union[str, Path]) -> LevyExportFormat:
+        """
+        Detect the format of a levy export file.
         
         Args:
             file_path: Path to the file
             
         Returns:
-            String file type (lowercase extension without dot)
+            The detected file format as a LevyExportFormat enum
         """
-        _, ext = os.path.splitext(file_path)
-        return ext.lower().lstrip(".")
-    
-    def parse(self):
-        """
-        Parse the file and extract structured data.
+        file_path = Path(file_path)
+        extension = file_path.suffix.lower().lstrip('.')
         
+        if extension == 'txt':
+            return LevyExportFormat.TXT
+        elif extension == 'xls':
+            return LevyExportFormat.XLS
+        elif extension == 'xlsx':
+            return LevyExportFormat.XLSX
+        elif extension == 'xml':
+            return LevyExportFormat.XML
+        else:
+            return LevyExportFormat.UNKNOWN
+    
+    @classmethod
+    def parse_file(cls, file_path: Union[str, Path]) -> LevyExportData:
+        """
+        Parse a levy export file.
+        
+        Args:
+            file_path: Path to the file
+            
         Returns:
-            Dict containing extracted data with keys:
-            - districts: List of tax district data
-            - tax_codes: List of tax code data
-            - properties: List of property data
+            LevyExportData object containing the parsed data
             
         Raises:
-            ValueError: If parsing fails
+            ValueError: If the file format is not supported
         """
-        try:
-            if self.file_type == "txt":
-                return self._parse_txt()
-            elif self.file_type == "xls":
-                return self._parse_xls()
-            elif self.file_type == "xlsx":
-                return self._parse_xlsx()
-            elif self.file_type == "xml":
-                return self._parse_xml()
-            else:
-                raise ValueError(f"Unsupported file type: {self.file_type}")
-        except Exception as e:
-            logger.error(f"Error parsing file {self.file_path}: {str(e)}")
-            raise
+        file_path = Path(file_path)
+        format = cls.detect_format(file_path)
+        
+        if format == LevyExportFormat.TXT:
+            return cls._parse_txt(file_path)
+        elif format == LevyExportFormat.XLS:
+            return cls._parse_xls(file_path)
+        elif format == LevyExportFormat.XLSX:
+            return cls._parse_xlsx(file_path)
+        elif format == LevyExportFormat.XML:
+            return cls._parse_xml(file_path)
+        else:
+            raise ValueError(f"Unsupported file format: {format}")
     
-    def _parse_txt(self):
+    @classmethod
+    def _parse_txt(cls, file_path: Path) -> LevyExportData:
         """
-        Parse TXT format levy export file.
-        
-        Returns:
-            Dict containing extracted data
-        """
-        with open(self.file_path, 'r') as file:
-            content = file.read()
-            
-        # Extract year from the content
-        year = self._extract_year_from_content(content)
-        
-        # Split content into sections
-        sections = self._split_txt_sections(content)
-        
-        # Parse districts
-        districts = self._parse_txt_districts(sections.get('districts', ''), year)
-        
-        # Parse tax codes
-        tax_codes = self._parse_txt_tax_codes(sections.get('tax_codes', ''), year)
-        
-        # Parse properties
-        properties = self._parse_txt_properties(sections.get('properties', ''))
-        
-        return {
-            'districts': districts,
-            'tax_codes': tax_codes,
-            'properties': properties,
-            'year': year
-        }
-    
-    def _parse_xls(self):
-        """
-        Parse XLS format levy export file.
-        
-        Returns:
-            Dict containing extracted data
-        """
-        try:
-            # Read the Excel file
-            df = pd.read_excel(self.file_path, sheet_name=None)
-            
-            # Process each sheet
-            result = {
-                'districts': [],
-                'tax_codes': [],
-                'properties': []
-            }
-            
-            # Extract year from the file content
-            year = None
-            
-            # Try to find the year in the first sheet
-            if len(df) > 0:
-                first_sheet = list(df.values())[0]
-                year_str = str(first_sheet.iloc[0, 0]) if not first_sheet.empty else ""
-                year = self._extract_year_from_content(year_str)
-            
-            # Process each sheet based on its content
-            for sheet_name, sheet_df in df.items():
-                if 'district' in sheet_name.lower():
-                    districts = self._parse_excel_districts(sheet_df, year)
-                    result['districts'].extend(districts)
-                elif 'code' in sheet_name.lower() or 'levy' in sheet_name.lower():
-                    tax_codes = self._parse_excel_tax_codes(sheet_df, year)
-                    result['tax_codes'].extend(tax_codes)
-                elif 'property' in sheet_name.lower() or 'parcel' in sheet_name.lower():
-                    properties = self._parse_excel_properties(sheet_df)
-                    result['properties'].extend(properties)
-            
-            return result
-        except Exception as e:
-            logger.error(f"Error parsing XLS file: {str(e)}")
-            # Return minimal structure on error
-            return {'districts': [], 'tax_codes': [], 'properties': []}
-    
-    def _parse_xlsx(self):
-        """
-        Parse XLSX format levy export file.
-        
-        Returns:
-            Dict containing extracted data
-        """
-        return self._parse_xls()  # Same processing logic as XLS
-    
-    def _parse_xml(self):
-        """
-        Parse XML format levy export file.
-        
-        Returns:
-            Dict containing extracted data
-        """
-        try:
-            tree = ET.parse(self.file_path)
-            root = tree.getroot()
-            
-            # Initialize result
-            result = {
-                'districts': [],
-                'tax_codes': [],
-                'properties': []
-            }
-            
-            # Extract year from XML
-            year_element = root.find('.//Year') or root.find('.//year')
-            year = int(year_element.text) if year_element is not None else None
-            
-            # Parse districts
-            for district_elem in root.findall('.//District') or root.findall('.//district'):
-                district = {
-                    'district_id': self._get_xml_text(district_elem, 'ID') or self._get_xml_text(district_elem, 'Id'),
-                    'name': self._get_xml_text(district_elem, 'Name') or self._get_xml_text(district_elem, 'name'),
-                    'year': year
-                }
-                result['districts'].append(district)
-            
-            # Parse tax codes
-            for tax_code_elem in root.findall('.//TaxCode') or root.findall('.//taxCode'):
-                tax_code = {
-                    'code': self._get_xml_text(tax_code_elem, 'Code') or self._get_xml_text(tax_code_elem, 'code'),
-                    'levy_amount': float(self._get_xml_text(tax_code_elem, 'LevyAmount') or 
-                                        self._get_xml_text(tax_code_elem, 'levyAmount') or 0),
-                    'levy_rate': float(self._get_xml_text(tax_code_elem, 'LevyRate') or 
-                                      self._get_xml_text(tax_code_elem, 'levyRate') or 0),
-                    'total_assessed_value': float(self._get_xml_text(tax_code_elem, 'TotalAssessedValue') or 
-                                                 self._get_xml_text(tax_code_elem, 'totalAssessedValue') or 0),
-                    'year': year
-                }
-                result['tax_codes'].append(tax_code)
-            
-            # Parse properties
-            for property_elem in root.findall('.//Property') or root.findall('.//property'):
-                prop = {
-                    'property_id': self._get_xml_text(property_elem, 'ID') or self._get_xml_text(property_elem, 'Id'),
-                    'assessed_value': float(self._get_xml_text(property_elem, 'AssessedValue') or 
-                                           self._get_xml_text(property_elem, 'assessedValue') or 0),
-                    'tax_code': self._get_xml_text(property_elem, 'TaxCode') or self._get_xml_text(property_elem, 'taxCode'),
-                    'address': self._get_xml_text(property_elem, 'Address') or self._get_xml_text(property_elem, 'address'),
-                    'owner_name': self._get_xml_text(property_elem, 'OwnerName') or self._get_xml_text(property_elem, 'ownerName')
-                }
-                result['properties'].append(prop)
-            
-            return result
-        except Exception as e:
-            logger.error(f"Error parsing XML file: {str(e)}")
-            # Return minimal structure on error
-            return {'districts': [], 'tax_codes': [], 'properties': []}
-    
-    def _extract_year_from_content(self, content):
-        """
-        Extract year from file content.
+        Parse a text format levy export file.
         
         Args:
-            content: File content string
+            file_path: Path to the TXT file
             
         Returns:
-            Integer year or None if not found
+            LevyExportData object containing the parsed data
         """
-        # Try to find a year in format "Year: YYYY" or "Tax Year: YYYY"
-        year_match = re.search(r'(?:Tax\s+)?Year:\s*(\d{4})', content)
-        if year_match:
-            return int(year_match.group(1))
+        logger.info(f"Parsing TXT levy export file: {file_path}")
         
-        # Try to find any 4-digit number that looks like a year (20xx)
-        year_match = re.search(r'\b(20\d{2})\b', content)
-        if year_match:
-            return int(year_match.group(1))
+        records = []
+        year = datetime.now().year
+        header_pattern = re.compile(r'^\s*LEVY CODE\s+RATE\s+LEVY\s+VALUE\s*$', re.IGNORECASE)
         
-        return None
-    
-    def _split_txt_sections(self, content):
-        """
-        Split TXT content into logical sections.
-        
-        Args:
-            content: File content string
-            
-        Returns:
-            Dict of section content by section name
-        """
-        sections = {}
-        
-        # Define section markers
-        section_markers = {
-            'districts': ['DISTRICTS', 'TAX DISTRICTS', 'DISTRICT LIST'],
-            'tax_codes': ['TAX CODES', 'LEVY CODES', 'CODE LIST'],
-            'properties': ['PROPERTIES', 'PARCELS', 'PROPERTY LIST']
-        }
-        
-        # Find each section in the content
-        lines = content.split('\n')
-        current_section = None
-        section_content = []
-        
-        for line in lines:
-            # Check if this line is a section header
-            found_new_section = False
-            for section, markers in section_markers.items():
-                if any(marker in line.upper() for marker in markers):
-                    # Save the current section
-                    if current_section:
-                        sections[current_section] = '\n'.join(section_content)
+        try:
+            with open(file_path, 'r', encoding='utf-8-sig') as f:
+                lines = f.readlines()
+                
+                # Scan for headers and extract year if available
+                for i, line in enumerate(lines[:20]):  # Check first 20 lines for headers
+                    if re.search(r'(LEVY|TAX)\s+YEAR\s*[:=\s]\s*(\d{4})', line, re.IGNORECASE):
+                        year_match = re.search(r'(\d{4})', line)
+                        if year_match:
+                            year = int(year_match.group(1))
+                            logger.info(f"Found year in header: {year}")
                     
-                    # Start new section
-                    current_section = section
-                    section_content = []
-                    found_new_section = True
+                    if header_pattern.search(line):
+                        # Found the column headers, start parsing from next line
+                        data_lines = lines[i+1:]
+                        break
+                else:
+                    # If no header found, assume all lines are data
+                    data_lines = lines
+                
+                # Parse data lines
+                for line in data_lines:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Try to parse fixed-width format
+                    match = re.match(r'^\s*(\S+)\s+(\d*\.?\d*)\s+(\d*\.?\d*)\s+(\d*\.?\d*)', line)
+                    if match:
+                        levy_cd, rate, levy, value = match.groups()
+                        
+                        # Clean up and convert values
+                        try:
+                            rate = float(rate) if rate else None
+                            levy = float(levy) if levy else None
+                            value = float(value) if value else None
+                        except ValueError:
+                            logger.warning(f"Failed to parse values from line: {line}")
+                            continue
+                        
+                        # Check for linked levy code
+                        levy_cd_linked = None
+                        if '/' in levy_cd:
+                            levy_cd, levy_cd_linked = levy_cd.split('/', 1)
+                        
+                        record = {
+                            'tax_district_id': levy_cd,
+                            'levy_cd': levy_cd,
+                            'levy_cd_linked': levy_cd_linked,
+                            'levy_rate': rate,
+                            'levy_amount': levy,
+                            'assessed_value': value,
+                            'year': year,
+                            'source': 'txt'
+                        }
+                        records.append(record)
+        
+        except Exception as e:
+            logger.error(f"Error parsing TXT file {file_path}: {str(e)}")
+            raise
+        
+        logger.info(f"Parsed {len(records)} records from TXT file")
+        return LevyExportData(records, {'format': 'txt', 'year': year})
+    
+    @classmethod
+    def _parse_xls(cls, file_path: Path) -> LevyExportData:
+        """
+        Parse an Excel .xls format levy export file.
+        
+        Args:
+            file_path: Path to the XLS file
+            
+        Returns:
+            LevyExportData object containing the parsed data
+        """
+        logger.info(f"Parsing XLS levy export file: {file_path}")
+        
+        try:
+            # Open the workbook and select the first sheet
+            wb = xlrd.open_workbook(file_path)
+            sheet = wb.sheet_by_index(0)
+            
+            # Attempt to find header row
+            header_row = None
+            year = datetime.now().year
+            
+            for row_idx in range(min(20, sheet.nrows)):  # Check first 20 rows
+                row_values = [str(cell).strip().upper() for cell in sheet.row_values(row_idx)]
+                row_text = ' '.join(row_values)
+                
+                # Look for year in header rows
+                if re.search(r'(LEVY|TAX)\s+YEAR\s*[:=\s]\s*(\d{4})', row_text, re.IGNORECASE):
+                    year_match = re.search(r'(\d{4})', row_text)
+                    if year_match:
+                        year = int(year_match.group(1))
+                        logger.info(f"Found year in header: {year}")
+                
+                # Look for column headers
+                if 'LEVY CODE' in row_text and 'RATE' in row_text:
+                    header_row = row_idx
+                    logger.info(f"Found header row at index {header_row}")
                     break
             
-            if not found_new_section and current_section:
-                section_content.append(line)
-        
-        # Save the last section
-        if current_section:
-            sections[current_section] = '\n'.join(section_content)
-        
-        return sections
-    
-    def _parse_txt_districts(self, content, year):
-        """
-        Parse districts from TXT content.
-        
-        Args:
-            content: District section content
-            year: Tax year
+            # If header not found, try to infer it
+            if header_row is None:
+                logger.warning("No header row found, attempting to infer column structure")
+                header_row = 0
             
-        Returns:
-            List of district dictionaries
-        """
-        districts = []
-        
-        # Simple parsing based on line structure
-        lines = content.strip().split('\n')
-        for line in lines:
-            if not line.strip():
-                continue
-                
-            # Try to extract district ID and name
-            # Assume format like "123 - District Name" or "District Name (123)"
-            id_match = re.search(r'(\d+)\s*-\s*(.*)', line) or re.search(r'(.*)\s*\((\d+)\)', line)
+            # Get column indices
+            header_values = [str(cell).strip().upper() for cell in sheet.row_values(header_row)]
             
-            if id_match:
-                if len(id_match.groups()) == 2:
-                    # First pattern: "123 - District Name"
-                    if id_match.group(2).strip():  # If name is not empty
-                        district = {
-                            'district_id': id_match.group(1).strip(),
-                            'name': id_match.group(2).strip(),
-                            'year': year
-                        }
-                        districts.append(district)
-                    else:  # Second pattern: "District Name (123)"
-                        district = {
-                            'district_id': id_match.group(2).strip(),
-                            'name': id_match.group(1).strip(),
-                            'year': year
-                        }
-                        districts.append(district)
-            else:
-                # If no pattern matches, try to split by whitespace and hope for the best
-                parts = line.split()
-                if len(parts) >= 2 and parts[0].isdigit():
-                    district = {
-                        'district_id': parts[0],
-                        'name': ' '.join(parts[1:]),
-                        'year': year
-                    }
-                    districts.append(district)
-        
-        return districts
-    
-    def _parse_txt_tax_codes(self, content, year):
-        """
-        Parse tax codes from TXT content.
-        
-        Args:
-            content: Tax code section content
-            year: Tax year
+            col_indices = {
+                'levy_cd': next((i for i, h in enumerate(header_values) if 'LEVY CODE' in h or 'CODE' in h), 0),
+                'rate': next((i for i, h in enumerate(header_values) if 'RATE' in h), 1),
+                'levy': next((i for i, h in enumerate(header_values) if 'LEVY' in h and 'CODE' not in h), 2),
+                'value': next((i for i, h in enumerate(header_values) if 'VALUE' in h or 'ASSESSED' in h), 3)
+            }
             
-        Returns:
-            List of tax code dictionaries
-        """
-        tax_codes = []
-        
-        # Simple parsing based on line structure
-        lines = content.strip().split('\n')
-        for line in lines:
-            if not line.strip():
-                continue
+            # Parse data rows
+            records = []
+            for row_idx in range(header_row + 1, sheet.nrows):
+                row_values = sheet.row_values(row_idx)
                 
-            # Try to parse tax code data
-            # Assume format with code, levy amount, rate, and value in a structured format
-            parts = re.split(r'\s{2,}|\t', line)  # Split by multiple spaces or tabs
-            
-            # Remove empty parts
-            parts = [p.strip() for p in parts if p.strip()]
-            
-            if len(parts) >= 2:
-                tax_code = {'year': year}
-                
-                # First part is assumed to be the code
-                tax_code['code'] = parts[0]
-                
-                # Try to identify other fields based on values
-                for part in parts[1:]:
-                    # Look for currency values (levy amount)
-                    if '$' in part or (part.replace('.', '', 1).isdigit() and float(part) > 1000):
-                        try:
-                            tax_code['levy_amount'] = float(part.replace('$', '').replace(',', ''))
-                        except:
-                            pass
-                    
-                    # Look for small decimal values (levy rate)
-                    elif part.replace('.', '', 1).isdigit() and float(part) < 100:
-                        try:
-                            tax_code['levy_rate'] = float(part)
-                        except:
-                            pass
-                    
-                    # Look for large values (assessed value)
-                    elif part.replace(',', '').replace('.', '', 1).isdigit() and float(part.replace(',', '')) > 100000:
-                        try:
-                            tax_code['total_assessed_value'] = float(part.replace(',', ''))
-                        except:
-                            pass
-                
-                # Only add if we have at least one of the key fields
-                if 'levy_amount' in tax_code or 'levy_rate' in tax_code or 'total_assessed_value' in tax_code:
-                    tax_codes.append(tax_code)
-        
-        return tax_codes
-    
-    def _parse_txt_properties(self, content):
-        """
-        Parse properties from TXT content.
-        
-        Args:
-            content: Property section content
-            
-        Returns:
-            List of property dictionaries
-        """
-        properties = []
-        
-        # Simple parsing based on line structure
-        lines = content.strip().split('\n')
-        for line in lines:
-            if not line.strip():
-                continue
-                
-            # Try to parse property data
-            # Assume format with ID, value, tax code, address
-            parts = re.split(r'\s{2,}|\t', line)  # Split by multiple spaces or tabs
-            
-            # Remove empty parts
-            parts = [p.strip() for p in parts if p.strip()]
-            
-            if len(parts) >= 2:
-                property = {}
-                
-                # First part is assumed to be the property ID
-                property['property_id'] = parts[0]
-                
-                # Try to identify other fields based on values
-                for i, part in enumerate(parts[1:], 1):
-                    # Look for numeric values (assessed value)
-                    if part.replace(',', '').replace('.', '', 1).isdigit():
-                        try:
-                            property['assessed_value'] = float(part.replace(',', ''))
-                        except:
-                            pass
-                    
-                    # Look for tax code (usually alphanumeric with dashes)
-                    elif re.match(r'[A-Z0-9\-]+', part) and len(part) < 20 and i == 1:
-                        property['tax_code'] = part
-                    
-                    # Look for address (longer text with spaces)
-                    elif len(part.split()) > 2 and i >= 2:
-                        property['address'] = part
-                
-                # Only add if we have at least property_id
-                if 'property_id' in property:
-                    properties.append(property)
-        
-        return properties
-    
-    def _parse_excel_districts(self, df, year):
-        """
-        Parse districts from Excel dataframe.
-        
-        Args:
-            df: DataFrame containing district data
-            year: Tax year
-            
-        Returns:
-            List of district dictionaries
-        """
-        districts = []
-        
-        # Skip empty dataframes
-        if df.empty:
-            return districts
-        
-        # Try to identify column names by similarity
-        id_col = None
-        name_col = None
-        
-        for col in df.columns:
-            col_str = str(col).lower()
-            if any(key in col_str for key in ['id', 'code', 'number']):
-                id_col = col
-            elif any(key in col_str for key in ['name', 'district', 'description']):
-                name_col = col
-        
-        # If columns couldn't be identified, use positional
-        if id_col is None and len(df.columns) > 0:
-            id_col = df.columns[0]
-        if name_col is None and len(df.columns) > 1:
-            name_col = df.columns[1]
-        
-        # Extract data
-        if id_col is not None and name_col is not None:
-            for _, row in df.iterrows():
-                # Skip rows with missing ID
-                if pd.isna(row[id_col]):
+                if not row_values[col_indices['levy_cd']]:  # Skip empty rows
                     continue
-                    
-                district = {
-                    'district_id': str(row[id_col]).strip(),
-                    'name': str(row[name_col]).strip() if not pd.isna(row[name_col]) else '',
-                    'year': year
+                
+                # Get values from appropriate columns
+                levy_cd = str(row_values[col_indices['levy_cd']]).strip()
+                
+                # Handle potential float formatting issues
+                try:
+                    rate = float(row_values[col_indices['rate']]) if row_values[col_indices['rate']] else None
+                except (ValueError, TypeError):
+                    rate = None
+                
+                try:
+                    levy = float(row_values[col_indices['levy']]) if row_values[col_indices['levy']] else None
+                except (ValueError, TypeError):
+                    levy = None
+                
+                try:
+                    value = float(row_values[col_indices['value']]) if row_values[col_indices['value']] else None
+                except (ValueError, TypeError):
+                    value = None
+                
+                # Check for linked levy code
+                levy_cd_linked = None
+                if '/' in levy_cd:
+                    levy_cd, levy_cd_linked = levy_cd.split('/', 1)
+                
+                record = {
+                    'tax_district_id': levy_cd,
+                    'levy_cd': levy_cd,
+                    'levy_cd_linked': levy_cd_linked,
+                    'levy_rate': rate,
+                    'levy_amount': levy,
+                    'assessed_value': value,
+                    'year': year,
+                    'source': 'xls'
                 }
-                districts.append(district)
+                records.append(record)
         
-        return districts
+        except Exception as e:
+            logger.error(f"Error parsing XLS file {file_path}: {str(e)}")
+            raise
+        
+        logger.info(f"Parsed {len(records)} records from XLS file")
+        return LevyExportData(records, {'format': 'xls', 'year': year})
     
-    def _parse_excel_tax_codes(self, df, year):
+    @classmethod
+    def _parse_xlsx(cls, file_path: Path) -> LevyExportData:
         """
-        Parse tax codes from Excel dataframe.
+        Parse an Excel .xlsx format levy export file.
         
         Args:
-            df: DataFrame containing tax code data
-            year: Tax year
+            file_path: Path to the XLSX file
             
         Returns:
-            List of tax code dictionaries
+            LevyExportData object containing the parsed data
         """
-        tax_codes = []
+        logger.info(f"Parsing XLSX levy export file: {file_path}")
         
-        # Skip empty dataframes
-        if df.empty:
-            return tax_codes
-        
-        # Try to identify column names by similarity
-        code_col = None
-        levy_amount_col = None
-        levy_rate_col = None
-        assessed_value_col = None
-        
-        for col in df.columns:
-            col_str = str(col).lower()
-            if any(key in col_str for key in ['code', 'tax code', 'levy code']):
-                code_col = col
-            elif any(key in col_str for key in ['amount', 'levy amount', 'total']):
-                levy_amount_col = col
-            elif any(key in col_str for key in ['rate', 'levy rate']):
-                levy_rate_col = col
-            elif any(key in col_str for key in ['assessed', 'value', 'valuation']):
-                assessed_value_col = col
-        
-        # Extract data
-        if code_col is not None:
-            for _, row in df.iterrows():
-                # Skip rows with missing code
-                if pd.isna(row[code_col]):
+        try:
+            # Open the workbook and select the first worksheet
+            wb = openpyxl.load_workbook(file_path, data_only=True)
+            ws = wb.active
+            
+            # Attempt to find header row
+            header_row = None
+            year = datetime.now().year
+            
+            for row_idx in range(1, min(21, ws.max_row + 1)):  # Check first 20 rows (1-indexed)
+                row_values = [str(cell.value or '').strip().upper() for cell in ws[row_idx]]
+                row_text = ' '.join(row_values)
+                
+                # Look for year in header rows
+                if re.search(r'(LEVY|TAX)\s+YEAR\s*[:=\s]\s*(\d{4})', row_text, re.IGNORECASE):
+                    year_match = re.search(r'(\d{4})', row_text)
+                    if year_match:
+                        year = int(year_match.group(1))
+                        logger.info(f"Found year in header: {year}")
+                
+                # Look for column headers
+                if 'LEVY CODE' in row_text and 'RATE' in row_text:
+                    header_row = row_idx
+                    logger.info(f"Found header row at index {header_row}")
+                    break
+            
+            # If header not found, try to infer it
+            if header_row is None:
+                logger.warning("No header row found, attempting to infer column structure")
+                header_row = 1
+            
+            # Get column indices
+            header_values = [str(cell.value or '').strip().upper() for cell in ws[header_row]]
+            
+            col_indices = {
+                'levy_cd': next((i for i, h in enumerate(header_values) if 'LEVY CODE' in h or 'CODE' in h), 0),
+                'rate': next((i for i, h in enumerate(header_values) if 'RATE' in h), 1),
+                'levy': next((i for i, h in enumerate(header_values) if 'LEVY' in h and 'CODE' not in h), 2),
+                'value': next((i for i, h in enumerate(header_values) if 'VALUE' in h or 'ASSESSED' in h), 3)
+            }
+            
+            # Parse data rows
+            records = []
+            for row_idx in range(header_row + 1, ws.max_row + 1):
+                row_values = [cell.value for cell in ws[row_idx]]
+                
+                if not row_values or not row_values[col_indices['levy_cd']]:  # Skip empty rows
                     continue
-                    
-                tax_code = {
-                    'code': str(row[code_col]).strip(),
-                    'year': year
+                
+                # Get values from appropriate columns
+                levy_cd = str(row_values[col_indices['levy_cd']]).strip()
+                
+                # Handle potential formatting issues
+                try:
+                    rate = float(row_values[col_indices['rate']]) if row_values[col_indices['rate']] is not None else None
+                except (ValueError, TypeError):
+                    rate = None
+                
+                try:
+                    levy = float(row_values[col_indices['levy']]) if row_values[col_indices['levy']] is not None else None
+                except (ValueError, TypeError):
+                    levy = None
+                
+                try:
+                    value = float(row_values[col_indices['value']]) if row_values[col_indices['value']] is not None else None
+                except (ValueError, TypeError):
+                    value = None
+                
+                # Check for linked levy code
+                levy_cd_linked = None
+                if '/' in levy_cd:
+                    levy_cd, levy_cd_linked = levy_cd.split('/', 1)
+                
+                record = {
+                    'tax_district_id': levy_cd,
+                    'levy_cd': levy_cd,
+                    'levy_cd_linked': levy_cd_linked,
+                    'levy_rate': rate,
+                    'levy_amount': levy,
+                    'assessed_value': value,
+                    'year': year,
+                    'source': 'xlsx'
                 }
-                
-                # Add levy amount if available
-                if levy_amount_col is not None and not pd.isna(row[levy_amount_col]):
-                    try:
-                        tax_code['levy_amount'] = float(row[levy_amount_col])
-                    except:
-                        pass
-                
-                # Add levy rate if available
-                if levy_rate_col is not None and not pd.isna(row[levy_rate_col]):
-                    try:
-                        tax_code['levy_rate'] = float(row[levy_rate_col])
-                    except:
-                        pass
-                
-                # Add assessed value if available
-                if assessed_value_col is not None and not pd.isna(row[assessed_value_col]):
-                    try:
-                        tax_code['total_assessed_value'] = float(row[assessed_value_col])
-                    except:
-                        pass
-                
-                # Only add if we have at least one of the key fields
-                if 'levy_amount' in tax_code or 'levy_rate' in tax_code or 'total_assessed_value' in tax_code:
-                    tax_codes.append(tax_code)
+                records.append(record)
         
-        return tax_codes
+        except Exception as e:
+            logger.error(f"Error parsing XLSX file {file_path}: {str(e)}")
+            raise
+        
+        logger.info(f"Parsed {len(records)} records from XLSX file")
+        return LevyExportData(records, {'format': 'xlsx', 'year': year})
     
-    def _parse_excel_properties(self, df):
+    @classmethod
+    def _parse_xml(cls, file_path: Path) -> LevyExportData:
         """
-        Parse properties from Excel dataframe.
+        Parse an XML format levy export file.
         
         Args:
-            df: DataFrame containing property data
+            file_path: Path to the XML file
             
         Returns:
-            List of property dictionaries
+            LevyExportData object containing the parsed data
         """
-        properties = []
+        logger.info(f"Parsing XML levy export file: {file_path}")
         
-        # Skip empty dataframes
-        if df.empty:
-            return properties
-        
-        # Try to identify column names by similarity
-        id_col = None
-        assessed_value_col = None
-        tax_code_col = None
-        address_col = None
-        owner_col = None
-        
-        for col in df.columns:
-            col_str = str(col).lower()
-            if any(key in col_str for key in ['id', 'property id', 'parcel', 'account']):
-                id_col = col
-            elif any(key in col_str for key in ['assessed', 'value']):
-                assessed_value_col = col
-            elif any(key in col_str for key in ['tax code', 'levy code']):
-                tax_code_col = col
-            elif any(key in col_str for key in ['address', 'location']):
-                address_col = col
-            elif any(key in col_str for key in ['owner', 'name']):
-                owner_col = col
-        
-        # If id column couldn't be identified, use the first column
-        if id_col is None and len(df.columns) > 0:
-            id_col = df.columns[0]
-        
-        # Extract data
-        if id_col is not None:
-            for _, row in df.iterrows():
-                # Skip rows with missing ID
-                if pd.isna(row[id_col]):
+        try:
+            import xml.etree.ElementTree as ET
+            
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+            
+            # Extract year from metadata if available
+            year = datetime.now().year
+            year_elements = root.findall('.//year') or root.findall('.//Year')
+            if year_elements:
+                try:
+                    year = int(year_elements[0].text)
+                    logger.info(f"Found year in XML: {year}")
+                except (ValueError, TypeError):
+                    pass
+            
+            # Parse levy records
+            records = []
+            
+            # Try different possible structures
+            levy_elements = (
+                root.findall('.//levy') or 
+                root.findall('.//Levy') or 
+                root.findall('.//levy_record') or
+                root.findall('.//LevyRecord')
+            )
+            
+            if not levy_elements:
+                logger.warning("No levy records found in XML structure")
+            
+            for levy_elem in levy_elements:
+                # Extract code
+                code_elem = (
+                    levy_elem.find('./code') or
+                    levy_elem.find('./Code') or
+                    levy_elem.find('./levy_code') or
+                    levy_elem.find('./LevyCode')
+                )
+                
+                if code_elem is None or not code_elem.text:
                     continue
-                    
-                property = {
-                    'property_id': str(row[id_col]).strip()
-                }
                 
-                # Add assessed value if available
-                if assessed_value_col is not None and not pd.isna(row[assessed_value_col]):
+                levy_cd = code_elem.text.strip()
+                
+                # Extract rate
+                rate_elem = (
+                    levy_elem.find('./rate') or
+                    levy_elem.find('./Rate')
+                )
+                rate = None
+                if rate_elem is not None and rate_elem.text:
                     try:
-                        property['assessed_value'] = float(row[assessed_value_col])
-                    except:
+                        rate = float(rate_elem.text)
+                    except (ValueError, TypeError):
                         pass
                 
-                # Add tax code if available
-                if tax_code_col is not None and not pd.isna(row[tax_code_col]):
-                    property['tax_code'] = str(row[tax_code_col]).strip()
+                # Extract levy
+                levy_amount_elem = (
+                    levy_elem.find('./amount') or
+                    levy_elem.find('./Amount') or
+                    levy_elem.find('./levy_amount') or
+                    levy_elem.find('./LevyAmount')
+                )
+                levy_amount = None
+                if levy_amount_elem is not None and levy_amount_elem.text:
+                    try:
+                        levy_amount = float(levy_amount_elem.text)
+                    except (ValueError, TypeError):
+                        pass
                 
-                # Add address if available
-                if address_col is not None and not pd.isna(row[address_col]):
-                    property['address'] = str(row[address_col]).strip()
+                # Extract value
+                value_elem = (
+                    levy_elem.find('./value') or
+                    levy_elem.find('./Value') or
+                    levy_elem.find('./assessed_value') or
+                    levy_elem.find('./AssessedValue')
+                )
+                value = None
+                if value_elem is not None and value_elem.text:
+                    try:
+                        value = float(value_elem.text)
+                    except (ValueError, TypeError):
+                        pass
                 
-                # Add owner if available
-                if owner_col is not None and not pd.isna(row[owner_col]):
-                    property['owner_name'] = str(row[owner_col]).strip()
+                # Check for linked levy code
+                levy_cd_linked = None
+                if '/' in levy_cd:
+                    levy_cd, levy_cd_linked = levy_cd.split('/', 1)
                 
-                properties.append(property)
+                record = {
+                    'tax_district_id': levy_cd,
+                    'levy_cd': levy_cd,
+                    'levy_cd_linked': levy_cd_linked,
+                    'levy_rate': rate,
+                    'levy_amount': levy_amount,
+                    'assessed_value': value,
+                    'year': year,
+                    'source': 'xml'
+                }
+                records.append(record)
         
-        return properties
-    
-    def _get_xml_text(self, element, tag):
-        """
-        Extract text from XML element by tag.
+        except Exception as e:
+            logger.error(f"Error parsing XML file {file_path}: {str(e)}")
+            raise
         
-        Args:
-            element: XML element to search in
-            tag: Tag to find
-            
-        Returns:
-            Text content or None if not found
-        """
-        found = element.find(f'.//{tag}')
-        return found.text if found is not None else None
+        logger.info(f"Parsed {len(records)} records from XML file")
+        return LevyExportData(records, {'format': 'xml', 'year': year})
