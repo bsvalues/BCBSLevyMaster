@@ -329,62 +329,6 @@ function initializeGuidedTour() {
 }
 
 /**
- * Start a guided tour based on the tour name
- * @param {string} tourName - The name of the tour to start
+ * This function is now moved to guided_tour.js to avoid duplication
+ * We're just handling the redirection here
  */
-function startTour(tourName) {
-  try {
-    console.log('Starting tour:', tourName);
-    
-    // Define tour steps based on the tour name
-    let steps = [];
-    
-    switch(tourName) {
-      case 'dashboard':
-        steps = [
-          {
-            element: document.querySelector('.page-header'),
-            intro: 'Welcome to the Levy Calculation System Dashboard!',
-            position: 'bottom'
-          },
-          {
-            element: document.querySelector('.navbar'),
-            intro: 'Use the navigation menu to access different features of the system.',
-            position: 'bottom'
-          },
-          {
-            element: document.querySelector('main'),
-            intro: 'This dashboard shows key statistics and information about your tax districts, codes, and properties.',
-            position: 'top'
-          }
-        ];
-        break;
-        
-      // Add more tour definitions as needed
-      
-      default:
-        console.log('Unknown tour name:', tourName);
-        return;
-    }
-    
-    // Start the tour if steps are defined
-    if (steps.length > 0) {
-      const tour = introJs();
-      tour.setOptions({
-        steps: steps,
-        showProgress: true,
-        showBullets: false,
-        showStepNumbers: false,
-        overlayOpacity: 0.7,
-        exitOnOverlayClick: true,
-        nextLabel: 'Next',
-        prevLabel: 'Back',
-        doneLabel: 'Finish'
-      });
-      
-      tour.start();
-    }
-  } catch (e) {
-    console.error('Error starting tour:', e);
-  }
-}
