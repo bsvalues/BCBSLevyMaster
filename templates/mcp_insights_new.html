@@ -61,7 +61,7 @@
             <div class="card-body">
                 <!-- AI Generated Narrative -->
                 <div class="mb-4">
-                    {{ mcp_insights.narrative }}
+                    {{ mcp_insights.narrative|safe }}
                 </div>
                 
                 <!-- AI Action Recommendations -->
@@ -218,7 +218,7 @@
                                 <tr>
                                     <th>Filename</th>
                                     <th>Records</th>
-                                    <th>Date</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -227,13 +227,13 @@
                                     <td>{{ import_log.filename }}</td>
                                     <td>{{ import_log.record_count }}</td>
                                     <td>
-                                    {% if import_log.import_date is string %}
-                                        {{ import_log.import_date }}
-                                    {% elif import_log.import_date %}
-                                        {{ import_log.import_date.strftime('%Y-%m-%d') if import_log.import_date else 'N/A' }}
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
+                                        {% if import_log.status == 'completed' %}
+                                            <span class="badge bg-success">Completed</span>
+                                        {% elif import_log.status == 'failed' %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ import_log.status }}</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -261,7 +261,7 @@
                                 <tr>
                                     <th>Filename</th>
                                     <th>Records</th>
-                                    <th>Date</th>
+                                    <th>Type</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -269,7 +269,7 @@
                                 <tr>
                                     <td>{{ export_log.filename }}</td>
                                     <td>{{ export_log.rows_exported }}</td>
-                                    <td>{{ export_log.export_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ export_log.export_type }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

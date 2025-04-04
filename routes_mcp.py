@@ -15,6 +15,13 @@ from app import db
 from models import TaxDistrict, TaxCode, Property, ImportLog, ExportLog
 from utils.anthropic_utils import get_claude_service
 from utils.html_sanitizer import sanitize_html
+from utils.schema_utils import (
+    get_recent_import_logs,
+    get_recent_export_logs,
+    get_tax_code_summary,
+    get_table_counts,
+    get_property_assessed_value_avg
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -31,57 +38,31 @@ def insights():
     system statistics, and recent activity.
     """
     try:
-        # Get database counts safely
-        try:
-            property_count = db.session.query(func.count(Property.id)).scalar() or 0
-            tax_code_count = db.session.query(func.count(TaxCode.id)).scalar() or 0 
-            district_count = db.session.query(func.count(TaxDistrict.id)).scalar() or 0
-        except Exception as e:
-            logger.error(f"Error getting database counts: {str(e)}")
-            property_count = 0
-            tax_code_count = 0
-            district_count = 0
+        # Get database counts using schema utility
+        counts = get_table_counts()
+        property_count = counts.get('property', 0)
+        tax_code_count = counts.get('tax_code', 0)
+        district_count = counts.get('tax_district', 0)
         
-        # Get recent import and export logs
-        try:
-            # Use actual column names from database
-            recent_imports = db.session.query(ImportLog).order_by(desc(ImportLog.id)).limit(5).all()
-            recent_exports = db.session.query(ExportLog).order_by(desc(ExportLog.export_date)).limit(5).all()
-        except Exception as e:
-            logger.error(f"Error getting logs: {str(e)}")
-            recent_imports = []
-            recent_exports = []
+        # Get recent import and export logs using schema utilities
+        recent_imports = get_recent_import_logs(limit=5)
+        recent_exports = get_recent_export_logs(limit=5)
         
-        # Get tax code summary for distribution visualization
-        tax_summary = []
+        # Get tax code summary using schema utility
+        tax_summary = get_tax_code_summary(limit=10)
+        
+        # Get tax codes for AI insights
+        tax_codes = []
         try:
             tax_codes = TaxCode.query.all()
-            total_assessed_value = sum(tc.total_assessed_value or 0 for tc in tax_codes)
-            
-            if total_assessed_value > 0:
-                for tc in tax_codes:
-                    if tc.total_assessed_value:
-                        percent = (tc.total_assessed_value / total_assessed_value) * 100
-                        tax_summary.append({
-                            'code': tc.tax_code,  # Using tax_code instead of code
-                            'assessed_value': tc.total_assessed_value,
-                            'percent_of_total': percent
-                        })
-                
-                # Sort by assessed value, descending
-                tax_summary = sorted(tax_summary, key=lambda x: x['assessed_value'], reverse=True)
-                
-                # Limit to top 10
-                tax_summary = tax_summary[:10]
         except Exception as e:
-            logger.error(f"Error getting tax summary: {str(e)}")
-            tax_codes = []
+            logger.error(f"Error getting tax codes for insights: {str(e)}")
         
         # Generate AI insights
         mcp_insights = generate_mcp_insights(tax_codes if 'tax_codes' in locals() else [])
         
         # Render template with data
-        return render_template('mcp_insights.html',
+        return render_template('mcp_insights_new.html',
                             property_count=property_count,
                             tax_code_count=tax_code_count,
                             district_count=district_count,
@@ -94,7 +75,7 @@ def insights():
         logger.error(f"Error rendering MCP insights: {str(e)}")
         # Return a basic error view
         error_message = sanitize_html(str(e))
-        return render_template('mcp_insights.html', 
+        return render_template('mcp_insights_new.html', 
                              error=True, 
                              error_message=error_message,
                              property_count=0,
@@ -139,13 +120,11 @@ def generate_mcp_insights(tax_codes):
         }
     }
     
-    # Get average assessed value
-    try:
-        avg_value = db.session.query(func.avg(Property.assessed_value)).scalar()
-        if avg_value:
-            default_insights['data']['avg_assessed_value'] = "${:,.2f}".format(avg_value)
-    except Exception as e:
-        logger.warning(f"Could not get average assessed value: {str(e)}")
+    # Get average assessed value using schema utility
+    avg_value = get_property_assessed_value_avg()
+    if avg_value:
+        default_insights['data']['avg_assessed_value'] = "${:,.2f}".format(avg_value)
+    else:
         default_insights['data']['avg_assessed_value'] = "N/A"
     
     try:
