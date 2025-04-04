@@ -55,14 +55,7 @@ def seed_tax_districts():
     existing_count = TaxDistrict.query.count()
     if existing_count > 0:
         logger.warning(f"Found {existing_count} existing tax districts")
-        response = input("Do you want to proceed with seeding more tax districts? [y/N]: ")
-        if response.lower() != 'y':
-            return TaxDistrict.query.all()
-    
-    # Just use existing districts if any exist
-    if existing_count > 0:
-        logger.info("Using existing tax districts")
-        return TaxDistrict.query.all()
+        # Just create new districts regardless
         
     # Generate district codes and names
     district_names = generate_district_names()
@@ -119,14 +112,7 @@ def seed_tax_codes(districts):
     existing_count = TaxCode.query.count()
     if existing_count > 0:
         logger.warning(f"Found {existing_count} existing tax codes")
-        response = input("Do you want to proceed with seeding more tax codes? [y/N]: ")
-        if response.lower() != 'y':
-            return TaxCode.query.all()
-    
-    # Just use existing tax codes if any exist
-    if existing_count > 0:
-        logger.info("Using existing tax codes")
-        return TaxCode.query.all()
+        # Just create new tax codes regardless
     
     tax_codes = []
     
@@ -184,9 +170,7 @@ def seed_properties(tax_codes):
     existing_count = Property.query.count()
     if existing_count > 0:
         logger.warning(f"Found {existing_count} existing properties")
-        response = input("Do you want to proceed with seeding more properties? [y/N]: ")
-        if response.lower() != 'y':
-            return Property.query.all()
+        # Just create new properties regardless
     
     properties = []
     
@@ -249,9 +233,7 @@ def seed_historical_rates(tax_codes):
     existing_count = TaxCodeHistoricalRate.query.count()
     if existing_count > 0:
         logger.warning(f"Found {existing_count} existing historical rate records")
-        response = input("Do you want to proceed with seeding more historical rate data? [y/N]: ")
-        if response.lower() != 'y':
-            return {"status": "skipped"}
+        # Just create new historical rates regardless
     
     # Define years for historical data
     historical_years = list(range(2019, max(SAMPLE_YEARS) + 1))
