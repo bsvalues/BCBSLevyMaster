@@ -10,7 +10,7 @@
     <button type="button" class="btn btn-primary" id="saveScenarioBtn">
         <i class="bi bi-save me-1"></i>Save Scenario
     </button>
-    <button type="button" class="btn btn-outline-secondary" data-tour="levy-calculator">
+    <button type="button" class="btn btn-outline-secondary" data-tour="levyCalculator">
         <i class="bi bi-info-circle me-1"></i>Tour
     </button>
 </div>
@@ -935,58 +935,6 @@ document.addEventListener('DOMContentLoaded', function() {
             maximumFractionDigits: 4
         }).format(value);
     }
-    
-    // Tour functionality
-    document.querySelector('[data-tour="levy-calculator"]').addEventListener('click', function() {
-        // Initialize introjs tour
-        const tour = introJs();
-        
-        tour.setOptions({
-            steps: [
-                {
-                    element: document.querySelector('.calculator-section'),
-                    intro: 'Welcome to the Levy Calculator! This tool helps you calculate property tax levy rates based on assessed values and requested levy amounts.',
-                    position: 'right'
-                },
-                {
-                    element: document.getElementById('taxDistrict'),
-                    intro: 'Start by selecting a tax district for your calculation.',
-                    position: 'bottom'
-                },
-                {
-                    element: document.getElementById('levyAmount'),
-                    intro: 'Enter the total levy amount requested by the district.',
-                    position: 'bottom'
-                },
-                {
-                    element: document.getElementById('calculateBtn'),
-                    intro: 'Click this button to calculate the levy rate based on your inputs.',
-                    position: 'bottom'
-                },
-                {
-                    element: document.getElementById('forecastForm'),
-                    intro: 'After calculating a levy, you can use this section to forecast next year\'s levy based on assessed value changes and new construction.',
-                    position: 'left'
-                },
-                {
-                    element: document.querySelector('#helpAccordion'),
-                    intro: 'Need help? Check out these resources to learn more about levy calculations and statutory limits.',
-                    position: 'left'
-                }
-            ],
-            exitOnOverlayClick: true,
-            showStepNumbers: false,
-            showBullets: true,
-            showProgress: true,
-            hideNext: false,
-            hidePrev: false,
-            doneLabel: 'Done',
-            nextLabel: 'Next →',
-            prevLabel: '← Back',
-        });
-        
-        tour.start();
-    });
     
     // Load scenarios on page load
     loadSavedScenarios();

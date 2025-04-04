@@ -191,7 +191,7 @@ function checkAutoTour() {
     if (!localStorage.getItem('tour_dashboard_completed')) {
       startTour('dashboard');
     }
-  } else if (path === '/levy-calculator/' || path === '/levy-calculator') {
+  } else if (path === '/levy-calculator') {
     if (!localStorage.getItem('tour_levyCalculator_completed')) {
       startTour('levyCalculator');
     }
