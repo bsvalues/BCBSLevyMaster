@@ -163,6 +163,7 @@ class ClaudeService:
             
             raise last_error
     
+    @track_anthropic_api_call
     def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """
         Generate text using the Claude API.
@@ -208,6 +209,7 @@ class ClaudeService:
                     "message": "An error occurred while generating text with Claude."
                 })
 
+    @track_anthropic_api_call
     def analyze_property_data(self, property_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Analyze property data using Claude to generate insights.
@@ -264,6 +266,7 @@ class ClaudeService:
             logger.error(f"Error analyzing property data: {str(e)}")
             return {"error": sanitize_html(str(e))}
     
+    @track_anthropic_api_call
     def generate_levy_insights(self, 
                               tax_code_data: List[Dict[str, Any]], 
                               historical_data: List[Dict[str, Any]]) -> Dict[str, Any]:
