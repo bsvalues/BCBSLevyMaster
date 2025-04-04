@@ -195,11 +195,11 @@ def api_historical_forecast():
     Query parameters:
     - tax_code: The tax code to forecast
     - forecast_years: Number of years to forecast (default: 3)
-    - method: Forecasting method ('linear', 'average', 'weighted')
+    - method: Forecasting method ('linear', 'average', 'weighted', 'exponential', 'arima')
     - years: Optional comma-separated list of years to include in analysis
     
     Returns:
-    - JSON object with forecasting results
+    - JSON object with forecasting results and quality metrics
     """
     tax_code = request.args.get('tax_code')
     forecast_years = request.args.get('forecast_years', '3')
@@ -221,8 +221,8 @@ def api_historical_forecast():
     except ValueError:
         return jsonify({'error': 'forecast_years must be an integer'}), 400
     
-    if method not in ['linear', 'average', 'weighted']:
-        return jsonify({'error': 'method must be one of: linear, average, weighted'}), 400
+    if method not in ['linear', 'average', 'weighted', 'exponential', 'arima']:
+        return jsonify({'error': 'method must be one of: linear, average, weighted, exponential, arima'}), 400
     
     try:
         forecast_data = forecast_future_rates(

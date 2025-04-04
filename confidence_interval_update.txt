@@ -1,0 +1,11 @@
+                                                            <td>{{ '%0.4f'|format(forecast.forecasted_rate|float) }}</td>
+                                                            <td>
+                                                                {% if forecast.confidence_interval %}
+                                                                    {{ '%0.4f'|format(forecast.confidence_interval.lower|float) }} - {{ '%0.4f'|format(forecast.confidence_interval.upper|float) }}
+                                                                {% else %}
+                                                                    <span class="text-muted">Not available</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                <span class="badge bg-info">{{ forecast.method }}</span>
+                                                            </td>

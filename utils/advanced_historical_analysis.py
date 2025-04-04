@@ -205,7 +205,7 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
     Args:
         tax_code_identifier: The tax code to forecast (can be code or ID)
         forecast_years: Number of years to forecast
-        method: Forecasting method ('linear', 'average', 'weighted')
+        method: Forecasting method ('linear', 'average', 'weighted', 'exponential', 'arima')
         years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
@@ -222,9 +222,19 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
         
         historical_data = stats['historical_data']
         
-        if len(historical_data) < 2 and method == 'linear':
+        # Minimum required data points for different methods
+        min_data_points = {
+            'linear': 2,
+            'exponential': 3,
+            'arima': 5,
+            'average': 1,
+            'weighted': 2
+        }
+        
+        # Check if we have enough data points for the selected method
+        if method in min_data_points and len(historical_data) < min_data_points[method]:
             return {
-                'error': f"Linear forecasting requires at least 2 years of historical data",
+                'error': f"{method.capitalize()} forecasting requires at least {min_data_points[method]} years of historical data",
                 'historical_data': historical_data
             }
         
@@ -235,7 +245,7 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                 'historical_data': historical_data
             }
         
-        if method not in ['linear', 'average', 'weighted']:
+        if method not in ['linear', 'average', 'weighted', 'exponential', 'arima']:
             return {
                 'error': f"Unsupported forecasting method: {method}",
                 'historical_data': historical_data
@@ -245,6 +255,11 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
         years_data = [item['year'] for item in historical_data]
         rates = [item['levy_rate'] for item in historical_data]
         
+        # Sort data chronologically to ensure correct time series analysis
+        year_rate_pairs = sorted(zip(years_data, rates), key=lambda x: x[0])
+        sorted_years = [pair[0] for pair in year_rate_pairs]
+        sorted_rates = [pair[1] for pair in year_rate_pairs]
+        
         # Generate forecast based on selected method
         forecast_results = []
         
@@ -253,11 +268,11 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
         
         if method == 'linear':
             # Perform linear regression if we have enough data points
-            if len(years_data) >= 2:
+            if len(sorted_years) >= 2:
                 # Normalize years to avoid numerical instability
-                base_year = min(years_data)
-                x = np.array([year - base_year for year in years_data])
-                y = np.array(rates)
+                base_year = min(sorted_years)
+                x = np.array([year - base_year for year in sorted_years])
+                y = np.array(sorted_rates)
                 
                 # Linear regression formula: y = mx + b
                 n = len(x)
@@ -271,38 +286,226 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                     forecast_rate = m * forecast_x + b
                     
                     # Keep the forecast within reasonable bounds
-                    forecast_rate = max(0.0, forecast_rate)  # No negative rates
+                    forecast_rate = max(0.0, min(1.0, forecast_rate))  # Between 0 and 1
                     
                     forecast_results.append({
                         'year': forecast_year,
                         'forecasted_rate': forecast_rate,
+                        'confidence_interval': [max(0.0, forecast_rate - 0.01 * abs(forecast_rate)), 
+                                              forecast_rate + 0.01 * abs(forecast_rate)],
                         'method': 'linear regression'
                     })
             
         elif method == 'average':
             # Simple average of all historical rates
-            avg_rate = sum(rates) / len(rates)
+            avg_rate = sum(sorted_rates) / len(sorted_rates)
             
             for i in range(1, forecast_years + 1):
                 forecast_year = last_year + i
                 forecast_results.append({
                     'year': forecast_year,
                     'forecasted_rate': avg_rate,
+                    'confidence_interval': {'lower': max(0.0, avg_rate - 0.005), 'upper': avg_rate + 0.005},
                     'method': 'historical average'
                 })
                 
         elif method == 'weighted':
             # Weighted average with more recent years having higher weights
-            total_weight = sum(range(1, len(rates) + 1))
-            weighted_sum = sum(rates[i] * (i + 1) for i in range(len(rates))) / total_weight
+            weights = list(range(1, len(sorted_rates) + 1))
+            total_weight = sum(weights)
+            weighted_sum = sum(sorted_rates[i] * weights[i] for i in range(len(sorted_rates))) / total_weight
             
             for i in range(1, forecast_years + 1):
                 forecast_year = last_year + i
                 forecast_results.append({
                     'year': forecast_year,
                     'forecasted_rate': weighted_sum,
+                    'confidence_interval': {'lower': max(0.0, weighted_sum - 0.008), 'upper': weighted_sum + 0.008},
                     'method': 'weighted average'
                 })
+        
+        elif method == 'exponential':
+            # Exponential smoothing method (Simple Exponential Smoothing)
+            try:
+                # Alpha parameter controls the weight given to recent observations
+                alpha = 0.3  # Smoothing factor
+                
+                # Initialize with first value
+                smoothed = [sorted_rates[0]]
+                
+                # Apply exponential smoothing
+                for i in range(1, len(sorted_rates)):
+                    smoothed_val = alpha * sorted_rates[i] + (1 - alpha) * smoothed[i-1]
+                    smoothed.append(smoothed_val)
+                
+                # Last smoothed value
+                last_smoothed = smoothed[-1]
+                
+                # Generate forecast (will be constant for all future periods in simple ES)
+                for i in range(1, forecast_years + 1):
+                    forecast_year = last_year + i
+                    forecast_results.append({
+                        'year': forecast_year,
+                        'forecasted_rate': last_smoothed,
+                        'confidence_interval': [max(0.0, last_smoothed - 0.012 * i), 
+                                              last_smoothed + 0.012 * i],  # Wider interval for further years
+                        'method': 'exponential smoothing'
+                    })
+            except Exception as e:
+                logger.error(f"Error applying exponential smoothing: {str(e)}")
+                # Fallback to weighted average if exponential smoothing fails
+                weights = list(range(1, len(sorted_rates) + 1))
+                total_weight = sum(weights)
+                weighted_sum = sum(sorted_rates[i] * weights[i] for i in range(len(sorted_rates))) / total_weight
+                
+                for i in range(1, forecast_years + 1):
+                    forecast_year = last_year + i
+                    forecast_results.append({
+                        'year': forecast_year,
+                        'forecasted_rate': weighted_sum,
+                        'confidence_interval': [max(0.0, weighted_sum - 0.01), weighted_sum + 0.01],
+                        'method': 'weighted average (fallback)'
+                    })
+        
+        elif method == 'arima':
+            try:
+                # Try to use seasonal ARIMA if statsmodels is available
+                from statsmodels.tsa.arima.model import ARIMA
+                
+                # Fill in missing years with interpolated values for time series analysis
+                all_years = list(range(min(sorted_years), max(sorted_years) + 1))
+                complete_rates = []
+                
+                j = 0
+                for year in all_years:
+                    if j < len(sorted_years) and year == sorted_years[j]:
+                        complete_rates.append(sorted_rates[j])
+                        j += 1
+                    else:
+                        # Linear interpolation for missing years
+                        if j > 0 and j < len(sorted_years):
+                            prev_year, prev_rate = sorted_years[j-1], sorted_rates[j-1]
+                            next_year, next_rate = sorted_years[j], sorted_rates[j]
+                            ratio = (year - prev_year) / (next_year - prev_year)
+                            interpolated = prev_rate + ratio * (next_rate - prev_rate)
+                        else:
+                            # Extrapolation at boundaries (rare case)
+                            interpolated = sorted_rates[0] if j == 0 else sorted_rates[-1]
+                        
+                        complete_rates.append(interpolated)
+                
+                # Fit ARIMA model
+                # p=1: AR term, d=1: differencing, q=0: MA term
+                model = ARIMA(complete_rates, order=(1, 1, 0))
+                model_fit = model.fit()
+                
+                # Generate forecasts
+                forecast = model_fit.forecast(steps=forecast_years)
+                
+                # Extract confidence intervals if available
+                conf_int = None
+                try:
+                    conf_int = model_fit.get_forecast(steps=forecast_years).conf_int()
+                except:
+                    pass
+                
+                for i in range(forecast_years):
+                    forecast_year = last_year + i + 1
+                    forecast_rate = max(0.0, min(1.0, forecast[i]))  # Keep within bounds
+                    
+                    result = {
+                        'year': forecast_year,
+                        'forecasted_rate': forecast_rate,
+                        'method': 'ARIMA(1,1,0)'
+                    }
+                    
+                    # Add confidence intervals if available
+                    if conf_int is not None:
+                        lower = max(0.0, conf_int.iloc[i, 0])
+                        upper = conf_int.iloc[i, 1]
+                        result['confidence_interval'] = {'lower': lower, 'upper': upper}
+                    else:
+                        # Approximate confidence interval
+                        ci_width = 0.01 * (i + 1)  # Widening interval for further years
+                        result['confidence_interval'] = [max(0.0, forecast_rate - ci_width), 
+                                                       forecast_rate + ci_width]
+                    
+                    forecast_results.append(result)
+                    
+            except Exception as e:
+                logger.error(f"Error applying ARIMA: {str(e)}")
+                # Fallback to linear regression if ARIMA fails
+                base_year = min(sorted_years)
+                x = np.array([year - base_year for year in sorted_years])
+                y = np.array(sorted_rates)
+                
+                # Linear regression
+                n = len(x)
+                m = (n * np.sum(x * y) - np.sum(x) * np.sum(y)) / (n * np.sum(x**2) - np.sum(x)**2)
+                b = (np.sum(y) - m * np.sum(x)) / n
+                
+                for i in range(1, forecast_years + 1):
+                    forecast_year = last_year + i
+                    forecast_x = forecast_year - base_year
+                    forecast_rate = max(0.0, m * forecast_x + b)
+                    
+                    forecast_results.append({
+                        'year': forecast_year,
+                        'forecasted_rate': forecast_rate,
+                        'confidence_interval': [max(0.0, forecast_rate - 0.015 * i), 
+                                              forecast_rate + 0.015 * i],
+                        'method': 'linear regression (fallback)'
+                    })
+        
+        # Calculate forecast quality metrics
+        metrics = {}
+        if len(historical_data) >= 3:
+            try:
+                # Leave-one-out validation for error estimation
+                errors = []
+                for i in range(1, len(sorted_years)):
+                    # Train on all data except the last point
+                    train_years = sorted_years[:i]
+                    train_rates = sorted_rates[:i]
+                    test_year = sorted_years[i]
+                    actual_rate = sorted_rates[i]
+                    
+                    # Simple forecast based on method
+                    if method == 'linear' and len(train_years) >= 2:
+                        # Linear regression
+                        base_year = min(train_years)
+                        x = np.array([y - base_year for y in train_years])
+                        y = np.array(train_rates)
+                        
+                        n = len(x)
+                        m = (n * np.sum(x * y) - np.sum(x) * np.sum(y)) / (n * np.sum(x**2) - np.sum(x)**2)
+                        b = (np.sum(y) - m * np.sum(x)) / n
+                        
+                        pred_rate = m * (test_year - base_year) + b
+                    elif method == 'average':
+                        # Simple average
+                        pred_rate = sum(train_rates) / len(train_rates)
+                    elif method == 'weighted':
+                        # Weighted average
+                        weights = list(range(1, len(train_rates) + 1))
+                        total_weight = sum(weights)
+                        pred_rate = sum(train_rates[j] * weights[j] for j in range(len(train_rates))) / total_weight
+                    else:
+                        # For other methods, use simple average
+                        pred_rate = sum(train_rates) / len(train_rates)
+                    
+                    # Calculate error
+                    error = abs(pred_rate - actual_rate)
+                    pct_error = error / actual_rate if actual_rate != 0 else 0
+                    errors.append(pct_error)
+                
+                # MAPE (Mean Absolute Percentage Error)
+                if errors:
+                    metrics['mape'] = sum(errors) / len(errors)
+                    metrics['forecast_quality'] = 'High' if metrics['mape'] < 0.05 else \
+                                              'Medium' if metrics['mape'] < 0.15 else 'Low'
+            except Exception as e:
+                logger.error(f"Error calculating forecast metrics: {str(e)}")
         
         return {
             'tax_code': stats['tax_code'],
@@ -310,7 +513,8 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
             'forecast_method': method,
             'forecast_years': forecast_years,
             'forecasted_data': forecast_results,
-            'historical_data': historical_data
+            'historical_data': historical_data,
+            'metrics': metrics
         }
         
     except Exception as e:

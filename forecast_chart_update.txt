@@ -1,0 +1,125 @@
+    // Forecast Chart
+    {% if forecast_data and forecast_data.historical_data %}
+    const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+    
+    // Extract historical data
+    const histYears = [];
+    const histRates = [];
+    
+    {% for item in forecast_data.historical_data %}
+    histYears.push({{ item.year }});
+    histRates.push({{ item.levy_rate }});
+    {% endfor %}
+    
+    // Extract forecast data
+    const forecastYears = [];
+    const forecastRates = [];
+    const lowerBounds = [];
+    const upperBounds = [];
+    
+    {% for item in forecast_data.forecasted_data %}
+    forecastYears.push({{ item.year }});
+    forecastRates.push({{ item.forecasted_rate }});
+    {% if item.confidence_interval %}
+    lowerBounds.push({{ item.confidence_interval.lower }});
+    upperBounds.push({{ item.confidence_interval.upper }});
+    {% else %}
+    lowerBounds.push(null);
+    upperBounds.push(null);
+    {% endif %}
+    {% endfor %}
+    
+    new Chart(forecastCtx, {
+        type: 'line',
+        data: {
+            datasets: [
+                {
+                    label: 'Historical Rates',
+                    data: histYears.map((year, i) => ({
+                        x: year,
+                        y: histRates[i]
+                    })),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: false
+                },
+                {
+                    label: 'Forecasted Rates',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: forecastRates[i]
+                    })),
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    fill: false
+                },
+                {
+                    label: 'Lower Bound',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: lowerBounds[i]
+                    })),
+                    borderColor: 'rgba(201, 203, 207, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: 'Upper Bound',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: upperBounds[i]
+                    })),
+                    borderColor: 'rgba(201, 203, 207, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: '-1',
+                    backgroundColor: 'rgba(201, 203, 207, 0.2)',
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rate'
+                    }
+                },
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toString();
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            return 'Year: ' + context[0].parsed.x;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+    {% endif %}

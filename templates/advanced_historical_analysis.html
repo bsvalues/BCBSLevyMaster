@@ -239,11 +239,15 @@
                                         <option value="linear">Linear Regression</option>
                                         <option value="average">Average Method</option>
                                         <option value="weighted">Weighted Average</option>
+                                        <option value="exponential">Exponential Smoothing</option>
+                                        <option value="arima">ARIMA Model</option>
                                     </select>
                                     <div class="form-text">
                                         <strong>Linear</strong>: Projects future rates based on linear trend<br>
                                         <strong>Average</strong>: Uses the overall average of historical rates<br>
-                                        <strong>Weighted</strong>: Gives more weight to recent years
+                                        <strong>Weighted</strong>: Gives more weight to recent years<br>
+                                        <strong>Exponential</strong>: Adapts to recent trends with decreasing weights for older data<br>
+                                        <strong>ARIMA</strong>: Advanced time-series forecasting (requires 5+ years of data)
                                     </div>
                                 </div>
 
@@ -274,7 +278,7 @@
                         </div>
                         <div class="card-body">
                             {% if forecast_data %}
-                                {% if forecast_data.forecasts %}
+                                {% if forecast_data.forecasted_data %}
                                     <!-- Forecast Chart -->
                                     <div class="row mb-4">
                                         <div class="col-12">
@@ -294,26 +298,23 @@
                                                         <tr>
                                                             <th>Year</th>
                                                             <th>Forecasted Rate</th>
-                                                            <th>Confidence</th>
+                                                            <th>Confidence Interval</th><th>Method</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {% for forecast in forecast_data.forecasts %}
+                                                        {% for forecast in forecast_data.forecasted_data %}
                                                         <tr>
                                                             <td>{{ forecast.year }}</td>
                                                             <td>{{ '%0.4f'|format(forecast.forecasted_rate|float) }}</td>
                                                             <td>
-                                                                {% if forecast.confidence == 'high' %}
-                                                                    <span class="badge bg-success">High</span>
-                                                                {% elif forecast.confidence == 'medium-high' %}
-                                                                    <span class="badge bg-info">Medium-High</span>
-                                                                {% elif forecast.confidence == 'medium' %}
-                                                                    <span class="badge bg-primary">Medium</span>
-                                                                {% elif forecast.confidence == 'medium-low' %}
-                                                                    <span class="badge bg-warning">Medium-Low</span>
+                                                                {% if forecast.confidence_interval %}
+                                                                    {{ '%0.4f'|format(forecast.confidence_interval.lower|float) }} - {{ '%0.4f'|format(forecast.confidence_interval.upper|float) }}
                                                                 {% else %}
-                                                                    <span class="badge bg-danger">Low</span>
+                                                                    <span class="text-muted">Not available</span>
                                                                 {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                <span class="badge bg-info">{{ forecast.method }}</span>
                                                             </td>
                                                         </tr>
                                                         {% endfor %}
@@ -952,10 +953,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Extract forecast data
     const forecastYears = [];
     const forecastRates = [];
+    const lowerBounds = [];
+    const upperBounds = [];
     
-    {% for item in forecast_data.forecasts %}
+    {% for item in forecast_data.forecasted_data %}
     forecastYears.push({{ item.year }});
     forecastRates.push({{ item.forecasted_rate }});
+    {% if item.confidence_interval %}
+    lowerBounds.push({{ item.confidence_interval.lower }});
+    upperBounds.push({{ item.confidence_interval.upper }});
+    {% else %}
+    lowerBounds.push(null);
+    upperBounds.push(null);
+    {% endif %}
     {% endfor %}
     
     new Chart(forecastCtx, {
@@ -971,7 +981,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     tension: 0.1,
-                    fill: true
+                    fill: false
                 },
                 {
                     label: 'Forecasted Rates',
@@ -983,7 +993,34 @@ document.addEventListener('DOMContentLoaded', function() {
                     backgroundColor: 'rgba(255, 99, 132, 0.2)',
                     borderDash: [5, 5],
                     tension: 0.1,
-                    fill: true
+                    fill: false
+                },
+                {
+                    label: 'Lower Bound',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: lowerBounds[i]
+                    })),
+                    borderColor: 'rgba(201, 203, 207, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.1
+                },
+                {
+                    label: 'Upper Bound',
+                    data: forecastYears.map((year, i) => ({
+                        x: year,
+                        y: upperBounds[i]
+                    })),
+                    borderColor: 'rgba(201, 203, 207, 0.5)',
+                    borderWidth: 1,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: '-1',
+                    backgroundColor: 'rgba(201, 203, 207, 0.2)',
+                    tension: 0.1
                 }
             ]
         },
@@ -1017,12 +1054,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             return 'Year: ' + context[0].parsed.x;
                         }
                     }
+                },
+                legend: {
+                    position: 'top',
                 }
             }
         }
     });
     {% endif %}
-
     // Anomaly Chart
     {% if anomaly_data and anomaly_data.years_analyzed %}
     const anomalyCtx = document.getElementById('anomalyChart').getContext('2d');
