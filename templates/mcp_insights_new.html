@@ -47,6 +47,48 @@
     </div>
 </div>
 
+<!-- API Status Card -->
+<div class="row mb-4">
+    <div class="col-lg-12">
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-robot"></i> Claude AI Integration
+                    <span id="apiKeyStatusBadge" class="badge bg-secondary">Checking...</span>
+                </h5>
+                <button type="button" class="btn btn-sm btn-outline-primary" 
+                       data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                    <i class="bi bi-key"></i> Configure API Key
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="apiKeyMessage"></div>
+                
+                {% if mcp_insights.data.api_status == "missing" %}
+                    <div class="alert alert-info mt-3">
+                        <p><strong>Note:</strong> AI-powered insights require an Anthropic API key to access Claude 3.5 Sonnet.</p>
+                        <p>Please configure your API key to unlock all MCP features.</p>
+                    </div>
+                {% elif mcp_insights.data.api_status == "no_credits" %}
+                    <div class="alert alert-danger mt-3">
+                        <p><strong>Credit Balance Issue:</strong> Your Anthropic API key is valid, but has insufficient credits.</p>
+                        <div class="mt-2">
+                            <a href="https://console.anthropic.com/settings/billing" 
+                                class="btn btn-sm btn-outline-danger me-2" target="_blank">
+                                <i class="bi bi-credit-card me-1"></i>Add Credits
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                                <i class="bi bi-key me-1"></i>Update API Key
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- AI Analysis Card -->
 <div class="row mb-4">
     <div class="col-lg-12">
@@ -57,11 +99,10 @@
                     AI Analysis
                 </h5>
                 <span class="badge bg-primary">Claude 3.5 Sonnet</span>
-                <span class="badge bg-primary">Claude 3.5 Sonnet</span>
-                <span id="apiKeyStatusBadge" class="badge bg-secondary ms-1">Checking API Key...</span>
-                </div>
+            </div>
                 
-                <!-- AI Action Recommendations -->
+            <!-- AI Action Recommendations -->
+            <div class="card-body">
                 <h6 class="border-bottom pb-2 mb-3">Recommended Actions</h6>
                 <div class="row">
                     {% for key, value in mcp_insights.data.recommendations.items() %}

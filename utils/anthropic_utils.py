@@ -250,7 +250,7 @@ def check_api_key_status() -> Dict[str, str]:
     Returns:
         Dictionary with status information:
         {
-            'status': 'missing'|'invalid'|'valid',
+            'status': 'missing'|'invalid'|'valid'|'no_credits',
             'message': 'Description of the status'
         }
     """
@@ -272,12 +272,34 @@ def check_api_key_status() -> Dict[str, str]:
     # Try to initialize the client to further validate
     try:
         client = Anthropic(api_key=api_key)
-        # We could make a very small request here to fully validate the key,
-        # but that would use credits unnecessarily. Format check is sufficient.
-        return {
-            'status': 'valid',
-            'message': 'API key is valid'
-        }
+        
+        # Simple test to check if the key works and has credits
+        try:
+            # Make a minimal API request to check credits
+            response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1,
+                messages=[{"role": "user", "content": "Test"}]
+            )
+            return {
+                'status': 'valid',
+                'message': 'API key is valid and has credits'
+            }
+        except Exception as api_error:
+            error_str = str(api_error)
+            if "credit balance is too low" in error_str or "quota exceeded" in error_str:
+                logger.warning(f"Anthropic API credit issue: {error_str}")
+                return {
+                    'status': 'no_credits',
+                    'message': 'API key is valid but has insufficient credits'
+                }
+            else:
+                # Other API errors
+                logger.error(f"Anthropic API error: {error_str}")
+                return {
+                    'status': 'invalid',
+                    'message': f'API error: {error_str}'
+                }
     except Exception as e:
         return {
             'status': 'invalid',
@@ -292,14 +314,20 @@ def get_claude_service() -> Optional[ClaudeService]:
         ClaudeService instance or None if initialization fails
     """
     global claude_service
+    
+    # Check API key status first
+    key_status = check_api_key_status()
+    if key_status['status'] != 'valid':
+        logger.warning(f"Claude service unavailable: {key_status['message']}")
+        return None
+    
+    # Initialize the service if needed
     if claude_service is None:
         api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if not api_key:
-            logger.warning("ANTHROPIC_API_KEY not found in environment variables")
-            return None
         try:
             claude_service = ClaudeService(api_key=api_key)
         except Exception as e:
             logger.error(f"Failed to initialize Claude service: {str(e)}")
             return None
+    
     return claude_service

@@ -60,6 +60,30 @@ document.addEventListener("DOMContentLoaded", function() {
           } else if (data.status === "invalid") {
             statusBadge.className = "badge bg-danger";
             statusBadge.innerHTML = "Invalid API Key";
+          } else if (data.status === "no_credits") {
+            statusBadge.className = "badge bg-danger";
+            statusBadge.innerHTML = "No API Credits";
+            
+            // Add a message about the credit issue
+            const apiKeyMessage = document.getElementById("apiKeyMessage");
+            if (apiKeyMessage) {
+              apiKeyMessage.innerHTML = `
+                <div class="alert alert-danger mt-3">
+                  <i class="bi bi-exclamation-triangle me-2"></i>
+                  <strong>Credit Balance Issue:</strong> Your Anthropic API key is valid, but has insufficient credits.
+                  <div class="mt-2">
+                    <a href="https://console.anthropic.com/settings/billing" 
+                      class="btn btn-sm btn-outline-danger me-2" target="_blank">
+                      <i class="bi bi-credit-card me-1"></i>Add Credits
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                      data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                      <i class="bi bi-key me-1"></i>Update API Key
+                    </button>
+                  </div>
+                </div>
+              `;
+            }
           } else {
             statusBadge.className = "badge bg-warning text-dark";
             statusBadge.innerHTML = "API Key Required";

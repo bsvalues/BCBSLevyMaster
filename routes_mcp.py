@@ -153,7 +153,14 @@ def generate_mcp_insights(tax_codes):
     """
     # Check if Anthropic API key is configured
     key_status = check_api_key_status()
-    api_key_status = "configured" if key_status.get('status') == 'valid' else "missing"
+    status = key_status.get('status')
+    
+    if status == 'valid':
+        api_key_status = "configured"
+    elif status == 'no_credits':
+        api_key_status = "no_credits"
+    else:
+        api_key_status = "missing"
     
     # Default values if API is not available
     default_insights = {
