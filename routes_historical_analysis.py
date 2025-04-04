@@ -355,6 +355,144 @@ def api_historical_comparison():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@historical_analysis_bp.route('/historical-rates', methods=['GET'])
+def historical_analysis():
+    """
+    Display historical tax rates page with visualization options.
+    
+    This is the main entry point for users to access historical rate data.
+    It provides a simplified interface to the advanced analysis tools.
+    """
+    # Get all tax codes for dropdowns
+    tax_codes = TaxCode.query.order_by(TaxCode.tax_code).all()
+    
+    # Get all available years from the historical rates table
+    years_query = db.session.query(
+        TaxCodeHistoricalRate.year
+    ).distinct().order_by(
+        TaxCodeHistoricalRate.year.desc()
+    ).all()
+    available_years = [year[0] for year in years_query]
+    
+    # Pre-select the most recent tax code for convenience
+    selected_tax_code = request.args.get('tax_code')
+    if not selected_tax_code and tax_codes:
+        selected_tax_code = tax_codes[0].tax_code
+    
+    # Get historical data for the selected tax code
+    historical_data = None
+    if selected_tax_code:
+        try:
+            historical_data = compute_basic_statistics(selected_tax_code)
+        except Exception as e:
+            flash(f"Error retrieving historical data: {str(e)}", "danger")
+    
+    return render_template(
+        'historical_rates.html',
+        tax_codes=tax_codes,
+        available_years=available_years,
+        selected_tax_code=selected_tax_code,
+        historical_data=historical_data
+    )
+
+@historical_analysis_bp.route('/compliance', methods=['GET', 'POST'])
+def compliance():
+    """
+    Check levy compliance against statutory limits and requirements.
+    
+    This tool helps users verify that levy rates comply with state laws
+    and identify potential issues before they become problems.
+    """
+    tax_codes = TaxCode.query.order_by(TaxCode.tax_code).all()
+    
+    # Get available years
+    years_query = db.session.query(
+        TaxCodeHistoricalRate.year
+    ).distinct().order_by(
+        TaxCodeHistoricalRate.year.desc()
+    ).all()
+    available_years = [year[0] for year in years_query]
+    
+    # Initialize variables
+    compliance_results = None
+    selected_year = None
+    selected_tax_code = None
+    
+    if request.method == 'POST':
+        selected_year = request.form.get('year')
+        selected_tax_code = request.form.get('tax_code')
+        
+        if selected_tax_code and selected_year:
+            # For demonstration, we'll implement a simple compliance check
+            try:
+                # Get tax code details
+                tax_code_obj = TaxCode.query.filter_by(tax_code=selected_tax_code).first()
+                if not tax_code_obj:
+                    flash(f'Tax code {selected_tax_code} not found', 'warning')
+                    return render_template(
+                        'enhanced_compliance.html',
+                        tax_codes=tax_codes,
+                        available_years=available_years
+                    )
+                
+                # Get historical rate for selected year
+                historical_rate = TaxCodeHistoricalRate.query.filter_by(
+                    tax_code_id=tax_code_obj.id,
+                    year=int(selected_year)
+                ).first()
+                
+                if not historical_rate:
+                    flash(f'No rate data found for tax code {selected_tax_code} in year {selected_year}', 'warning')
+                    return render_template(
+                        'enhanced_compliance.html',
+                        tax_codes=tax_codes,
+                        available_years=available_years
+                    )
+                
+                # Implement compliance checks
+                # For example, check if levy rate is within statutory maximum
+                statutory_max = 5.90  # Example maximum rate
+                is_compliant = historical_rate.levy_rate <= statutory_max
+                
+                # Check year-over-year increase
+                prev_year_rate = TaxCodeHistoricalRate.query.filter_by(
+                    tax_code_id=tax_code_obj.id,
+                    year=int(selected_year) - 1
+                ).first()
+                
+                yoy_increase = None
+                yoy_limit = 1.01  # 1% limit
+                yoy_compliant = True
+                
+                if prev_year_rate:
+                    yoy_increase = (historical_rate.levy_rate - prev_year_rate.levy_rate) / prev_year_rate.levy_rate
+                    yoy_compliant = yoy_increase <= (yoy_limit - 1)
+                
+                # Package results
+                compliance_results = {
+                    'tax_code': selected_tax_code,
+                    'year': selected_year,
+                    'levy_rate': historical_rate.levy_rate,
+                    'statutory_max': statutory_max,
+                    'is_compliant': is_compliant,
+                    'yoy_increase': yoy_increase,
+                    'yoy_limit': yoy_limit - 1,  # Convert to percentage
+                    'yoy_compliant': yoy_compliant,
+                    'overall_compliance': is_compliant and yoy_compliant
+                }
+                
+            except Exception as e:
+                flash(f'Error checking compliance: {str(e)}', 'danger')
+    
+    return render_template(
+        'enhanced_compliance.html',
+        tax_codes=tax_codes,
+        available_years=available_years,
+        compliance_results=compliance_results,
+        selected_year=selected_year,
+        selected_tax_code=selected_tax_code
+    )
+
 def init_historical_analysis_routes(app):
     """Initialize historical analysis routes with the Flask app."""
     app.register_blueprint(historical_analysis_bp)

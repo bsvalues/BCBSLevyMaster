@@ -1,704 +1,401 @@
 {% extends "base.html" %}
 
-{% block title %}Historical Rates | SaaS Levy Calculation{% endblock %}
+{% block title %}Historical Tax Rates{% endblock %}
+
+{% block head %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  .rate-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    padding: 20px;
+    transition: transform 0.3s ease;
+  }
+  .rate-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  .rate-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #0d6efd;
+  }
+  .rate-title {
+    color: #6c757d;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .chart-container {
+    position: relative;
+    height: 350px;
+    margin-top: 20px;
+  }
+  .trend-up {
+    color: #28a745;
+  }
+  .trend-down {
+    color: #dc3545;
+  }
+  .trend-neutral {
+    color: #6c757d;
+  }
+  .stat-card {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+  }
+  .stat-title {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #212529;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row mb-4">
-        <div class="col">
-            <h2 class="mb-3">
-                <i class="bi bi-graph-up"></i> Multi-Year Historical Rate Analysis
-            </h2>
-            <p class="lead">Analyze and compare levy rates across multiple years to identify trends and make informed decisions.</p>
-        </div>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Historical Tax Rates</h1>
+    <div>
+      <a href="{{ url_for('historical_analysis.advanced_historical_analysis') }}" class="btn btn-primary">
+        <i class="bi bi-graph-up"></i> Advanced Analysis
+      </a>
     </div>
-
-    <div class="row">
-        <!-- Control Panel -->
+  </div>
+  
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Historical Tax Rate Analysis</h5>
+          <p class="card-text">
+            View and analyze historical tax rates for tax codes across multiple years. Select a tax code to see 
+            detailed historical trends, statistics, and visualizations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-lg-3">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Select Tax Code</h5>
+        </div>
+        <div class="card-body">
+          <form method="GET" action="{{ url_for('historical_analysis.historical_analysis') }}">
+            <div class="mb-3">
+              <label for="tax_code" class="form-label">Tax Code</label>
+              <select class="form-select" id="tax_code" name="tax_code" onchange="this.form.submit()">
+                <option value="">Select a tax code</option>
+                {% for tax_code in tax_codes %}
+                <option value="{{ tax_code.tax_code }}" {% if tax_code.tax_code == selected_tax_code %}selected{% endif %}>
+                  {{ tax_code.tax_code }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </form>
+          
+          <hr>
+          
+          <div class="d-grid gap-2">
+            <a href="{{ url_for('historical_analysis.advanced_historical_analysis') }}?tax_code={{ selected_tax_code }}" class="btn btn-outline-primary">
+              <i class="bi bi-graph-up"></i> Run Advanced Analysis
+            </a>
+            <a href="{{ url_for('historical_analysis.compliance') }}?tax_code={{ selected_tax_code }}" class="btn btn-outline-success">
+              <i class="bi bi-check-circle"></i> Check Compliance
+            </a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Available Years</h5>
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            {% for year in available_years %}
+            <a href="{{ url_for('historical_analysis.historical_analysis', tax_code=selected_tax_code, year=year) }}" class="list-group-item list-group-item-action">
+              {{ year }}
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-lg-9">
+      {% if historical_data and not historical_data.error %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Historical Rates for Tax Code: {{ historical_data.tax_code }}</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="rateHistoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
         <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Control Panel</h5>
-                </div>
-                <div class="card-body">
-                    <!-- View Historical Data -->
-                    <form method="post" action="{{ url_for('historical_rates') }}" class="mb-4">
-                        <h6 class="mb-3">View Tax Code History</h6>
-                        <div class="mb-3">
-                            <label for="tax_code" class="form-label">Select Tax Code</label>
-                            <select class="form-select" id="tax_code" name="tax_code" required>
-                                <option value="">Select a tax code...</option>
-                                {% for tax_code in tax_codes %}
-                                <option value="{{ tax_code.code }}" {% if tax_code.code == selected_tax_code %}selected{% endif %}>
-                                    {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <button type="submit" name="view_historical_data" class="btn btn-primary">
-                            <i class="bi bi-eye"></i> View Data
-                        </button>
-                    </form>
-
-                    <hr>
-
-                    <!-- Store Current Rates -->
-                    <form method="post" action="{{ url_for('historical_rates') }}" class="mb-4">
-                        <h6 class="mb-3">Store Current Rates</h6>
-                        <div class="mb-3">
-                            <label for="year" class="form-label">Year for Current Rates</label>
-                            <input type="number" class="form-control" id="year" name="year" 
-                                   value="{{ current_year }}" min="2000" max="2100">
-                            <div class="form-text">Specify the year to associate with current rates</div>
-                        </div>
-                        <button type="submit" name="store_current_rates" class="btn btn-success">
-                            <i class="bi bi-database-add"></i> Save Current Rates
-                        </button>
-                    </form>
-
-                    <hr>
-
-                    <!-- Compare Tax Codes -->
-                    <form id="compareForm" class="mb-4">
-                        <h6 class="mb-3">Compare Tax Codes</h6>
-                        <div class="mb-3">
-                            <label for="compare_tax_codes" class="form-label">Select Tax Codes</label>
-                            <select class="form-select" id="compare_tax_codes" name="compare_tax_codes" multiple size="5" required>
-                                {% for tax_code in tax_codes %}
-                                <option value="{{ tax_code.code }}">
-                                    {{ tax_code.code }} ({{ tax_code.levy_rate|round(4) if tax_code.levy_rate else 'No rate' }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Select multiple tax codes by holding Ctrl/Cmd while clicking</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="compare_years" class="form-label">Filter by Years (Optional)</label>
-                            <select class="form-select" id="compare_years" name="compare_years" multiple size="3">
-                                {% for year in available_years %}
-                                <option value="{{ year }}">{{ year }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Leave empty to include all available years</div>
-                        </div>
-                        
-                        <button type="button" id="compareTaxCodesBtn" class="btn btn-info">
-                            <i class="bi bi-arrow-left-right"></i> Compare Tax Codes
-                        </button>
-                    </form>
-
-                    <hr>
-
-                    <!-- Seed Historical Data (for development) -->
-                    <form method="post" action="{{ url_for('historical_rates') }}">
-                        <h6 class="mb-3">Generate Test Data</h6>
-                        <div class="mb-3">
-                            <label for="base_year" class="form-label">Base Year</label>
-                            <input type="number" class="form-control" id="base_year" name="base_year" 
-                                   value="{{ current_year }}" min="2000" max="2100">
-                        </div>
-                        <div class="mb-3">
-                            <label for="num_years" class="form-label">Number of Years</label>
-                            <input type="number" class="form-control" id="num_years" name="num_years" 
-                                   value="5" min="1" max="20">
-                        </div>
-                        <button type="submit" name="seed_historical_data" class="btn btn-secondary">
-                            <i class="bi bi-database-fill"></i> Seed Historical Data
-                        </button>
-                    </form>
-                </div>
+          <div class="rate-card text-center">
+            <div class="rate-title">Current Rate ({{ historical_data.last_year }})</div>
+            <div class="rate-value">{{ historical_data.last_rate|round(2) }}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="rate-card text-center">
+            <div class="rate-title">Average Rate</div>
+            <div class="rate-value">{{ historical_data.mean|round(2) }}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="rate-card text-center">
+            <div class="rate-title">Total Change</div>
+            <div class="rate-value">
+              {{ historical_data.total_change|round(2) }}
+              {% if historical_data.total_change > 0 %}
+              <i class="bi bi-arrow-up-right trend-up"></i>
+              {% elif historical_data.total_change < 0 %}
+              <i class="bi bi-arrow-down-right trend-down"></i>
+              {% else %}
+              <i class="bi bi-dash trend-neutral"></i>
+              {% endif %}
             </div>
-
-            <!-- Available Years Info -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Available Years</h5>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Detailed Statistics</h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">Median Rate</div>
+                    <div class="stat-value">{{ historical_data.median|round(2) }}</div>
+                  </div>
                 </div>
-                <div class="card-body">
-                    {% if available_years %}
-                    <p>The following years have historical data:</p>
-                    <ul class="list-group">
-                        {% for year in available_years %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ year }}
-                            <span class="badge bg-primary rounded-pill">Data Available</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">Minimum Rate</div>
+                    <div class="stat-value">{{ historical_data.min|round(2) }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">Maximum Rate</div>
+                    <div class="stat-value">{{ historical_data.max|round(2) }}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row mt-3">
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">Standard Deviation</div>
+                    <div class="stat-value">{{ historical_data.std_dev|round(2) }}</div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">Percent Change</div>
+                    <div class="stat-value">
+                      {% if historical_data.percent_change is not none %}
+                      {{ historical_data.percent_change|round(2) }}%
+                      {% if historical_data.percent_change > 0 %}
+                      <i class="bi bi-arrow-up-right trend-up"></i>
+                      {% elif historical_data.percent_change < 0 %}
+                      <i class="bi bi-arrow-down-right trend-down"></i>
+                      {% else %}
+                      <i class="bi bi-dash trend-neutral"></i>
+                      {% endif %}
+                      {% else %}
+                      N/A
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="stat-card">
+                    <div class="stat-title">CAGR</div>
+                    <div class="stat-value">
+                      {% if historical_data.cagr is not none %}
+                      {{ historical_data.cagr|round(2) }}%
+                      {% if historical_data.cagr > 0 %}
+                      <i class="bi bi-arrow-up-right trend-up"></i>
+                      {% elif historical_data.cagr < 0 %}
+                      <i class="bi bi-arrow-down-right trend-down"></i>
+                      {% else %}
+                      <i class="bi bi-dash trend-neutral"></i>
+                      {% endif %}
+                      {% else %}
+                      N/A
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5 class="mb-0">Historical Data Table</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Levy Rate</th>
+                  <th>Change from Previous</th>
+                  <th>Percent Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for i in range(historical_data.historical_data|length) %}
+                <tr>
+                  <td>{{ historical_data.historical_data[i].year }}</td>
+                  <td>{{ historical_data.historical_data[i].levy_rate|round(4) }}</td>
+                  <td>
+                    {% if i > 0 %}
+                    {% set change = historical_data.historical_data[i].levy_rate - historical_data.historical_data[i-1].levy_rate %}
+                    {{ change|round(4) }}
+                    {% if change > 0 %}
+                    <i class="bi bi-arrow-up-right trend-up"></i>
+                    {% elif change < 0 %}
+                    <i class="bi bi-arrow-down-right trend-down"></i>
                     {% else %}
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle-fill"></i> No historical data years available yet. 
-                        Use the "Store Current Rates" or "Seed Historical Data" functions to create historical data.
-                    </div>
+                    <i class="bi bi-dash trend-neutral"></i>
                     {% endif %}
-                </div>
-            </div>
-            
-            <!-- Import/Export Panel -->
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Import/Export Data</h5>
-                    <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#importExportCollapse" aria-expanded="false" aria-controls="importExportCollapse">
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                </div>
-                <div class="collapse" id="importExportCollapse">
-                    <div class="card-body">
-                        <!-- Export Historical Data -->
-                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-4" name="export_form">
-                            <h6 class="mb-3"><i class="bi bi-download"></i> Export Historical Data</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="export_year" class="form-label">Year (Optional)</label>
-                                    <select class="form-select" id="export_year" name="export_year">
-                                        <option value="">All Years</option>
-                                        {% for year in available_years %}
-                                        <option value="{{ year }}">{{ year }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text">Filter export to a specific year</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="export_tax_code" class="form-label">Tax Code (Optional)</label>
-                                    <select class="form-select" id="export_tax_code" name="export_tax_code">
-                                        <option value="">All Tax Codes</option>
-                                        {% for tax_code in tax_codes %}
-                                        <option value="{{ tax_code.code }}">{{ tax_code.code }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    <div class="form-text">Filter export to a specific tax code</div>
-                                </div>
-                            </div>
-                            <div class="mt-3 d-flex">
-                                <button type="button" id="previewExportBtn" class="btn btn-secondary me-2">
-                                    <i class="bi bi-eye"></i> Preview Data
-                                </button>
-                                <button type="submit" name="export_historical_data" class="btn btn-success">
-                                    <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
-                                </button>
-                                <input type="hidden" name="export_historical_data" value="">
-                            </div>
-                        </form>
-                        
-                        <!-- Export Preview Modal -->
-                        <div class="modal fade" id="exportPreviewModal" tabindex="-1" aria-labelledby="exportPreviewModalLabel" aria-hidden="true">
-                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="exportPreviewModalLabel">Export Data Preview</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div id="exportPreviewLoading" class="text-center py-4">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2">Loading preview data...</p>
-                                        </div>
-                                        <div id="exportPreviewContent" class="d-none">
-                                            <div class="alert alert-info mb-3">
-                                                <strong>Preview of export data:</strong> Showing up to 100 rows.
-                                            </div>
-                                            <div class="table-responsive">
-                                                <table class="table table-sm table-striped table-hover" id="exportPreviewTable">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Tax Code</th>
-                                                            <th>Year</th>
-                                                            <th>Levy Rate</th>
-                                                            <th>Levy Amount</th>
-                                                            <th>Total Assessed Value</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <!-- Preview data will be inserted here -->
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            <div id="exportPreviewNoData" class="alert alert-warning d-none">
-                                                No data found matching the selected criteria.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        <button type="button" class="btn btn-success" id="confirmExportBtn">
-                                            <i class="bi bi-file-earmark-spreadsheet"></i> Export to CSV
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <hr>
-                        
-                        <!-- Import Historical Data -->
-                        <form method="post" action="{{ url_for('historical_rates') }}" class="mb-3" enctype="multipart/form-data" id="importForm">
-                            <h6 class="mb-3"><i class="bi bi-upload"></i> Import Historical Data</h6>
-                            <div class="mb-3">
-                                <label for="csv_file" class="form-label">CSV File</label>
-                                <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
-                                <div class="form-text">
-                                    Upload a CSV file with historical rate data. Required format:<br>
-                                    <code>Tax Code, Year, Levy Rate, Levy Amount, Total Assessed Value</code>
-                                </div>
-                            </div>
-                            <div class="d-flex">
-                                <button type="button" class="btn btn-secondary me-2" id="previewImportBtn">
-                                    <i class="bi bi-eye"></i> Preview Import
-                                </button>
-                                <button type="submit" name="import_historical_data" class="btn btn-primary">
-                                    <i class="bi bi-cloud-upload"></i> Import Data
-                                </button>
-                            </div>
-                        </form>
-                        
-                        <!-- Import Preview Modal -->
-                        <div class="modal fade" id="importPreviewModal" tabindex="-1" aria-labelledby="importPreviewModalLabel" aria-hidden="true">
-                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="importPreviewModalLabel">Import Preview</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div id="importPreviewLoading" class="text-center py-4">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
-                                            <p class="mt-2">Analyzing CSV file...</p>
-                                        </div>
-                                        <div id="importPreviewContent" class="d-none">
-                                            <div class="alert alert-info mb-3">
-                                                <i class="bi bi-info-circle"></i> <strong>Preview Only:</strong> 
-                                                These changes have not been applied to the database yet.
-                                            </div>
-                                            
-                                            <div id="importPreviewStats" class="mb-3">
-                                                <div class="row g-2">
-                                                    <div class="col-md-3">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body p-2 text-center">
-                                                                <div class="h5 mb-0" id="rowsToImport">0</div>
-                                                                <div class="text-muted small">Rows to Import</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body p-2 text-center">
-                                                                <div class="h5 mb-0" id="rowsToUpdate">0</div>
-                                                                <div class="text-muted small">Updates</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body p-2 text-center">
-                                                                <div class="h5 mb-0" id="rowsToSkip">0</div>
-                                                                <div class="text-muted small">Skipped</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="col-md-3">
-                                                        <div class="card bg-light">
-                                                            <div class="card-body p-2 text-center">
-                                                                <div class="h5 mb-0" id="uniqueTaxCodes">0</div>
-                                                                <div class="text-muted small">Tax Codes</div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div id="importValidationErrors" class="alert alert-danger d-none mb-3">
-                                                <h6><i class="bi bi-exclamation-triangle"></i> Validation Issues:</h6>
-                                                <ul id="importValidationErrorsList" class="mb-0"></ul>
-                                            </div>
-                                            
-                                            <h6>Data Preview</h6>
-                                            <div class="table-responsive">
-                                                <table class="table table-sm table-striped table-hover" id="importPreviewTable">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Row</th>
-                                                            <th>Tax Code</th>
-                                                            <th>Year</th>
-                                                            <th>Levy Rate</th>
-                                                            <th>Levy Amount</th>
-                                                            <th>Total Assessed Value</th>
-                                                            <th>Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <!-- Preview data will be inserted here -->
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            <div id="importPreviewNoData" class="alert alert-warning d-none">
-                                                No valid data found in the CSV file.
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        <button type="button" class="btn btn-primary" id="confirmImportBtn">
-                                            <i class="bi bi-cloud-upload"></i> Proceed with Import
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Download Template Button -->
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="downloadTemplateBtn">
-                                <i class="bi bi-file-earmark-arrow-down"></i> Download Import Template
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    {% else %}
+                    -
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if i > 0 %}
+                    {% set prev_rate = historical_data.historical_data[i-1].levy_rate %}
+                    {% if prev_rate != 0 %}
+                    {% set pct_change = (historical_data.historical_data[i].levy_rate - prev_rate) / prev_rate * 100 %}
+                    {{ pct_change|round(2) }}%
+                    {% if pct_change > 0 %}
+                    <i class="bi bi-arrow-up-right trend-up"></i>
+                    {% elif pct_change < 0 %}
+                    <i class="bi bi-arrow-down-right trend-down"></i>
+                    {% else %}
+                    <i class="bi bi-dash trend-neutral"></i>
+                    {% endif %}
+                    {% else %}
+                    N/A
+                    {% endif %}
+                    {% else %}
+                    -
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
-
-        <!-- Data Visualization -->
-        <div class="col-md-8">
-            {% if chart_data %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Historical Data for Tax Code: {{ chart_data.tax_code }}</h5>
-                </div>
-                <div class="card-body">
-                    <!-- Rate Trend Chart -->
-                    <div class="mb-4">
-                        <h6>Levy Rate Trend</h6>
-                        <canvas id="rateChart" width="400" height="200"></canvas>
-                    </div>
-
-                    <!-- Amount & Assessed Value Chart -->
-                    <div class="mb-4">
-                        <h6>Levy Amount & Assessed Value Trend</h6>
-                        <canvas id="amountChart" width="400" height="200"></canvas>
-                    </div>
-
-                    <!-- Year-over-Year Change Chart -->
-                    <div>
-                        <h6>Year-over-Year Rate Change</h6>
-                        <canvas id="changeChart" width="400" height="200"></canvas>
-                    </div>
-                    
-                    <!-- Comparison Chart (will be shown when comparing data) -->
-                    <div id="comparisonChartContainer" class="mt-4 pt-3 border-top d-none">
-                        <h6>
-                            <i class="bi bi-arrow-left-right"></i> Tax Code Comparison
-                            <button class="btn btn-sm btn-outline-secondary float-end" id="closeComparisonBtn">
-                                <i class="bi bi-x"></i> Close
-                            </button>
-                        </h6>
-                        <div class="alert alert-info mb-3">
-                            <small>Comparing data for multiple tax codes. You can add more tax codes for comparison by using the form on the left.</small>
-                        </div>
-                        <div class="mb-4">
-                            <h6 class="small text-muted">Rate Comparison</h6>
-                            <canvas id="comparisonRateChart" width="400" height="200"></canvas>
-                        </div>
-                        <div class="mb-4">
-                            <h6 class="small text-muted">Year-over-Year Change Comparison</h6>
-                            <canvas id="comparisonChangeChart" width="400" height="200"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Multi-Year Analysis -->
-            {% if multi_year_analysis %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">Multi-Year Analysis</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card mb-3">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Base Year: {{ multi_year_analysis.base_year }}</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p><strong>Base Rate:</strong> {{ multi_year_analysis.base_rate|round(4) if multi_year_analysis.base_rate else 'N/A' }}</p>
-                                    <p><strong>Years Available:</strong> {{ multi_year_analysis.years_available|join(', ') }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card mb-3">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Cumulative Changes</h6>
-                                </div>
-                                <div class="card-body">
-                                    <p>
-                                        <strong>Total Change:</strong> 
-                                        {{ multi_year_analysis.cumulative_change|round(4) if multi_year_analysis.cumulative_change else 'N/A' }}
-                                    </p>
-                                    <p>
-                                        <strong>Percent Change:</strong>
-                                        {{ multi_year_analysis.cumulative_percent_change|round(2) if multi_year_analysis.cumulative_percent_change else 'N/A' }}%
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <h6 class="mt-4">Yearly Rate Changes</h6>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Year</th>
-                                    <th>Rate</th>
-                                    <th>Change from Base</th>
-                                    <th>% Change</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for rate in multi_year_analysis.yearly_rates %}
-                                <tr>
-                                    <td>{{ rate.year }}</td>
-                                    <td>{{ rate.rate|round(4) }}</td>
-                                    <td>
-                                        {% for change in multi_year_analysis.yearly_changes %}
-                                            {% if change.year == rate.year %}
-                                                {{ change.change|round(4) }}
-                                                {% if change.change > 0 %}
-                                                <span class="text-success"><i class="bi bi-arrow-up-right"></i></span>
-                                                {% elif change.change < 0 %}
-                                                <span class="text-danger"><i class="bi bi-arrow-down-right"></i></span>
-                                                {% else %}
-                                                <span class="text-muted"><i class="bi bi-dash"></i></span>
-                                                {% endif %}
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                    <td>
-                                        {% for percent in multi_year_analysis.yearly_percent_changes %}
-                                            {% if percent.year == rate.year %}
-                                                {{ percent.percent_change|round(2) }}%
-                                            {% endif %}
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            {% elif seeded %}
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle-fill"></i> Historical data has been successfully seeded.
-                <p>Now you can view historical data for any tax code using the form on the left.</p>
-            </div>
-            {% elif stored %}
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle-fill"></i> Current rates have been successfully stored as historical data.
-                <p>Now you can view historical data for any tax code using the form on the left.</p>
-            </div>
-            {% else %}
-            <div class="card">
-                <div class="card-body text-center py-5">
-                    <i class="bi bi-graph-up" style="font-size: 3rem;"></i>
-                    <h4 class="mt-3">Historical Data Visualization</h4>
-                    <p class="text-muted">
-                        Select a tax code from the panel on the left to view historical rate trends and analysis.
-                    </p>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='js/historical_preview.js') }}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Historical data handling moved to historical_preview.js
-    
-    // Comparison Chart Functionality
-    const comparisonContainer = document.getElementById('comparisonChartContainer');
-    const closeComparisonBtn = document.getElementById('closeComparisonBtn');
-    
-    if (closeComparisonBtn) {
-        closeComparisonBtn.addEventListener('click', function() {
-            comparisonContainer.classList.add('d-none');
-        });
-    }
-    {% if chart_data %}
-    // Rate Trend Chart
-    const rateCtx = document.getElementById('rateChart').getContext('2d');
-    const rateChart = new Chart(rateCtx, {
-        type: 'line',
-        data: {
-            labels: {{ chart_data.years|tojson }},
-            datasets: [{
+      </div>
+      
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const historicalData = {{ historical_data.historical_data|tojson }};
+          const years = historicalData.map(item => item.year);
+          const rates = historicalData.map(item => item.levy_rate);
+          
+          const ctx = document.getElementById('rateHistoryChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: years,
+              datasets: [{
                 label: 'Levy Rate',
-                data: {{ chart_data.rates|tojson }},
-                borderColor: 'rgba(75, 192, 192, 1)',
+                data: rates,
+                borderColor: 'rgb(75, 192, 192)',
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                tension: 0.1,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
+                fill: true,
+                tension: 0.2,
+                pointRadius: 5,
+                pointHoverRadius: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
                 y: {
-                    beginAtZero: false,
-                    title: {
-                        display: true,
-                        text: 'Rate'
-                    }
+                  beginAtZero: false,
+                  title: {
+                    display: true,
+                    text: 'Levy Rate'
+                  }
                 },
                 x: {
-                    title: {
-                        display: true,
-                        text: 'Year'
-                    }
+                  title: {
+                    display: true,
+                    text: 'Year'
+                  }
                 }
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Historical Levy Rates',
+                  font: {
+                    size: 16
+                  }
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      return `Levy Rate: ${context.parsed.y.toFixed(4)}`;
+                    }
+                  }
+                }
+              }
             }
-        }
-    });
-    
-    // Amount & Assessed Value Chart (with dual y-axis)
-    const amountCtx = document.getElementById('amountChart').getContext('2d');
-    const amountChart = new Chart(amountCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ chart_data.years|tojson }},
-            datasets: [
-                {
-                    label: 'Levy Amount',
-                    data: {{ chart_data.amounts|tojson }},
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Assessed Value',
-                    data: {{ chart_data.assessed_values|tojson }},
-                    type: 'line',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                    fill: false,
-                    yAxisID: 'y1'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: 'Levy Amount'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Assessed Value'
-                    },
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            }
-        }
-    });
-    
-    // Year-over-Year Change Chart
-    const changeData = [];
-    const percentChangeData = [];
-    const years = {{ chart_data.years|tojson }};
-    
-    {% if multi_year_analysis %}
-    // Extract yearly changes
-    {% for change in multi_year_analysis.yearly_changes %}
-    changeData.push({{ change.change }});
-    {% endfor %}
-    
-    // Extract percent changes
-    {% for percent in multi_year_analysis.yearly_percent_changes %}
-    percentChangeData.push({{ percent.percent_change }});
-    {% endfor %}
-    {% endif %}
-    
-    const changeCtx = document.getElementById('changeChart').getContext('2d');
-    const changeChart = new Chart(changeCtx, {
-        type: 'bar',
-        data: {
-            labels: years,
-            datasets: [
-                {
-                    label: 'Rate Change',
-                    data: changeData,
-                    backgroundColor: 'rgba(153, 102, 255, 0.5)',
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    borderWidth: 1,
-                    yAxisID: 'y'
-                },
-                {
-                    label: 'Percent Change',
-                    data: percentChangeData,
-                    type: 'line',
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                    pointBackgroundColor: 'rgba(255, 159, 64, 1)',
-                    fill: false,
-                    yAxisID: 'y1'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: 'Rate Change'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Percent Change'
-                    },
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            }
-        }
-    });
-    {% endif %}
-});
-</script>
+          });
+        });
+      </script>
+      {% else %}
+      <div class="card">
+        <div class="card-body">
+          <div class="alert alert-info mb-0">
+            <h5><i class="bi bi-info-circle"></i> No data available</h5>
+            <p>Please select a tax code from the dropdown menu to view historical rate data.</p>
+            {% if historical_data and historical_data.error %}
+            <p class="text-danger">Error: {{ historical_data.error }}</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
 {% endblock %}
