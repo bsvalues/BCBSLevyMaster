@@ -1,384 +1,165 @@
 /**
- * LevyMaster Help Menu System
+ * Help Menu System for Levy Calculation System
  * 
- * Provides an interactive help menu with multiple tabs including:
- * - Guided Tours
- * - Documentation
- * - FAQ
- * - Support
+ * This file contains functionality for the help menu system, which provides
+ * users with quick access to tours, guides, and support resources.
  */
 
-// Help menu state
-let helpMenuInitialized = false;
-let helpMenuIsOpen = false;
-
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    try {
-        console.log('Initializing help menu...');
-        initHelpMenu();
-        console.log('Help menu initialized successfully');
-    } catch (error) {
-        console.error('Error initializing help menu:', error);
-    }
+  console.log('Initializing help menu...');
+  initializeHelpMenu();
 });
 
 /**
- * Initialize the help menu system
+ * Initialize the help menu functionality
  */
-function initHelpMenu() {
-    if (helpMenuInitialized) return;
-    
-    // Create the help menu HTML structure
-    createHelpMenuStructure();
-    
-    // Set up event listeners
-    setupEventListeners();
-    
-    helpMenuInitialized = true;
-    console.log('Help Menu System initialized');
+function initializeHelpMenu() {
+  // Get help button
+  const helpButton = document.getElementById('help-button');
+  
+  if (!helpButton) {
+    console.log('Help menu button not found');
+    return;
+  }
+  
+  // Create help menu if it doesn't exist
+  let helpMenu = document.querySelector('.help-menu');
+  
+  if (!helpMenu) {
+    helpMenu = createHelpMenu();
+    document.body.appendChild(helpMenu);
+  }
+  
+  // Toggle help menu when clicking the help button
+  helpButton.addEventListener('click', function(e) {
+    e.preventDefault();
+    helpMenu.classList.toggle('active');
+  });
+  
+  // Close help menu when clicking outside
+  document.addEventListener('click', function(event) {
+    if (helpMenu.classList.contains('active') && 
+        !helpMenu.contains(event.target) && 
+        !helpButton.contains(event.target)) {
+      helpMenu.classList.remove('active');
+    }
+  });
+  
+  console.log('Help Menu System initialized');
 }
 
 /**
- * Create the help menu HTML structure and append it to the body
+ * Create the help menu element
+ * @returns {HTMLElement} The help menu element
  */
-function createHelpMenuStructure() {
-    const helpMenuHTML = `
-        <div class="help-menu-overlay" id="helpMenuOverlay"></div>
-        <div class="help-menu" id="helpMenu">
-            <div class="help-menu-header">
-                <h5 class="help-menu-title"><i class="bi bi-question-circle me-2"></i>Help & Support Center</h5>
-                <button class="help-menu-close" id="helpMenuClose"><i class="bi bi-x-lg"></i></button>
-            </div>
-            <div class="help-menu-content">
-                <div class="help-menu-tabs">
-                    <button class="help-tab active" data-tab="tours"><i class="bi bi-info-circle"></i>Guided Tours</button>
-                    <button class="help-tab" data-tab="docs"><i class="bi bi-book"></i>Documentation</button>
-                    <button class="help-tab" data-tab="faq"><i class="bi bi-question-lg"></i>FAQ</button>
-                    <button class="help-tab" data-tab="support"><i class="bi bi-headset"></i>Support</button>
-                </div>
-                
-                <!-- Guided Tours Tab -->
-                <div class="help-tab-content active" id="toursTab">
-                    <div class="p-3">
-                        <h5 class="mb-3">Interactive Guided Tours</h5>
-                        <p>Take a guided tour to learn how to use the Levy Calculation System. Select a tour below to get started:</p>
-                    </div>
-                    <ul class="help-menu-items">
-                        <li class="help-menu-item" id="dashboardTourItem">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-house"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Dashboard Tour</div>
-                                <div class="help-menu-item-description">Learn about the main features and navigation of the system.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item" id="calculationTourItem">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-calculator"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Levy Calculation Tour</div>
-                                <div class="help-menu-item-description">Understand how to calculate property tax levies with compliance checks.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item" id="analysisTourItem">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-graph-up"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Data Analysis Tour</div>
-                                <div class="help-menu-item-description">Learn how to analyze historical data and generate forecasts.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item" id="reportsTourItem">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-file-earmark-text"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Reports Tour</div>
-                                <div class="help-menu-item-description">Discover how to generate and customize reports.</div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-                
-                <!-- Documentation Tab -->
-                <div class="help-tab-content" id="docsTab">
-                    <div class="p-3">
-                        <h5 class="mb-3">Documentation & Guides</h5>
-                        <p>Access comprehensive documentation and user guides for the Levy Calculation System:</p>
-                    </div>
-                    <ul class="help-menu-items">
-                        <li class="help-menu-item">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-file-earmark-text"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">User Manual</div>
-                                <div class="help-menu-item-description">Complete documentation of all features and functions.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-journal-code"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Levy Calculation Guide</div>
-                                <div class="help-menu-item-description">Learn about property tax calculations and compliance requirements.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-upload"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Data Import/Export Guide</div>
-                                <div class="help-menu-item-description">Instructions for importing and exporting data.</div>
-                            </div>
-                        </li>
-                        <li class="help-menu-item">
-                            <div class="help-menu-item-icon">
-                                <i class="bi bi-gear"></i>
-                            </div>
-                            <div class="help-menu-item-info">
-                                <div class="help-menu-item-title">Administrator Guide</div>
-                                <div class="help-menu-item-description">System management and configuration instructions.</div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-                
-                <!-- FAQ Tab -->
-                <div class="help-tab-content" id="faqTab">
-                    <div class="p-3">
-                        <h5 class="mb-3">Frequently Asked Questions</h5>
-                        <p>Find answers to common questions about the Levy Calculation System:</p>
-                        
-                        <div class="help-faq-item">
-                            <div class="help-faq-question">What is the Levy Calculation System?</div>
-                            <div class="help-faq-answer">The Levy Calculation System is a comprehensive property tax management application that helps calculate levy rates, check statutory compliance, analyze historical data, and generate reports for various stakeholders.</div>
-                        </div>
-                        
-                        <div class="help-faq-item">
-                            <div class="help-faq-question">How do I import property data?</div>
-                            <div class="help-faq-answer">Navigate to the Data Management section, select Import Data, and follow the guided process to upload your property data file. The system supports various formats including CSV, Excel, and XML.</div>
-                        </div>
-                        
-                        <div class="help-faq-item">
-                            <div class="help-faq-question">What statutory compliance checks are performed?</div>
-                            <div class="help-faq-answer">The system performs various compliance checks based on Washington state laws, including levy rate limits, levy amount limits, new construction calculations, and assessed value thresholds. Each check is documented with the relevant statutory reference.</div>
-                        </div>
-                        
-                        <div class="help-faq-item">
-                            <div class="help-faq-question">Can I generate forecasts for future years?</div>
-                            <div class="help-faq-answer">Yes, the Data Analysis section includes forecasting capabilities. You can generate projections based on historical trends, apply different forecasting models, and incorporate various scenarios for future planning.</div>
-                        </div>
-                        
-                        <div class="help-faq-item">
-                            <div class="help-faq-question">How often is the data backed up?</div>
-                            <div class="help-faq-answer">The system automatically creates daily backups of all data. Administrators can also trigger manual backups at any time through the System Administration section.</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Support Tab -->
-                <div class="help-tab-content" id="supportTab">
-                    <div class="p-3">
-                        <h5 class="mb-3">Support & Contact</h5>
-                        <p>Need additional help? Contact our support team or submit a support request:</p>
-                        
-                        <div class="help-support-section">
-                            <h6><i class="bi bi-envelope me-2"></i>Contact Support</h6>
-                            <p>For technical assistance or questions about the system, contact our support team:</p>
-                            <ul>
-                                <li>Email: <a href="mailto:support@bentoncounty.gov">support@bentoncounty.gov</a></li>
-                                <li>Phone: (555) 123-4567</li>
-                                <li>Hours: Monday-Friday, 8:00 AM - 5:00 PM PT</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="help-contact-form">
-                            <h6>Submit a Support Request</h6>
-                            <form id="supportForm">
-                                <div class="mb-3">
-                                    <label for="supportName" class="form-label">Name</label>
-                                    <input type="text" class="form-control" id="supportName" placeholder="Your name">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="supportEmail" class="form-label">Email</label>
-                                    <input type="email" class="form-control" id="supportEmail" placeholder="Your email">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="supportSubject" class="form-label">Subject</label>
-                                    <input type="text" class="form-control" id="supportSubject" placeholder="Subject">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="supportMessage" class="form-label">Message</label>
-                                    <textarea class="form-control" id="supportMessage" rows="4" placeholder="Describe your issue or question..."></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Submit Request</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="help-menu-footer">
-                Levy Calculation System Help Center &copy; 2025 Benton County Assessor's Office
-            </div>
-        </div>
-    `;
+function createHelpMenu() {
+  const helpMenu = document.createElement('div');
+  helpMenu.className = 'help-menu';
+  
+  // Create help menu content
+  helpMenu.innerHTML = `
+    <div class="help-menu-header">
+      <h5>Help & Resources</h5>
+    </div>
+    <div class="help-menu-body">
+      <ul class="help-menu-items">
+        <li class="help-menu-item" data-tour="dashboard">
+          <i class="bi bi-info-circle"></i>
+          Dashboard Tour
+        </li>
+        <li class="help-menu-item" data-tour="levyCalculator">
+          <i class="bi bi-calculator"></i>
+          Levy Calculator Tour
+        </li>
+        <li class="help-menu-item" data-tour="importData">
+          <i class="bi bi-upload"></i>
+          Import Data Tour
+        </li>
+        <li class="help-menu-item" data-action="glossary">
+          <i class="bi bi-book"></i>
+          Tax Glossary
+        </li>
+        <li class="help-menu-item" data-action="documentation">
+          <i class="bi bi-file-text"></i>
+          User Guide
+        </li>
+        <li class="help-menu-item" data-action="faq">
+          <i class="bi bi-question-circle"></i>
+          FAQ
+        </li>
+        <li class="help-menu-item" data-action="support">
+          <i class="bi bi-headset"></i>
+          Contact Support
+        </li>
+      </ul>
+    </div>
+  `;
+  
+  // Add event listeners to menu items
+  setTimeout(() => {
+    const items = helpMenu.querySelectorAll('.help-menu-item');
     
-    // Create a container for the help menu
-    const helpMenuContainer = document.createElement('div');
-    helpMenuContainer.innerHTML = helpMenuHTML;
-    
-    // Append to the body
-    document.body.appendChild(helpMenuContainer);
-}
-
-/**
- * Set up event listeners for the help menu
- */
-function setupEventListeners() {
-    // Get elements
-    const helpButton = document.getElementById('help-button');
-    const helpMenu = document.getElementById('helpMenu');
-    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-    const helpMenuClose = document.getElementById('helpMenuClose');
-    const helpTabs = document.querySelectorAll('.help-tab');
-    
-    // Tour items
-    const dashboardTourItem = document.getElementById('dashboardTourItem');
-    const calculationTourItem = document.getElementById('calculationTourItem');
-    const analysisTourItem = document.getElementById('analysisTourItem');
-    const reportsTourItem = document.getElementById('reportsTourItem');
-    
-    // Support form
-    const supportForm = document.getElementById('supportForm');
-    
-    // Toggle help menu when help button is clicked
-    if (helpButton) {
-        helpButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            toggleHelpMenu();
-        });
-    }
-    
-    // Close help menu when overlay or close button is clicked
-    if (helpMenuOverlay) {
-        helpMenuOverlay.addEventListener('click', () => closeHelpMenu());
-    }
-    
-    if (helpMenuClose) {
-        helpMenuClose.addEventListener('click', () => closeHelpMenu());
-    }
-        
-    // Tab switching
-    helpTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            // Remove active class from all tabs and content
-            helpTabs.forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.help-tab-content').forEach(c => c.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab');
-            document.getElementById(`${tabId}Tab`).classList.add('active');
-        });
+    items.forEach(item => {
+      item.addEventListener('click', handleHelpMenuItemClick);
     });
-    
-    // Tour items
-    if (dashboardTourItem) {
-        dashboardTourItem.addEventListener('click', () => {
-            closeHelpMenu();
-            if (window.guidedTourSystem) {
-                window.guidedTourSystem.startTour('dashboard');
-            }
-        });
-    }
-    
-    if (calculationTourItem) {
-        calculationTourItem.addEventListener('click', () => {
-            closeHelpMenu();
-            // TODO: Start calculation tour when available
-            if (window.guidedTourSystem) {
-                alert('Levy Calculation tour will be available soon.');
-            }
-        });
-    }
-    
-    if (analysisTourItem) {
-        analysisTourItem.addEventListener('click', () => {
-            closeHelpMenu();
-            // TODO: Start analysis tour when available
-            if (window.guidedTourSystem) {
-                alert('Data Analysis tour will be available soon.');
-            }
-        });
-    }
-    
-    if (reportsTourItem) {
-        reportsTourItem.addEventListener('click', () => {
-            closeHelpMenu();
-            // TODO: Start reports tour when available
-            if (window.guidedTourSystem) {
-                alert('Reports tour will be available soon.');
-            }
-        });
-    }
-    
-    // Support form submission
-    if (supportForm) {
-        supportForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            // TODO: Implement form submission
-            alert('Support request submitted. Our team will contact you soon.');
-            supportForm.reset();
-        });
-    }
-    
-    // Close on escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && helpMenuIsOpen) {
-            closeHelpMenu();
-        }
-    });
+  }, 0);
+  
+  return helpMenu;
 }
 
 /**
- * Toggle the help menu open/closed
+ * Handle help menu item clicks
+ * @param {Event} e - Click event
  */
-function toggleHelpMenu() {
-    const helpMenu = document.getElementById('helpMenu');
-    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-    
-    if (helpMenuIsOpen) {
-        closeHelpMenu();
+function handleHelpMenuItemClick(e) {
+  const tourName = this.getAttribute('data-tour');
+  const action = this.getAttribute('data-action');
+  
+  // Close the menu
+  const helpMenu = document.querySelector('.help-menu');
+  if (helpMenu) {
+    helpMenu.classList.remove('active');
+  }
+  
+  // Handle tour actions
+  if (tourName) {
+    // Check if the startTour function exists (defined in guided_tour.js)
+    if (typeof startTour === 'function') {
+      startTour(tourName);
     } else {
-        helpMenu.classList.add('show');
-        helpMenuOverlay.classList.add('show');
-        helpMenuIsOpen = true;
+      console.error('Tour system not loaded');
     }
+  }
+  
+  // Handle other actions
+  if (action) {
+    handleHelpAction(action);
+  }
 }
 
 /**
- * Close the help menu
+ * Handle various help actions
+ * @param {string} action - The action to perform
  */
-function closeHelpMenu() {
-    const helpMenu = document.getElementById('helpMenu');
-    const helpMenuOverlay = document.getElementById('helpMenuOverlay');
-    
-    helpMenu.classList.remove('show');
-    helpMenuOverlay.classList.remove('show');
-    helpMenuIsOpen = false;
+function handleHelpAction(action) {
+  switch (action) {
+    case 'glossary':
+      window.location.href = '/glossary';
+      break;
+      
+    case 'documentation':
+      window.location.href = '/help';
+      break;
+      
+    case 'faq':
+      window.location.href = '/faq';
+      break;
+      
+    case 'support':
+      window.location.href = '/support';
+      break;
+      
+    default:
+      console.log('Unknown help action:', action);
+  }
 }
-
-// Expose the help menu functions globally
-document.addEventListener('DOMContentLoaded', () => {
-    window.helpMenuSystem = {
-        toggleHelpMenu: toggleHelpMenu,
-        closeHelpMenu: closeHelpMenu
-    };
-});

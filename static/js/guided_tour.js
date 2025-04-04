@@ -1,224 +1,224 @@
 /**
- * LevyMaster Guided Tour System
+ * Guided Tour System for Levy Calculation System
  * 
- * Provides an interactive guided tour experience using Intro.js
- * to help users learn the Levy Calculation System functionality.
+ * This file contains functions for creating and managing guided tours of the application
+ * using IntroJS. Tours help users learn how to use different features of the system.
  */
 
-// Define the tours
-const TOURS = {
-  // Dashboard Tour
+// Tour configurations for different pages
+const tourConfigs = {
+  // Dashboard tour
   dashboard: [
     {
-      element: '#main-header',
-      title: 'Welcome to the Levy Calculation System',
-      intro: 'This guided tour will help you understand the main features of the system. Let\'s get started!',
+      element: '.navbar',
+      intro: 'Welcome to the Levy Calculation System! This navigation bar allows you to access all features of the application.',
       position: 'bottom'
     },
     {
-      element: '[data-tour="public-lookup"]',
-      title: 'Public Property Lookup',
-      intro: 'Access the public-facing property lookup portal where residents can search for property tax information and explore tax districts.',
+      element: '.dashboard-stats',
+      intro: 'These cards show key metrics about your tax districts, codes, and properties.',
       position: 'bottom'
     },
     {
-      element: '[data-tour="admin-dashboard"]',
-      title: 'Admin Dashboard',
-      intro: 'Access the administrative dashboard to manage the system, view reports, and perform administrative tasks.',
-      position: 'bottom'
-    },
-    {
-      element: '[data-tour="levy-calculation"]',
-      title: 'Levy Calculation',
-      intro: 'Calculate property tax levies with comprehensive statutory compliance checks to ensure accuracy and legal compliance.',
-      position: 'right'
-    },
-    {
-      element: '[data-tour="data-analysis"]',
-      title: 'Data Analysis',
-      intro: 'Analyze historical levy data and generate forecasts to support planning and decision-making.',
-      position: 'top'
-    },
-    {
-      element: '[data-tour="reports"]',
-      title: 'Reports',
-      intro: 'Generate comprehensive reports for various stakeholders, including property owners, administrators, and government officials.',
+      element: '.recent-activity',
+      intro: 'Here you can see your recent activity, such as data imports and exports.',
       position: 'left'
     },
     {
-      element: '#system-status',
-      title: 'System Status',
-      intro: 'View the current status of the system and any important announcements.',
+      element: '.quick-actions',
+      intro: 'Use these buttons to quickly access common tasks.',
       position: 'top'
-    },
-    {
-      element: '#help-button',
-      title: 'Help & Support',
-      intro: 'Access the help center for documentation, FAQs, and support resources.',
-      position: 'left'
     }
   ],
   
-  // Admin Dashboard Tour
-  adminDashboard: [
+  // Levy calculator tour
+  levyCalculator: [
     {
-      element: '#admin-header',
-      title: 'Admin Dashboard',
-      intro: 'Welcome to the administrative dashboard. This is where you can manage the system and access key administrative functions.',
+      element: '.calculator-form',
+      intro: 'This is the Levy Calculator. Fill in the required information to calculate property tax levies.',
       position: 'bottom'
     },
     {
-      element: '#admin-quick-actions',
-      title: 'Quick Actions',
-      intro: 'Access frequently used administrative functions from this quick action panel.',
+      element: '.district-selector',
+      intro: 'First, select the tax district for which you want to calculate levies.',
       position: 'right'
     },
     {
-      element: '#admin-stats',
-      title: 'System Statistics',
-      intro: 'View key system statistics and metrics at a glance.',
-      position: 'top'
+      element: '.assessed-value-input',
+      intro: 'Enter the total assessed value for the district.',
+      position: 'right'
     },
     {
-      element: '#admin-recent-activity',
-      title: 'Recent Activity',
-      intro: 'Monitor recent system activity and user actions.',
+      element: '.levy-amount-input',
+      intro: 'Enter the requested levy amount.',
       position: 'left'
     },
     {
-      element: '#admin-nav',
-      title: 'Navigation',
-      intro: 'Access different sections of the administrative interface from this navigation menu.',
+      element: '.calculate-button',
+      intro: 'Click here to perform the calculation.',
+      position: 'top'
+    },
+    {
+      element: '.results-section',
+      intro: 'The calculation results will appear here, showing the levy rate and other statistics.',
+      position: 'top'
+    }
+  ],
+  
+  // Import data tour
+  importData: [
+    {
+      element: '.import-form',
+      intro: 'This is the Data Import tool. Use it to import tax district, tax code, and property data.',
+      position: 'bottom'
+    },
+    {
+      element: '.file-selector',
+      intro: 'Select the file you want to import. We support TXT, XLS, XLSX, and XML formats.',
       position: 'right'
+    },
+    {
+      element: '.import-type-selector',
+      intro: 'Choose the type of data you are importing.',
+      position: 'right'
+    },
+    {
+      element: '.year-selector',
+      intro: 'Specify the tax year for the imported data.',
+      position: 'left'
+    },
+    {
+      element: '.import-button',
+      intro: 'Click here to start the import process.',
+      position: 'top'
+    },
+    {
+      element: '.import-history',
+      intro: 'You can view your past imports here to track success and error rates.',
+      position: 'top'
+    }
+  ],
+  
+  // Property search tour
+  propertySearch: [
+    {
+      element: '.search-form',
+      intro: 'This is the Property Search tool. Use it to find specific properties in the database.',
+      position: 'bottom'
+    },
+    {
+      element: '.search-filters',
+      intro: 'Use these filters to narrow down your search.',
+      position: 'right'
+    },
+    {
+      element: '.search-button',
+      intro: 'Click here to perform the search based on your criteria.',
+      position: 'top'
+    },
+    {
+      element: '.search-results',
+      intro: 'Your search results will appear here, showing property details and tax information.',
+      position: 'top'
     }
   ]
 };
 
-// Current tour being displayed
-let currentTour = null;
-
 /**
- * Start a guided tour by name
- * 
- * @param {string} tourName - The name of the tour to start
+ * Initialize a tour for a specific feature
+ * @param {string} tourName - Name of the tour to start
  */
 function startTour(tourName) {
-  if (!TOURS[tourName]) {
-    console.error(`Tour "${tourName}" not found.`);
+  console.log(`Starting ${tourName} tour`);
+  
+  // Check if tour exists
+  if (!tourConfigs[tourName]) {
+    console.error(`Tour configuration not found for: ${tourName}`);
     return;
   }
   
-  currentTour = tourName;
-  
   try {
-    // Initialize intro.js - make sure to access it safely
-    let intro = null;
-    if (typeof window.introJs === 'function') {
-      intro = window.introJs();
-    }
+    // Initialize IntroJS
+    const tour = introJs();
     
-    if (!intro) {
-      throw new Error("Intro.js is not available");
-    }
-    
-    // Configure Intro.js
-    intro.setOptions({
-      steps: TOURS[tourName],
-      showBullets: true,
+    // Configure the tour
+    tour.setOptions({
+      steps: tourConfigs[tourName],
       showProgress: true,
+      showBullets: false,
+      showStepNumbers: false,
       hideNext: false,
       hidePrev: false,
-      nextLabel: 'Next',
-      prevLabel: 'Previous',
-      skipLabel: 'Skip',
-      doneLabel: 'Finish'
-    });
-    
-    // Add event listeners
-    intro.oncomplete(function() {
-      console.log(`Tour "${tourName}" completed.`);
-      localStorage.setItem(`tour_${tourName}_completed`, 'true');
-      currentTour = null;
-    });
-    
-    intro.onexit(function() {
-      console.log(`Tour "${tourName}" exited.`);
-      currentTour = null;
+      disableInteraction: false,
+      exitOnOverlayClick: true,
+      scrollToElement: true,
+      doneLabel: 'Finish',
+      nextLabel: 'Next →',
+      prevLabel: '← Back',
+      tooltipClass: 'levy-tour-tooltip',
+      highlightClass: 'levy-tour-highlight'
     });
     
     // Start the tour
-    intro.start();
-  } catch (e) {
-    console.error('Error starting tour:', e);
-  }
-}
-
-/**
- * Check if a tour should be automatically started based on page attributes
- */
-function checkAutoStartTour() {
-  const autoTourElement = document.querySelector('[data-auto-tour]');
-  if (autoTourElement) {
-    const tourName = autoTourElement.getAttribute('data-auto-tour');
-    // Only auto-start for new users or if explicitly requested
-    const hasSeenTour = localStorage.getItem(`tour_${tourName}_completed`);
-    const forceAutoStart = new URLSearchParams(window.location.search).get('tour') === tourName;
+    tour.start();
     
-    if (forceAutoStart || !hasSeenTour) {
-      // Add slight delay to ensure page is fully loaded
-      setTimeout(() => startTour(tourName), 1000);
-    }
-  }
-}
-
-/**
- * Reset a tour's "seen" status
- * 
- * @param {string} tourName - The name of the tour to reset
- */
-function resetTour(tourName) {
-  localStorage.removeItem(`tour_${tourName}_completed`);
-  console.log(`Tour "${tourName}" reset. It will auto-start on next page load.`);
-}
-
-/**
- * Reset all tours
- */
-function resetAllTours() {
-  Object.keys(TOURS).forEach(tourName => {
-    localStorage.removeItem(`tour_${tourName}_completed`);
-  });
-  console.log('All tours reset.');
-}
-
-// Initialize the guided tour system when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  try {
-    console.log('Guided Tour System initialized');
+    // Listen for tour events
+    tour.oncomplete(function() {
+      console.log(`${tourName} tour completed`);
+      // Save completion to localStorage to avoid showing again
+      localStorage.setItem(`tour_${tourName}_completed`, 'true');
+    });
     
-    // Set up global access to tour functions
-    window.guidedTourSystem = {
-      startTour: startTour,
-      resetTour: resetTour,
-      resetAllTours: resetAllTours
-    };
+    tour.onexit(function() {
+      console.log(`${tourName} tour exited`);
+    });
     
-    // Check for auto-start tour
-    checkAutoStartTour();
-    
-    // Set up click handler for help button
-    const helpButton = document.getElementById('help-button');
-    if (helpButton) {
-      helpButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (window.helpMenuSystem && typeof window.helpMenuSystem.toggleHelpMenu === 'function') {
-          window.helpMenuSystem.toggleHelpMenu();
-        } else {
-          startTour('dashboard');
-        }
-      });
-    }
   } catch (error) {
-    console.error('Error initializing guided tour system:', error);
+    console.error('Error starting tour:', error);
   }
+}
+
+/**
+ * Check if a specific page should show a tour automatically
+ * based on the current page and user preferences
+ */
+function checkAutoTour() {
+  // Get current page path
+  const path = window.location.pathname;
+  
+  // Check different paths and show relevant tours for first-time visitors
+  if (path === '/dashboard' || path === '/') {
+    if (!localStorage.getItem('tour_dashboard_completed')) {
+      startTour('dashboard');
+    }
+  } else if (path === '/levy-calculator') {
+    if (!localStorage.getItem('tour_levyCalculator_completed')) {
+      startTour('levyCalculator');
+    }
+  } else if (path === '/import') {
+    if (!localStorage.getItem('tour_importData_completed')) {
+      startTour('importData');
+    }
+  } else if (path === '/properties/search') {
+    if (!localStorage.getItem('tour_propertySearch_completed')) {
+      startTour('propertySearch');
+    }
+  }
+}
+
+// Initialize the tour system when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+  // Check for auto-tour based on current page
+  if (localStorage.getItem('enable_auto_tours') !== 'false') {
+    checkAutoTour();
+  }
+  
+  // Add click handlers for tour trigger elements
+  document.querySelectorAll('[data-tour]').forEach(element => {
+    element.addEventListener('click', function(e) {
+      e.preventDefault();
+      const tourName = this.getAttribute('data-tour');
+      startTour(tourName);
+    });
+  });
 });

@@ -1,341 +1,90 @@
 /**
- * Help Menu CSS for LevyMaster
- * 
- * Styles for the interactive help menu system
+ * Help Menu Styles for Levy Calculation System
  */
 
-/* Help Menu Overlay */
-.help-menu-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1049;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+/* Help Button */
+#help-button {
+  transition: all 0.3s ease;
 }
 
-.help-menu-overlay.show {
-    opacity: 1;
-    visibility: visible;
+#help-button:hover {
+  transform: scale(1.1);
 }
 
-/* Main Help Menu Panel */
+/* Help Menu Container */
 .help-menu {
-    position: fixed;
-    top: 0;
-    right: -400px;
-    width: 400px;
-    max-width: 90vw;
-    height: 100vh;
-    background-color: #fff;
-    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-    z-index: 1050;
-    display: flex;
-    flex-direction: column;
-    transition: right 0.3s ease;
-    overflow: hidden;
+  position: fixed;
+  right: 20px;
+  bottom: 70px;
+  width: 280px;
+  background-color: var(--bs-body-bg);
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  z-index: 1050;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
 }
 
-.help-menu.show {
-    right: 0;
+.help-menu.active {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* Header */
+/* Help Menu Header */
 .help-menu-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-    background-color: #343a40;
-    color: #fff;
-    border-bottom: 1px solid #495057;
+  padding: 15px;
+  border-bottom: 1px solid var(--bs-border-color);
 }
 
-.help-menu-title {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 500;
+.help-menu-header h5 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--bs-primary);
 }
 
-.help-menu-close {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1.25rem;
-    cursor: pointer;
-    padding: 0.25rem;
-    line-height: 1;
-    transition: color 0.15s ease;
+/* Help Menu Body */
+.help-menu-body {
+  padding: 0;
 }
 
-.help-menu-close:hover {
-    color: #f8f9fa;
-}
-
-/* Menu Content */
-.help-menu-content {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Tabs */
-.help-menu-tabs {
-    display: flex;
-    border-bottom: 1px solid #dee2e6;
-    background-color: #f8f9fa;
-}
-
-.help-tab {
-    flex: 1;
-    border: none;
-    background: none;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
-    color: #6c757d;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-.help-tab i {
-    margin-bottom: 0.25rem;
-    font-size: 1rem;
-}
-
-.help-tab:hover {
-    background-color: #e9ecef;
-    color: #495057;
-}
-
-.help-tab.active {
-    color: #0d6efd;
-    background-color: #fff;
-    font-weight: 500;
-}
-
-.help-tab.active::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: #0d6efd;
-}
-
-/* Tab Content */
-.help-tab-content {
-    display: none;
-    flex: 1;
-    overflow-y: auto;
-}
-
-.help-tab-content.active {
-    display: block;
-}
-
-/* Menu Items */
 .help-menu-items {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .help-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid #f0f0f0;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--bs-border-color);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.help-menu-item:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .help-menu-item:hover {
-    background-color: #f8f9fa;
+  background-color: rgba(var(--bs-primary-rgb), 0.1);
 }
 
-.help-menu-item-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    background-color: #e9ecef;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 1rem;
-    color: #6c757d;
-    font-size: 1.25rem;
+.help-menu-item i {
+  color: var(--bs-primary);
+  margin-right: 10px;
 }
 
-.help-menu-item-info {
-    flex: 1;
-}
-
-.help-menu-item-title {
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    color: #212529;
-}
-
-.help-menu-item-description {
-    font-size: 0.875rem;
-    color: #6c757d;
-}
-
-/* FAQ Items */
-.help-faq-item {
-    margin-bottom: 1.5rem;
-}
-
-.help-faq-question {
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    color: #212529;
-    position: relative;
-    padding-left: 1.5rem;
-}
-
-.help-faq-question:before {
-    content: 'Q:';
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: #0d6efd;
-    font-weight: 700;
-}
-
-.help-faq-answer {
-    font-size: 0.875rem;
-    color: #6c757d;
-    position: relative;
-    padding-left: 1.5rem;
-}
-
-.help-faq-answer:before {
-    content: 'A:';
-    position: absolute;
-    left: 0;
-    top: 0;
-    color: #198754;
-    font-weight: 700;
-}
-
-/* Support Form Section */
-.help-support-section {
-    margin-bottom: 1.5rem;
-}
-
-.help-support-section ul {
-    padding-left: 1.25rem;
-    margin-bottom: 0;
-}
-
-.help-contact-form {
-    background-color: #f8f9fa;
-    border-radius: 0.375rem;
-    padding: 1rem;
-}
-
-/* Footer */
-.help-menu-footer {
-    padding: 0.75rem 1rem;
-    background-color: #f8f9fa;
-    color: #6c757d;
-    font-size: 0.75rem;
-    text-align: center;
-    border-top: 1px solid #dee2e6;
-}
-
-/* Dark Mode Adaptations */
-.dark-mode .help-menu {
-    background-color: #2b3035;
-    color: #e9ecef;
-}
-
-.dark-mode .help-menu-tabs {
-    background-color: #343a40;
-    border-bottom-color: #495057;
-}
-
-.dark-mode .help-tab {
-    color: #adb5bd;
-}
-
-.dark-mode .help-tab:hover {
-    background-color: #495057;
-    color: #e9ecef;
-}
-
-.dark-mode .help-tab.active {
-    color: #6ea8fe;
-    background-color: #2b3035;
-}
-
-.dark-mode .help-tab.active::after {
-    background-color: #6ea8fe;
-}
-
-.dark-mode .help-menu-item {
-    border-bottom-color: #343a40;
-}
-
-.dark-mode .help-menu-item:hover {
-    background-color: #343a40;
-}
-
-.dark-mode .help-menu-item-icon {
-    background-color: #495057;
-    color: #adb5bd;
-}
-
-.dark-mode .help-menu-item-title {
-    color: #e9ecef;
-}
-
-.dark-mode .help-menu-item-description {
-    color: #adb5bd;
-}
-
-.dark-mode .help-menu-footer {
-    background-color: #343a40;
-    color: #adb5bd;
-    border-top-color: #495057;
-}
-
-.dark-mode .help-faq-question {
-    color: #e9ecef;
-}
-
-.dark-mode .help-contact-form {
-    background-color: #343a40;
-}
-
-/* Mobile Adaptations */
-@media (max-width: 576px) {
-    .help-menu {
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    .help-tab {
-        font-size: 0.75rem;
-        padding: 0.5rem 0.25rem;
-    }
-    
-    .help-menu-item-icon {
-        width: 2rem;
-        height: 2rem;
-        font-size: 1rem;
-    }
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .help-menu {
+    right: 10px;
+    bottom: 60px;
+    width: 250px;
+  }
 }

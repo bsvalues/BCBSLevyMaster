@@ -1,105 +1,290 @@
 /**
- * Main JavaScript file for the SaaS Levy Calculation Application
+ * Levy Calculation System - Main JavaScript
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-
-    // Initialize Bootstrap popovers
-    const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-    popoverTriggerList.map(function(popoverTriggerEl) {
-        return new bootstrap.Popover(popoverTriggerEl);
-    });
-
-    // Auto-dismiss alerts after 5 seconds
-    setTimeout(function() {
-        const alerts = document.querySelectorAll('.alert:not(.alert-persistent)');
-        alerts.forEach(function(alert) {
-            const bsAlert = new bootstrap.Alert(alert);
-            bsAlert.close();
-        });
-    }, 5000);
-
-    // Enhance custom file input labels
-    const fileInputs = document.querySelectorAll('input[type="file"]');
-    fileInputs.forEach(function(input) {
-        const label = input.nextElementSibling;
-        
-        if (label && label.classList.contains('custom-file-label')) {
-            input.addEventListener('change', function(e) {
-                const fileName = e.target.files[0].name;
-                label.textContent = fileName;
-            });
-        }
-    });
-
-    // Add active class to current nav item
-    const currentPath = window.location.pathname;
-    const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
-    
-    navLinks.forEach(function(link) {
-        const href = link.getAttribute('href');
-        if (href === currentPath || 
-            (href !== '/' && currentPath.startsWith(href))) {
-            link.classList.add('active');
-        }
-    });
-
-    // Format currency inputs
-    const currencyInputs = document.querySelectorAll('.currency-input');
-    currencyInputs.forEach(function(input) {
-        input.addEventListener('blur', function(e) {
-            const value = parseFloat(e.target.value.replace(/[^\d.-]/g, ''));
-            if (!isNaN(value)) {
-                e.target.value = value.toLocaleString('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    minimumFractionDigits: 2
-                });
-            }
-        });
-        
-        input.addEventListener('focus', function(e) {
-            e.target.value = e.target.value.replace(/[^\d.-]/g, '');
-        });
-    });
-    
-    // Setup confirmation modals
-    const confirmButtons = document.querySelectorAll('[data-confirm]');
-    confirmButtons.forEach(function(button) {
-        button.addEventListener('click', function(e) {
-            if (!confirm(button.dataset.confirm)) {
-                e.preventDefault();
-            }
-        });
-    });
-    
-    // Enable dynamic form fields
-    const addFieldButtons = document.querySelectorAll('.add-field');
-    addFieldButtons.forEach(function(button) {
-        button.addEventListener('click', function() {
-            const container = document.querySelector(button.dataset.container);
-            const template = document.querySelector(button.dataset.template);
-            
-            if (container && template) {
-                const clone = template.content.cloneNode(true);
-                container.appendChild(clone);
-                
-                // Initialize any dynamic elements in the clone
-                const newField = container.lastElementChild;
-                if (newField) {
-                    const removeButton = newField.querySelector('.remove-field');
-                    if (removeButton) {
-                        removeButton.addEventListener('click', function() {
-                            newField.remove();
-                        });
-                    }
-                }
-            }
-        });
-    });
+  console.log('Levy Calculation System JS initialized successfully');
+  
+  // Initialize components
+  initializeGuidedTour();
+  initializeHelpMenu();
+  
+  // Setup form validations
+  setupFormValidations();
+  
+  // Initialize interactive elements
+  initializeTooltips();
+  initializeDataTables();
+  
+  // Handle flash messages auto-dismiss
+  setupFlashMessages();
 });
+
+/**
+ * Initialize the guided tour functionality
+ */
+function initializeGuidedTour() {
+  console.log('Guided Tour System initialized');
+  
+  // Check if IntroJS is available
+  if (typeof introJs !== 'undefined') {
+    // Get all tour trigger elements
+    const tourTriggers = document.querySelectorAll('[data-tour]');
+    
+    tourTriggers.forEach(trigger => {
+      trigger.addEventListener('click', function() {
+        const tourName = this.getAttribute('data-tour');
+        startTour(tourName);
+      });
+    });
+  }
+}
+
+/**
+ * Start a guided tour based on the tour name
+ * @param {string} tourName - The name of the tour to start
+ */
+function startTour(tourName) {
+  try {
+    // Define tour steps based on the tour name
+    let steps = [];
+    
+    switch(tourName) {
+      case 'dashboard':
+        steps = [
+          {
+            element: document.querySelector('.dashboard-header'),
+            intro: 'Welcome to the Levy Calculation System Dashboard!',
+            position: 'bottom'
+          },
+          {
+            element: document.querySelector('.dashboard-stats'),
+            intro: 'Here you can see key statistics about your tax districts and properties.',
+            position: 'bottom'
+          },
+          {
+            element: document.querySelector('.nav'),
+            intro: 'Use the navigation menu to access different features of the system.',
+            position: 'bottom'
+          }
+        ];
+        break;
+        
+      case 'levy-calculator':
+        steps = [
+          {
+            element: document.querySelector('.calculator-form'),
+            intro: 'This is the Levy Calculator. Enter your property information to calculate your tax levy.',
+            position: 'right'
+          },
+          {
+            element: document.querySelector('.tax-code-select'),
+            intro: 'Select your tax code from this dropdown menu.',
+            position: 'bottom'
+          },
+          {
+            element: document.querySelector('.calculator-submit'),
+            intro: 'Click this button to calculate your levy.',
+            position: 'bottom'
+          }
+        ];
+        break;
+        
+      case 'import':
+        steps = [
+          {
+            element: document.querySelector('.import-form'),
+            intro: 'Use this form to import your levy data.',
+            position: 'right'
+          },
+          {
+            element: document.querySelector('.file-upload'),
+            intro: 'Select your file to upload. We support TXT, XLS, XLSX, and XML formats.',
+            position: 'bottom'
+          },
+          {
+            element: document.querySelector('.import-submit'),
+            intro: 'Click this button to start the import process.',
+            position: 'bottom'
+          }
+        ];
+        break;
+        
+      default:
+        console.log('Unknown tour name:', tourName);
+        return;
+    }
+    
+    // Start the tour
+    const tour = introJs();
+    tour.setOptions({
+      steps: steps,
+      showProgress: true,
+      showBullets: false,
+      showStepNumbers: false,
+      overlayOpacity: 0.7,
+      exitOnOverlayClick: true,
+      nextLabel: 'Next',
+      prevLabel: 'Back',
+      doneLabel: 'Finish',
+      tooltipClass: 'custom-tooltip',
+      highlightClass: 'custom-highlight'
+    });
+    
+    tour.start();
+  } catch (e) {
+    console.error('Error starting tour:', e);
+  }
+}
+
+/**
+ * Initialize the help menu functionality
+ */
+function initializeHelpMenu() {
+  console.log('Initializing help menu...');
+  
+  // Create help menu button if it doesn't exist
+  if (!document.querySelector('.help-menu-button')) {
+    const helpButton = document.createElement('div');
+    helpButton.className = 'help-menu-button';
+    helpButton.innerHTML = '?';
+    helpButton.setAttribute('title', 'Help Menu');
+    document.body.appendChild(helpButton);
+    
+    // Create help menu container
+    const helpMenu = document.createElement('div');
+    helpMenu.className = 'help-menu';
+    
+    // Add help menu items
+    helpMenu.innerHTML = `
+      <div class="help-menu-item" data-tour="dashboard">Dashboard Tour</div>
+      <div class="help-menu-item" data-tour="levy-calculator">Levy Calculator Tour</div>
+      <div class="help-menu-item" data-tour="import">Import Data Tour</div>
+      <div class="help-menu-item" data-action="glossary">Tax Glossary</div>
+      <div class="help-menu-item" data-action="faq">FAQ</div>
+      <div class="help-menu-item" data-action="support">Support</div>
+    `;
+    
+    document.body.appendChild(helpMenu);
+    
+    // Add click event to help button
+    helpButton.addEventListener('click', function() {
+      helpMenu.classList.toggle('active');
+    });
+    
+    // Add click events to help menu items
+    const helpMenuItems = document.querySelectorAll('.help-menu-item');
+    helpMenuItems.forEach(item => {
+      item.addEventListener('click', function() {
+        const tour = this.getAttribute('data-tour');
+        const action = this.getAttribute('data-action');
+        
+        if (tour) {
+          startTour(tour);
+          helpMenu.classList.remove('active');
+        }
+        
+        if (action) {
+          handleHelpAction(action);
+          helpMenu.classList.remove('active');
+        }
+      });
+    });
+    
+    // Close help menu when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!helpMenu.contains(event.target) && !helpButton.contains(event.target)) {
+        helpMenu.classList.remove('active');
+      }
+    });
+  }
+  
+  console.log('Help Menu System initialized');
+}
+
+/**
+ * Handle help menu actions
+ * @param {string} action - The action to perform
+ */
+function handleHelpAction(action) {
+  switch(action) {
+    case 'glossary':
+      window.location.href = '/glossary';
+      break;
+    case 'faq':
+      window.location.href = '/faq';
+      break;
+    case 'support':
+      window.location.href = '/support';
+      break;
+    default:
+      console.log('Unknown help action:', action);
+  }
+}
+
+/**
+ * Setup form validations
+ */
+function setupFormValidations() {
+  // Get all forms with validation
+  const forms = document.querySelectorAll('.needs-validation');
+  
+  // Loop over them and prevent submission
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      
+      form.classList.add('was-validated');
+    }, false);
+  });
+}
+
+/**
+ * Initialize tooltips
+ */
+function initializeTooltips() {
+  // Check if Bootstrap is available
+  if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    Array.from(tooltipTriggerList).map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+  }
+}
+
+/**
+ * Initialize data tables
+ */
+function initializeDataTables() {
+  // Check if DataTables is available
+  if (typeof $.fn.DataTable !== 'undefined') {
+    $('.data-table').DataTable({
+      responsive: true,
+      pageLength: 10,
+      language: {
+        search: "_INPUT_",
+        searchPlaceholder: "Search records"
+      }
+    });
+  }
+}
+
+/**
+ * Setup flash messages auto-dismiss
+ */
+function setupFlashMessages() {
+  const flashMessages = document.querySelectorAll('.alert-dismissible');
+  
+  flashMessages.forEach(message => {
+    // Auto-dismiss flash messages after 5 seconds
+    setTimeout(() => {
+      if (message && message.parentNode) {
+        message.classList.add('fade-out');
+        setTimeout(() => {
+          message.remove();
+        }, 500);
+      }
+    }, 5000);
+  });
+}
