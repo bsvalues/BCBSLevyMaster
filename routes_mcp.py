@@ -31,38 +31,53 @@ def insights():
     system statistics, and recent activity.
     """
     try:
-        # Get database counts
-        property_count = Property.query.count()
-        tax_code_count = TaxCode.query.count()
-        district_count = TaxDistrict.query.count()
+        # Get database counts safely
+        try:
+            property_count = db.session.query(func.count(Property.id)).scalar() or 0
+            tax_code_count = db.session.query(func.count(TaxCode.id)).scalar() or 0 
+            district_count = db.session.query(func.count(TaxDistrict.id)).scalar() or 0
+        except Exception as e:
+            logger.error(f"Error getting database counts: {str(e)}")
+            property_count = 0
+            tax_code_count = 0
+            district_count = 0
         
         # Get recent import and export logs
-        recent_imports = ImportLog.query.order_by(desc(ImportLog.import_date)).limit(5).all()
-        recent_exports = ExportLog.query.order_by(desc(ExportLog.export_date)).limit(5).all()
+        try:
+            recent_imports = ImportLog.query.order_by(desc(ImportLog.import_date)).limit(5).all()
+            recent_exports = ExportLog.query.order_by(desc(ExportLog.export_date)).limit(5).all()
+        except Exception as e:
+            logger.error(f"Error getting logs: {str(e)}")
+            recent_imports = []
+            recent_exports = []
         
         # Get tax code summary for distribution visualization
         tax_summary = []
-        tax_codes = TaxCode.query.all()
-        total_assessed_value = sum(tc.total_assessed_value or 0 for tc in tax_codes)
-        
-        if total_assessed_value > 0:
-            for tc in tax_codes:
-                if tc.total_assessed_value:
-                    percent = (tc.total_assessed_value / total_assessed_value) * 100
-                    tax_summary.append({
-                        'code': tc.code,
-                        'assessed_value': tc.total_assessed_value,
-                        'percent_of_total': percent
-                    })
+        try:
+            tax_codes = TaxCode.query.all()
+            total_assessed_value = sum(tc.total_assessed_value or 0 for tc in tax_codes)
             
-            # Sort by assessed value, descending
-            tax_summary = sorted(tax_summary, key=lambda x: x['assessed_value'], reverse=True)
-            
-            # Limit to top 10
-            tax_summary = tax_summary[:10]
+            if total_assessed_value > 0:
+                for tc in tax_codes:
+                    if tc.total_assessed_value:
+                        percent = (tc.total_assessed_value / total_assessed_value) * 100
+                        tax_summary.append({
+                            'code': tc.code,
+                            'assessed_value': tc.total_assessed_value,
+                            'percent_of_total': percent
+                        })
+                
+                # Sort by assessed value, descending
+                tax_summary = sorted(tax_summary, key=lambda x: x['assessed_value'], reverse=True)
+                
+                # Limit to top 10
+                tax_summary = tax_summary[:10]
+        except Exception as e:
+            logger.error(f"Error getting tax summary: {str(e)}")
+            tax_codes = []
         
         # Generate AI insights
-        mcp_insights = generate_mcp_insights(tax_codes)
+        mcp_insights = generate_mcp_insights(tax_codes if 'tax_codes' in locals() else [])
         
         # Render template with data
         return render_template('mcp_insights.html',
@@ -124,9 +139,13 @@ def generate_mcp_insights(tax_codes):
     }
     
     # Get average assessed value
-    avg_value = db.session.query(func.avg(Property.assessed_value)).scalar()
-    if avg_value:
-        default_insights['data']['avg_assessed_value'] = "${:,.2f}".format(avg_value)
+    try:
+        avg_value = db.session.query(func.avg(Property.assessed_value)).scalar()
+        if avg_value:
+            default_insights['data']['avg_assessed_value'] = "${:,.2f}".format(avg_value)
+    except Exception as e:
+        logger.warning(f"Could not get average assessed value: {str(e)}")
+        default_insights['data']['avg_assessed_value'] = "N/A"
     
     try:
         # Check if we can access the Claude service
