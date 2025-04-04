@@ -252,7 +252,7 @@ function initializeHelpMenu() {
           const action = this.getAttribute('data-action');
           
           if (tour) {
-            startTour(tour);
+            window.location.href = "/guided-tour/" + tour;
             helpMenu.classList.remove('active');
           }
           
@@ -320,7 +320,7 @@ function initializeGuidedTour() {
     tourTriggers.forEach(trigger => {
       trigger.addEventListener('click', function() {
         const tourName = this.getAttribute('data-tour');
-        startTour(tourName);
+        window.location.href = "/guided-tour/" + tourName;
       });
     });
   } else {

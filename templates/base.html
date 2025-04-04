@@ -334,13 +334,15 @@
     <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
     
     <!-- Intro.js for guided tours -->
-    <script src="{{ url_for('static', filename='js/lib/intro.min.js') }}"></script>
+    <!-- Use CDN version of introjs to rule out any issues with the local file -->
+    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/intro.min.js"></script>
     <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
     
     <!-- Help Menu System -->
     <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     
     <!-- Additional scripts for specific pages -->
+    <script src="{{ url_for("static", filename="js/tour_initializer.js") }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
