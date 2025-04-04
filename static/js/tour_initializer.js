@@ -18,141 +18,143 @@ const tourConfigurations = {
                 position: 'right'
             },
             {
-                element: '.quick-stats',
+                element: '.dashboard-metrics',
                 title: 'Key Metrics',
-                intro: 'These cards show your key metrics at a glance, including total properties, tax districts, and recent calculations.',
+                intro: 'These cards show you the key metrics about your tax districts, such as total assessed value and levy amounts.',
                 position: 'bottom'
             },
             {
-                element: '.recent-activity',
+                element: '.dashboard-recent-activity',
                 title: 'Recent Activity',
-                intro: 'This section shows your recent activity, including imports, exports, and calculations.',
+                intro: 'Here you can see your recent activity, including imports, exports, and calculations.',
                 position: 'left'
             },
             {
-                element: '.tax-district-summary',
-                title: 'Tax District Summary',
-                intro: 'View a summary of your tax districts, including total assessed value and levy amounts.',
+                element: '.dashboard-charts',
+                title: 'Charts and Visualizations',
+                intro: 'These charts provide visual representations of your tax data to help you identify trends and patterns.',
                 position: 'top'
             },
             {
-                element: '.action-buttons',
+                element: '.dashboard-actions',
                 title: 'Quick Actions',
-                intro: 'Use these buttons to quickly access common actions like calculating levies, importing data, or generating reports.',
-                position: 'bottom'
+                intro: 'These buttons allow you to quickly access common actions like starting a new calculation or importing data.',
+                position: 'left'
             },
             {
-                element: '#sidebarMenu',
-                title: 'Navigation',
-                intro: 'Use this menu to navigate to different sections of the application.',
-                position: 'right'
+                element: '.dashboard-notifications',
+                title: 'Notifications',
+                intro: 'You\'ll receive important notifications here about compliance issues, upcoming deadlines, and system updates.',
+                position: 'bottom'
             }
         ]
     },
     
-    // Levy Calculator tour
+    // Levy calculator tour
     levy_calculator: {
         steps: [
             {
-                element: '#calculator-intro',
+                element: '.calculator-header',
                 title: 'Levy Calculator',
-                intro: 'Welcome to the Levy Calculator! This tool helps you calculate property tax levies based on assessed values and tax rates.',
+                intro: 'This is the levy calculator, where you can calculate property tax levies for different scenarios.',
                 position: 'bottom'
             },
             {
-                element: '#district-selection',
+                element: '.tax-district-selector',
                 title: 'Select Tax District',
-                intro: 'Start by selecting a tax district. This will load the associated tax codes and rates.',
+                intro: 'Start by selecting the tax district you want to calculate levies for.',
                 position: 'right'
             },
             {
-                element: '#levy-parameters',
-                title: 'Levy Parameters',
-                intro: 'Enter your levy parameters here, including total assessed value and desired levy amount or rate.',
-                position: 'bottom'
-            },
-            {
-                element: '#calculator-results',
-                title: 'Results',
-                intro: 'The calculated results will appear here, showing the levy rate, total levy amount, and distribution across tax codes.',
+                element: '.calculation-inputs',
+                title: 'Input Parameters',
+                intro: 'Enter the required information such as year, assessed values, and rate adjustments.',
                 position: 'left'
             },
             {
-                element: '#action-buttons',
-                title: 'Actions',
-                intro: 'Use these buttons to calculate, save, or export your levy calculations.',
+                element: '.scenario-options',
+                title: 'Scenario Options',
+                intro: 'You can create different scenarios to compare various levy outcomes.',
                 position: 'top'
+            },
+            {
+                element: '.calculate-button',
+                title: 'Calculate Button',
+                intro: 'Click this button to calculate the levy based on your inputs.',
+                position: 'bottom'
             }
         ]
     },
     
-    // Data Import tour
+    // Data import tour
     data_import: {
         steps: [
             {
-                element: '#import-intro',
+                element: '.import-header',
                 title: 'Data Import',
-                intro: 'Welcome to the Data Import tool! This page helps you import tax district and property data into the system.',
+                intro: 'This page allows you to import tax district and property data into the system.',
                 position: 'bottom'
             },
             {
-                element: '#file-upload',
-                title: 'Upload File',
-                intro: 'Upload your data file here. The system supports various formats including TXT, XLS, XLSX, and XML.',
+                element: '.file-upload',
+                title: 'File Upload',
+                intro: 'You can upload files in various formats including TXT, XLS, XLSX, and XML.',
                 position: 'right'
             },
             {
-                element: '#import-options',
+                element: '.import-options',
                 title: 'Import Options',
-                intro: 'Configure your import options here, including how to handle existing data and validation rules.',
-                position: 'bottom'
+                intro: 'Configure how the data should be imported with these options.',
+                position: 'left'
             },
             {
-                element: '#import-history',
-                title: 'Import History',
-                intro: 'View your previous imports, including status, date, and record counts.',
-                position: 'left'
+                element: '.submit-import',
+                title: 'Submit Import',
+                intro: 'Click this button to start the import process.',
+                position: 'bottom'
             }
         ]
     },
     
-    // Property Search tour
+    // Property search tour
     property_search: {
         steps: [
             {
-                element: '#search-form',
+                element: '.search-header',
                 title: 'Property Search',
-                intro: 'Welcome to Property Search! This tool helps you find properties by various criteria.',
+                intro: 'This page allows you to search for properties in the system.',
                 position: 'bottom'
             },
             {
-                element: '#search-criteria',
+                element: '.search-form',
                 title: 'Search Criteria',
-                intro: 'Enter your search criteria here. You can search by tax district, PIN, owner name, or address.',
+                intro: 'Enter your search criteria here to find specific properties.',
                 position: 'right'
             },
             {
-                element: '#search-results',
+                element: '.search-results',
                 title: 'Search Results',
-                intro: 'Your search results will appear here, showing property details and assessed values.',
+                intro: 'The search results will appear here, showing matching properties.',
                 position: 'top'
             },
             {
-                element: '#export-options',
-                title: 'Export Options',
-                intro: 'Use these options to export your search results to various formats.',
+                element: '.property-details',
+                title: 'Property Details',
+                intro: 'Click on a property to view its detailed information.',
                 position: 'left'
             }
         ]
     }
 };
 
-// Check if a tour should be started automatically
+/**
+ * Check if a tour should be automatically shown based on the current page and user preferences.
+ */
 function checkForAutomaticTour() {
-    // Get the current page from the URL path
+    // Check the current path
     const path = window.location.pathname;
     
-    // Get the tour parameter from the URL
+    // Check if there's a tour parameter in the URL
     const urlParams = new URLSearchParams(window.location.search);
     const tourParam = urlParams.get('tour');
     
@@ -162,51 +164,71 @@ function checkForAutomaticTour() {
         return;
     }
     
-    // Check if auto tours are enabled (default to true)
+    // Check if auto tours are enabled
     const enableAutoTours = localStorage.getItem('enable_auto_tours') !== 'false';
     if (!enableAutoTours) {
         return;
     }
     
-    // Determine which tour to show based on the current page
+    // Determine which tour to show based on the current path
     let tourToShow = null;
     
-    if (path.includes('/dashboard')) {
+    if (path === '/dashboard' || path === '/') {
         tourToShow = 'dashboard';
-    } else if (path.includes('/levy-calculator')) {
+    } else if (path === '/levy-calculator') {
         tourToShow = 'levy_calculator';
-    } else if (path.includes('/import')) {
+    } else if (path === '/import') {
         tourToShow = 'data_import';
-    } else if (path.includes('/property-lookup')) {
+    } else if (path === '/property-lookup') {
         tourToShow = 'property_search';
     }
     
-    // Check if the tour has already been completed
+    // Start the tour if it's relevant to the current page and hasn't been completed
     if (tourToShow && !isTourCompleted(tourToShow)) {
         startTour(tourToShow);
     }
 }
 
-// Check if a tour has been completed
+/**
+ * Check if a tour has been completed by the user.
+ * 
+ * @param {string} tourName - The name of the tour to check
+ * @returns {boolean} - True if the tour has been completed
+ */
 function isTourCompleted(tourName) {
     return localStorage.getItem(`tour_${tourName}_completed`) === 'true';
 }
 
-// Mark a tour as completed
+/**
+ * Mark a tour as completed.
+ * 
+ * @param {string} tourName - The name of the tour to mark as completed
+ */
 function markTourCompleted(tourName) {
     localStorage.setItem(`tour_${tourName}_completed`, 'true');
 }
 
-// Start a specific tour
+/**
+ * Start a guided tour.
+ * 
+ * @param {string} tourName - The name of the tour to start
+ */
 function startTour(tourName) {
-    // Get the tour configuration
-    const tourConfig = tourConfigurations[tourName];
-    if (!tourConfig) {
-        console.error(`Tour configuration not found for: ${tourName}`);
+    // Check if the tour exists
+    if (!tourConfigurations[tourName]) {
+        console.error(`Tour '${tourName}' not found`);
         return;
     }
     
-    // Initialize IntroJS
+    const tourConfig = tourConfigurations[tourName];
+    
+    // Skip if the tour has no steps
+    if (!tourConfig.steps || tourConfig.steps.length === 0) {
+        console.error(`Tour '${tourName}' has no steps`);
+        return;
+    }
+    
+    // Initialize introjs with the tour configuration
     const intro = introJs();
     
     // Configure the tour
@@ -218,11 +240,13 @@ function startTour(tourName) {
         scrollToElement: localStorage.getItem('scroll_to_element') !== 'false',
         doneLabel: 'Finish',
         nextLabel: 'Next →',
-        prevLabel: '← Back'
+        prevLabel: '← Back',
+        skipLabel: 'Skip'
     });
     
-    // Register event handlers
+    // Add event listeners
     intro.oncomplete(function() {
+        // Mark the tour as completed when the user finishes it
         markTourCompleted(tourName);
     });
     
@@ -250,8 +274,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Export functions for use in other scripts
 window.tourInitializer = {
-    startTour,
-    checkForAutomaticTour,
-    isTourCompleted,
-    markTourCompleted
+    startTour: startTour,
+    checkForAutomaticTour: checkForAutomaticTour,
+    isTourCompleted: isTourCompleted,
+    markTourCompleted: markTourCompleted
 };
