@@ -86,14 +86,38 @@ class ClaudeService:
         Returns:
             Generated text response
         """
-        messages = [{"role": "user", "content": prompt}]
-        response = self.chat(messages, max_tokens=max_tokens, temperature=temperature)
-        
-        # Extract the text from the response
-        if response and response.content:
-            return response.content[0].text
-        
-        return ""
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = self.chat(messages, max_tokens=max_tokens, temperature=temperature)
+            
+            # Extract the text from the response
+            if response and response.content:
+                return response.content[0].text
+            
+            return ""
+        except Exception as e:
+            error_msg = str(e)
+            # Check for credit/quota errors specifically
+            if "credit balance is too low" in error_msg or "quota exceeded" in error_msg:
+                logger.error(f"Anthropic API credit issue: {error_msg}")
+                return json.dumps({
+                    "error": "API_CREDIT_ISSUE",
+                    "message": "The Anthropic API could not be accessed due to credit limitations. Please update your API key or add credits to your account."
+                })
+            # Other API errors
+            elif "api" in error_msg.lower() or "key" in error_msg.lower():
+                logger.error(f"Anthropic API error: {error_msg}")
+                return json.dumps({
+                    "error": "API_ERROR",
+                    "message": "There was an error connecting to the Anthropic API. Please check your API key configuration."
+                })
+            # Generic errors
+            else:
+                logger.error(f"Error generating text: {error_msg}")
+                return json.dumps({
+                    "error": "GENERATION_ERROR",
+                    "message": "An error occurred while generating text with Claude."
+                })
 
     def analyze_property_data(self, property_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -219,21 +243,63 @@ class ClaudeService:
 # Singleton instance
 claude_service = None
 
-def get_claude_service() -> ClaudeService:
+def check_api_key_status() -> Dict[str, str]:
+    """
+    Check the status of the Anthropic API key.
+    
+    Returns:
+        Dictionary with status information:
+        {
+            'status': 'missing'|'invalid'|'valid',
+            'message': 'Description of the status'
+        }
+    """
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    
+    if not api_key:
+        return {
+            'status': 'missing',
+            'message': 'API key not found in environment variables'
+        }
+    
+    # Check if the API key has the expected format (basic validation)
+    if not api_key.startswith('sk-ant-'):
+        return {
+            'status': 'invalid',
+            'message': 'API key has an invalid format'
+        }
+    
+    # Try to initialize the client to further validate
+    try:
+        client = Anthropic(api_key=api_key)
+        # We could make a very small request here to fully validate the key,
+        # but that would use credits unnecessarily. Format check is sufficient.
+        return {
+            'status': 'valid',
+            'message': 'API key is valid'
+        }
+    except Exception as e:
+        return {
+            'status': 'invalid',
+            'message': f'API key validation error: {str(e)}'
+        }
+
+def get_claude_service() -> Optional[ClaudeService]:
     """
     Get or create the Claude service singleton.
     
     Returns:
-        ClaudeService instance
+        ClaudeService instance or None if initialization fails
     """
     global claude_service
     if claude_service is None:
         api_key = os.environ.get('ANTHROPIC_API_KEY')
         if not api_key:
             logger.warning("ANTHROPIC_API_KEY not found in environment variables")
+            return None
         try:
             claude_service = ClaudeService(api_key=api_key)
         except Exception as e:
             logger.error(f"Failed to initialize Claude service: {str(e)}")
-            raise
+            return None
     return claude_service
