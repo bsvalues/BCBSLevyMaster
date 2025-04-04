@@ -38,7 +38,7 @@ def index():
     latest_year = db.session.query(func.max(Property.year)).scalar() or datetime.now().year
     
     # Get available property types for search
-    property_types = list(PropertyType)
+    property_types = ["RESIDENTIAL", "COMMERCIAL", "INDUSTRIAL", "AGRICULTURAL", "VACANT_LAND"]
     
     return render_template(
         'public/index.html',
@@ -58,11 +58,11 @@ def search():
         Rendered template with search results or search form
     """
     # Get query parameters
-    parcel_id = request.args.get('parcel_id', '') or request.form.get('parcel_id', '')
+    property_id = request.args.get('property_id', '') or request.form.get('property_id', '')
     address = request.args.get('address', '') or request.form.get('address', '')
     owner_name = request.args.get('owner_name', '') or request.form.get('owner_name', '')
     tax_code = request.args.get('tax_code', '') or request.form.get('tax_code', '')
-    property_type_id = request.args.get('property_type_id', '') or request.form.get('property_type_id', '')
+    property_type = request.args.get('property_type', '') or request.form.get('property_type', '')
     page = request.args.get('page', 1, type=int)
     
     # Get available years for filtering
@@ -72,15 +72,12 @@ def search():
     # Get selected year (default to most recent)
     year = request.args.get('year', available_years[0], type=int) or request.form.get('year', available_years[0], type=int)
     
-    # Get available property types for filtering
-    property_types = list(PropertyType)
-    
     # Create query
     query = db.session.query(Property).filter(Property.year == year)
     
     # Apply filters if provided
-    if parcel_id:
-        query = query.filter(Property.parcel_id.ilike(f'%{parcel_id}%'))
+    if property_id:
+        query = query.filter(Property.property_id.ilike(f'%{property_id}%'))
     
     if address:
         query = query.filter(Property.address.ilike(f'%{address}%'))
@@ -91,11 +88,11 @@ def search():
     if tax_code:
         query = query.filter(Property.tax_code.ilike(f'%{tax_code}%'))
     
-    if property_type_id:
-        query = query.filter(Property.property_type_id == int(property_type_id))
+    if property_type:
+        query = query.filter(Property.property_type.ilike(f'%{property_type}%'))
     
     # Determine if search was performed
-    search_performed = any([parcel_id, address, owner_name, tax_code, property_type_id])
+    search_performed = any([property_id, address, owner_name, tax_code, property_type])
     
     # Get results with pagination
     if search_performed:
@@ -107,13 +104,16 @@ def search():
     
     # Query parameters for pagination links
     query_params = {
-        'parcel_id': parcel_id,
+        'property_id': property_id,
         'address': address,
         'owner_name': owner_name,
         'tax_code': tax_code,
-        'property_type_id': property_type_id,
+        'property_type': property_type,
         'year': year
     }
+    
+    # Get available property types for search
+    property_types = ["RESIDENTIAL", "COMMERCIAL", "INDUSTRIAL", "AGRICULTURAL", "VACANT_LAND"]
     
     return render_template(
         'public/search.html',
@@ -126,20 +126,20 @@ def search():
     )
 
 
-@public_bp.route('/property/<string:parcel_id>')
-def property_detail(parcel_id):
+@public_bp.route('/property/<string:property_id>')
+def property_detail(property_id):
     """
     Show detailed information for a specific property.
     
     Args:
-        parcel_id: The unique parcel identifier
+        property_id: The unique property identifier
         
     Returns:
         Rendered template with property details
     """
     # Get available years
     available_years = db.session.query(Property.year).filter(
-        Property.parcel_id == parcel_id
+        Property.property_id == property_id
     ).distinct().order_by(desc(Property.year)).all()
     available_years = [year[0] for year in available_years]
     
@@ -151,7 +151,7 @@ def property_detail(parcel_id):
     
     # Get property data for the selected year
     property = Property.query.filter(
-        Property.parcel_id == parcel_id,
+        Property.property_id == property_id,
         Property.year == year
     ).first_or_404()
     
@@ -185,7 +185,7 @@ def property_detail(parcel_id):
     tax_history = []
     for hist_year in available_years:
         prop_data = Property.query.filter(
-            Property.parcel_id == parcel_id,
+            Property.property_id == property_id,
             Property.year == hist_year
         ).first()
         
@@ -218,7 +218,7 @@ def property_detail(parcel_id):
     value_history = []
     for hist_year in available_years:
         prop_data = Property.query.filter(
-            Property.parcel_id == parcel_id,
+            Property.property_id == property_id,
             Property.year == hist_year
         ).first()
         
@@ -259,9 +259,9 @@ def compare_properties():
     
     # Get available years for all properties
     available_years = []
-    for parcel_id in property_ids:
+    for property_id in property_ids:
         years = db.session.query(Property.year).filter(
-            Property.parcel_id == parcel_id
+            Property.property_id == property_id
         ).distinct().all()
         available_years.extend([year[0] for year in years])
     
@@ -278,9 +278,9 @@ def compare_properties():
     
     # Get properties for the selected year
     properties = []
-    for parcel_id in property_ids:
+    for property_id in property_ids:
         property = Property.query.filter(
-            Property.parcel_id == parcel_id,
+            Property.property_id == property_id,
             Property.year == year
         ).first()
         
