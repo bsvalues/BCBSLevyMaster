@@ -43,36 +43,84 @@ class ClaudeService:
              messages: List[Dict[str, str]], 
              system_prompt: str = None,
              max_tokens: int = 1000,
-             temperature: float = 0.7) -> Dict[str, Any]:
+             temperature: float = 0.7,
+             max_retries: int = 3,
+             retry_delay: float = 1.0) -> Dict[str, Any]:
         """
-        Send a chat request to the Claude API.
+        Send a chat request to the Claude API with automatic retries.
         
         Args:
             messages: List of message dictionaries with 'role' and 'content'
             system_prompt: System instructions for Claude
             max_tokens: Maximum tokens to generate
             temperature: Sampling temperature (0-1)
+            max_retries: Maximum number of retry attempts on temporary errors
+            retry_delay: Delay between retries in seconds (exponential backoff applied)
             
         Returns:
             The response from Claude API
         """
-        try:
-            logger.info(f"Sending chat request with {len(messages)} messages")
-            
-            response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                system=system_prompt,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature
-            )
-            
-            logger.info(f"Received response with {len(response.content)} content blocks")
-            return response
+        attempt = 0
+        last_error = None
         
-        except Exception as e:
-            logger.error(f"Error in chat request: {str(e)}")
-            raise
+        while attempt < max_retries + 1:  # +1 for the initial attempt
+            try:
+                logger.info(f"Sending chat request with {len(messages)} messages (attempt {attempt + 1}/{max_retries + 1})")
+                
+                response = self.client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    system=system_prompt,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+                
+                logger.info(f"Received response with {len(response.content)} content blocks")
+                return response
+                
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                
+                # Check if the error is related to credit balance
+                if "credit balance is too low" in error_str or "quota exceeded" in error_str:
+                    logger.error(f"Credit balance error (non-retriable): {error_str}")
+                    break  # Don't retry credit balance errors
+                
+                # Check if it's a temporary error that might resolve with a retry
+                retriable_errors = [
+                    "timeout", 
+                    "connection error",
+                    "server error",
+                    "500",
+                    "503",
+                    "429",  # Rate limit error
+                    "too many requests"
+                ]
+                
+                is_retriable = any(err_type.lower() in error_str.lower() for err_type in retriable_errors)
+                
+                if not is_retriable:
+                    logger.error(f"Non-retriable error in chat request: {error_str}")
+                    break  # Don't retry permanent errors
+                
+                # Only log and retry if this isn't the last attempt
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.warning(f"Temporary error in chat request: {error_str}. Retrying in {delay:.2f}s...")
+                    
+                    # Sleep before retry with exponential backoff
+                    import time
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Failed chat request after {max_retries + 1} attempts: {error_str}")
+            
+            attempt += 1
+        
+        # If we get here, all retries failed or a non-retriable error occurred
+        if last_error:
+            logger.error(f"All retries failed: {str(last_error)}")
+            raise last_error
     
     def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7) -> str:
         """
@@ -243,9 +291,13 @@ class ClaudeService:
 # Singleton instance
 claude_service = None
 
-def check_api_key_status() -> Dict[str, str]:
+def check_api_key_status(max_retries: int = 2, retry_delay: float = 0.5) -> Dict[str, str]:
     """
-    Check the status of the Anthropic API key.
+    Check the status of the Anthropic API key with retry capability.
+    
+    Args:
+        max_retries: Maximum number of retry attempts for temporary errors
+        retry_delay: Initial delay between retries in seconds (exponential backoff applied)
     
     Returns:
         Dictionary with status information:
@@ -274,32 +326,80 @@ def check_api_key_status() -> Dict[str, str]:
         client = Anthropic(api_key=api_key)
         
         # Simple test to check if the key works and has credits
-        try:
-            # Make a minimal API request to check credits
-            response = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1,
-                messages=[{"role": "user", "content": "Test"}]
-            )
-            return {
-                'status': 'valid',
-                'message': 'API key is valid and has credits'
-            }
-        except Exception as api_error:
-            error_str = str(api_error)
-            if "credit balance is too low" in error_str or "quota exceeded" in error_str:
-                logger.warning(f"Anthropic API credit issue: {error_str}")
+        attempt = 0
+        last_error = None
+        
+        while attempt < max_retries + 1:  # +1 for the initial attempt
+            try:
+                logger.info(f"Testing API key status (attempt {attempt + 1}/{max_retries + 1})")
+                
+                # Make a minimal API request to check credits
+                response = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1,
+                    messages=[{"role": "user", "content": "Test"}]
+                )
+                
                 return {
-                    'status': 'no_credits',
-                    'message': 'API key is valid but has insufficient credits'
+                    'status': 'valid',
+                    'message': 'API key is valid and has credits'
                 }
-            else:
-                # Other API errors
-                logger.error(f"Anthropic API error: {error_str}")
-                return {
-                    'status': 'invalid',
-                    'message': f'API error: {error_str}'
-                }
+                
+            except Exception as e:
+                last_error = e
+                error_str = str(e)
+                
+                # Check if the error is related to credit balance
+                if "credit balance is too low" in error_str or "quota exceeded" in error_str:
+                    logger.warning(f"Anthropic API credit issue: Error code: {getattr(e, 'status_code', 'unknown')} - {error_str}")
+                    return {
+                        'status': 'no_credits',
+                        'message': 'API key is valid but has insufficient credits'
+                    }
+                
+                # Check if it's a temporary error that might resolve with a retry
+                retriable_errors = [
+                    "timeout", 
+                    "connection error",
+                    "server error",
+                    "500",
+                    "503",
+                    "429",  # Rate limit error
+                    "too many requests"
+                ]
+                
+                is_retriable = any(err_type.lower() in error_str.lower() for err_type in retriable_errors)
+                
+                if not is_retriable:
+                    logger.error(f"Non-retriable API error: {error_str}")
+                    return {
+                        'status': 'invalid',
+                        'message': f'API error: {error_str}'
+                    }
+                
+                # Only log and retry if this isn't the last attempt
+                if attempt < max_retries:
+                    delay = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.warning(f"Temporary API error: {error_str}. Retrying in {delay:.2f}s...")
+                    
+                    # Sleep before retry with exponential backoff
+                    import time
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Failed to validate API key after {max_retries + 1} attempts")
+                    return {
+                        'status': 'invalid',
+                        'message': f'Failed to validate API key after multiple attempts: {error_str}'
+                    }
+            
+            attempt += 1
+        
+        # This should not be reached given the return statements in the loop above
+        return {
+            'status': 'invalid',
+            'message': 'Unknown error validating API key'
+        }
+        
     except Exception as e:
         return {
             'status': 'invalid',

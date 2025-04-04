@@ -71,6 +71,67 @@ def check_api_key():
                 'action_required': True
             }
         }), 500
+        
+@mcp_bp.route('/api/status', methods=['GET'])
+def api_status_check():
+    """
+    API endpoint to check the status of the Anthropic API integration.
+    
+    This endpoint returns JSON with detailed status information about the API key,
+    including validation, credit status, and response times.
+    """
+    try:
+        # Get API key status with retry capability
+        key_status = check_api_key_status(max_retries=2, retry_delay=0.5)
+        
+        # Basic response with status information
+        response = {
+            'status': key_status['status'],
+            'message': key_status['message'],
+            'timestamp': datetime.utcnow().isoformat(),
+            'details': {}
+        }
+        
+        # Add status-specific details
+        if key_status['status'] == 'valid':
+            response['details'] = {
+                'credit_status': 'available',
+                'model': 'claude-3-5-sonnet-20241022',
+                'suggestion': 'API key is valid and has sufficient credits',
+                'action_required': False
+            }
+        elif key_status['status'] == 'no_credits':
+            response['details'] = {
+                'credit_status': 'insufficient',
+                'billing_url': 'https://console.anthropic.com/settings/billing',
+                'suggestion': 'Add credits to your account or use a different API key',
+                'action_required': True
+            }
+        elif key_status['status'] == 'missing':
+            response['details'] = {
+                'help_link': 'https://console.anthropic.com/account/keys',
+                'suggestion': 'Configure an Anthropic API key to enable AI-powered insights',
+                'action_required': True
+            }
+        elif key_status['status'] == 'invalid':
+            response['details'] = {
+                'help_link': 'https://console.anthropic.com/account/keys',
+                'suggestion': 'Your API key appears to be invalid. Please check and reconfigure it.',
+                'action_required': True
+            }
+        
+        return jsonify(response)
+    except Exception as e:
+        logger.error(f"Error checking API status: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'timestamp': datetime.utcnow().isoformat(),
+            'details': {
+                'suggestion': 'An unexpected error occurred while checking API status',
+                'action_required': True
+            }
+        }), 500
 
 @mcp_bp.route('/configure-api-key', methods=['POST'])
 def configure_api_key():
@@ -122,6 +183,16 @@ def configure_api_key():
     except Exception as e:
         logger.error(f"Error configuring API key: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@mcp_bp.route('/api-status', methods=['GET'])
+def api_status():
+    """
+    Render the API status page with detailed diagnostics and troubleshooting information.
+    
+    This page provides a comprehensive view of the Anthropic API connection status,
+    including diagnostics, troubleshooting guides, and links to external resources.
+    """
+    return render_template('mcp_api_status.html')
 
 @mcp_bp.route('/insights', methods=['GET'])
 def insights():

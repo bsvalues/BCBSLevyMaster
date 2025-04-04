@@ -56,10 +56,15 @@
                     <i class="bi bi-robot"></i> Claude AI Integration
                     <span id="apiKeyStatusBadge" class="badge bg-secondary">Checking...</span>
                 </h5>
-                <button type="button" class="btn btn-sm btn-outline-primary" 
-                       data-bs-toggle="modal" data-bs-target="#apiKeyModal">
-                    <i class="bi bi-key"></i> Configure API Key
-                </button>
+                <div>
+                    <a href="/mcp/api-status" class="btn btn-sm btn-outline-secondary me-2">
+                        <i class="bi bi-speedometer2"></i> API Status
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                           data-bs-toggle="modal" data-bs-target="#apiKeyModal">
+                        <i class="bi bi-key"></i> Configure API Key
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="apiKeyMessage"></div>
@@ -82,6 +87,9 @@
                                 data-bs-toggle="modal" data-bs-target="#apiKeyModal">
                                 <i class="bi bi-key me-1"></i>Use a Different API Key
                             </button>
+                            <a href="/mcp/api-status" class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-info-circle me-1"></i>View API Status
+                            </a>
                         </div>
                     </div>
                 {% endif %}
