@@ -137,13 +137,19 @@ def generate_mcp_insights(tax_codes):
         # Prepare data for analysis
         tax_code_data = []
         for tc in tax_codes:
-            tax_code_data.append({
-                'code': tc.tax_code,  # Using tax_code attribute
-                'total_assessed_value': tc.total_assessed_value,
-                'levy_rate': tc.levy_rate,
-                'tax_district_name': tc.tax_district.name if hasattr(tc, 'tax_district') and tc.tax_district else 'Unknown',
-                'effective_tax_rate': tc.effective_tax_rate
-            })
+            try:
+                # Use a try/except block to handle potential attribute errors
+                tax_code_data.append({
+                    'code': getattr(tc, 'tax_code', 'Unknown'),  # Using tax_code attribute
+                    'total_assessed_value': getattr(tc, 'total_assessed_value', 0),
+                    'effective_tax_rate': getattr(tc, 'effective_tax_rate', 0),
+                    'total_levy_amount': getattr(tc, 'total_levy_amount', 0),
+                    'district_id': getattr(tc, 'tax_district_id', None),
+                })
+            except Exception as e:
+                logger.error(f"Error processing tax code data: {str(e)}")
+                # Skip this tax code if there's an error
+                continue
         
         # Get historical data
         historical_data = []  # In a real app, we'd get this from a history table
