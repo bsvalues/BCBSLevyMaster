@@ -11,8 +11,8 @@ import sys
 import csv
 import logging
 import argparse
-import traceback
 from datetime import datetime
+import traceback
 from sqlalchemy import create_engine, text
 
 # Configure logging
@@ -22,12 +22,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def import_csv(file_path, year_override=None):
+def import_csv(file_path, table_name, mapping=None, year_override=None):
     """
     Import data from a CSV file directly into the database.
     
     Args:
         file_path: Path to the CSV file
+        table_name: Target database table
+        mapping: Dictionary mapping CSV columns to database columns
         year_override: Override the year value
     """
     # Get database URL from environment
@@ -35,240 +37,142 @@ def import_csv(file_path, year_override=None):
     if not db_url:
         logger.error("DATABASE_URL environment variable not found")
         return False
-
-    # Connect to the database
-    try:
-        engine = create_engine(db_url)
-        conn = engine.connect()
-        # Start a transaction that we can manage
-        trans = conn.begin()
-        logger.info("Connected to database successfully")
-    except Exception as e:
-        logger.error(f"Failed to connect to database: {str(e)}")
-        return False
-
-    try:
-        # Read CSV file
-        with open(file_path, 'r', newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            
-            # Print fieldnames for debugging
-            logger.info(f"CSV field names: {reader.fieldnames}")
-            
-            # Track stats
-            records_count = 0
-            success_count = 0
-            error_count = 0
-            
-            # Process each row
-            for row in reader:
-                records_count += 1
-                
-                # Get values, with fallbacks for missing fields
-                tax_district_id = row.get('tax_district_id', '')
-                levy_cd = row.get('levy_cd', tax_district_id)
-                levy_cd_linked = row.get('levy_cd_linked', '')
-                
-                # Try to parse numeric fields
-                try:
-                    levy_rate = float(row.get('levy_rate', 0)) if row.get('levy_rate') else None
-                except (ValueError, TypeError):
-                    levy_rate = None
-                
-                try:
-                    levy_amount = float(row.get('levy_amount', 0)) if row.get('levy_amount') else None
-                except (ValueError, TypeError):
-                    levy_amount = None
-                
-                # Use provided year, or try to get from CSV, or use current year
-                if year_override:
-                    year = year_override
-                else:
-                    try:
-                        year = int(row.get('year', datetime.now().year))
-                    except (ValueError, TypeError):
-                        year = datetime.now().year
-                
-                # Skip if no tax_district_id or levy_cd
-                if not tax_district_id and not levy_cd:
-                    logger.warning(f"Skipping row {records_count}: Missing tax_district_id and levy_cd")
-                    error_count += 1
-                    continue
-                
-                # If we have levy_cd but no tax_district_id, use levy_cd
-                if not tax_district_id and levy_cd:
-                    tax_district_id = levy_cd
-                
-                # If we have tax_district_id but no levy_cd, use tax_district_id
-                if tax_district_id and not levy_cd:
-                    levy_cd = tax_district_id
-                
-                # Print row for debugging
-                logger.debug(f"Processing row: {row}")
-                
-                try:
-                    # Check if record already exists
-                    result = conn.execute(
-                        text("SELECT id FROM tax_district WHERE tax_district_id = :district_id AND year = :year"),
-                        {"district_id": tax_district_id, "year": year}
-                    )
-                    existing_id = result.scalar()
-                    
-                    if existing_id:
-                        # Update existing record
-                        conn.execute(
-                            text("""
-                                UPDATE tax_district 
-                                SET levy_code = :levy_cd, 
-                                    linked_levy_code = :levy_cd_linked,
-                                    updated_at = NOW()
-                                WHERE id = :id
-                            """),
-                            {
-                                "levy_cd": levy_cd,
-                                "levy_cd_linked": levy_cd_linked,
-                                "id": existing_id
-                            }
-                        )
-                        logger.info(f"Updated tax district: {tax_district_id}")
-                    else:
-                        # Insert new record with DEFAULT for id to use the sequence
-                        conn.execute(
-                            text("""
-                                INSERT INTO tax_district 
-                                (id, year, district_name, district_code, is_active, created_at, updated_at, tax_district_id, levy_code, linked_levy_code) 
-                                VALUES 
-                                (DEFAULT, :year, :name, :code, TRUE, NOW(), NOW(), :district_id, :levy_cd, :levy_cd_linked)
-                            """),
-                            {
-                                "year": year,
-                                "name": f"District {tax_district_id}",
-                                "code": levy_cd,
-                                "district_id": tax_district_id,
-                                "levy_cd": levy_cd,
-                                "levy_cd_linked": levy_cd_linked
-                            }
-                        )
-                        logger.info(f"Inserted new tax district: {tax_district_id}")
-                    
-                    # Now add/update the tax code entry if levy_rate is provided
-                    if levy_rate is not None:
-                        # Check if tax code exists
-                        result = conn.execute(
-                            text("SELECT id FROM tax_code WHERE code = :code AND year = :year"),
-                            {"code": levy_cd, "year": year}
-                        )
-                        existing_code_id = result.scalar()
-                        
-                        if existing_code_id:
-                            # Update existing tax code
-                            conn.execute(
-                                text("""
-                                    UPDATE tax_code 
-                                    SET levy_rate = :rate, 
-                                        levy_amount = :amount,
-                                        updated_at = NOW()
-                                    WHERE id = :id
-                                """),
-                                {
-                                    "rate": levy_rate,
-                                    "amount": levy_amount,
-                                    "id": existing_code_id
-                                }
-                            )
-                            logger.info(f"Updated tax code: {levy_cd}")
-                        else:
-                            # Insert new tax code
-                            district_result = conn.execute(
-                                text("SELECT id FROM tax_district WHERE tax_district_id = :district_id AND year = :year"),
-                                {"district_id": tax_district_id, "year": year}
-                            )
-                            district_id = district_result.scalar()
-                            
-                            if district_id:
-                                conn.execute(
-                                    text("""
-                                        INSERT INTO tax_code 
-                                        (id, code, year, district_id, levy_rate, levy_amount, is_active, created_at, updated_at) 
-                                        VALUES 
-                                        (DEFAULT, :code, :year, :district_id, :rate, :amount, TRUE, NOW(), NOW())
-                                    """),
-                                    {
-                                        "code": levy_cd,
-                                        "year": year,
-                                        "district_id": district_id,
-                                        "rate": levy_rate,
-                                        "amount": levy_amount
-                                    }
-                                )
-                                logger.info(f"Inserted new tax code: {levy_cd}")
-                    
-                    success_count += 1
-                except Exception as e:
-                    logger.error(f"Error processing row {records_count}: {str(e)}")
-                    error_count += 1
-            
-            # Create import log entry
-            try:
-                conn.execute(
-                    text("""
-                        INSERT INTO import_log 
-                        (id, import_type, filename, status, record_count, success_count, error_count, import_date, metadata, year) 
-                        VALUES 
-                        (DEFAULT, 'csv', :filename, 'completed', :records, :success, :errors, NOW(), :metadata, :year)
-                    """),
-                    {
-                        "filename": os.path.basename(file_path),
-                        "records": records_count,
-                        "success": success_count,
-                        "errors": error_count,
-                        "metadata": '{"source": "simple_csv_import.py"}',
-                        "year": year_override or datetime.now().year
-                    }
-                )
-                logger.info("Created import log entry")
-            except Exception as e:
-                logger.error(f"Error creating import log: {str(e)}")
-            
-            logger.info(f"Import completed: {success_count} successes, {error_count} errors out of {records_count} records")
-            return True
     
-    except Exception as e:
-        logger.error(f"Error importing CSV file: {str(e)}")
-        logger.error(traceback.format_exc())
-        # Rollback the transaction on error
-        try:
-            trans.rollback()
-            logger.info("Transaction rolled back due to error")
-        except Exception as rollback_err:
-            logger.error(f"Error rolling back transaction: {str(rollback_err)}")
-        return False
+    # Use current year if not specified
+    if not year_override:
+        year = datetime.now().year
     else:
-        # If we got here without exceptions, commit the transaction
-        try:
-            trans.commit()
-            logger.info("Transaction committed successfully")
-        except Exception as commit_err:
-            logger.error(f"Error committing transaction: {str(commit_err)}")
-            return False
+        year = year_override
     
-    finally:
-        conn.close()
-        logger.info("Database connection closed")
+    # Verify the file exists
+    if not os.path.exists(file_path):
+        logger.error(f"File not found: {file_path}")
+        return False
+    
+    # Read the CSV file
+    try:
+        with open(file_path, 'r', newline='', encoding='utf-8') as csvfile:
+            # Check for header row
+            sample = csvfile.read(2048)
+            csvfile.seek(0)
+            has_header = csv.Sniffer().has_header(sample)
+            
+            # Parse the CSV
+            reader = csv.DictReader(csvfile) if has_header else csv.reader(csvfile)
+            rows = list(reader)
+            
+            if not rows:
+                logger.error("No data found in CSV file")
+                return False
+            
+            logger.info(f"Read {len(rows)} rows from {file_path}")
+            
+            # Connect to the database
+            engine = create_engine(db_url)
+            with engine.connect() as conn:
+                # Start a transaction
+                with conn.begin():
+                    # Process each row
+                    success_count = 0
+                    error_count = 0
+                    skipped_count = 0
+                    
+                    for row_idx, row in enumerate(rows):
+                        try:
+                            # Handle the mapping of columns
+                            if mapping and has_header:
+                                data = {}
+                                for db_col, csv_col in mapping.items():
+                                    if csv_col in row:
+                                        data[db_col] = row[csv_col]
+                                    else:
+                                        logger.warning(f"Column '{csv_col}' not found in CSV header")
+                                
+                                # Add standard fields if not in mapping
+                                if 'year' not in data and 'year' not in mapping.values():
+                                    data['year'] = year
+                                
+                                if 'created_at' not in data and 'created_at' not in mapping.values():
+                                    data['created_at'] = datetime.now()
+                                
+                                if 'updated_at' not in data and 'updated_at' not in mapping.values():
+                                    data['updated_at'] = datetime.now()
+                            else:
+                                # For non-header CSVs or when no mapping is provided,
+                                # just use the row as-is
+                                data = row
+                            
+                            # Check if record already exists based on unique identifiers
+                            if isinstance(data, dict) and 'property_id' in data:
+                                check_year = data.get('year')
+                                
+                                if check_year:
+                                    # For properties with year, check by property_id and year
+                                    check_sql = f"SELECT COUNT(*) FROM {table_name} WHERE property_id = :property_id AND year = :year"
+                                    check_params = {"property_id": data['property_id'], "year": check_year}
+                                else:
+                                    # Otherwise just check by property_id
+                                    check_sql = f"SELECT COUNT(*) FROM {table_name} WHERE property_id = :property_id"
+                                    check_params = {"property_id": data['property_id']}
+                                    
+                                result = conn.execute(text(check_sql), check_params)
+                                if result.scalar() > 0:
+                                    year_str = f" for year {check_year}" if check_year else ""
+                                    logger.info(f"Record with property_id={data['property_id']}{year_str} already exists, skipping")
+                                    skipped_count += 1
+                                    continue
+                            
+                            # Generate the SQL statement
+                            if isinstance(data, dict):
+                                columns = ', '.join(data.keys())
+                                placeholders = ', '.join(f":{col}" for col in data.keys())
+                                sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+                                conn.execute(text(sql), data)
+                            else:
+                                placeholders = ', '.join('?' for _ in data)
+                                sql = f"INSERT INTO {table_name} VALUES ({placeholders})"
+                                conn.execute(text(sql), data)
+                            
+                            success_count += 1
+                            
+                            # Log progress
+                            if (row_idx + 1) % 100 == 0:
+                                logger.info(f"Processed {row_idx + 1} rows...")
+                        
+                        except Exception as e:
+                            error_count += 1
+                            logger.error(f"Error on row {row_idx + 1}: {str(e)}")
+                            logger.debug(traceback.format_exc())
+                    
+                    logger.info(f"Import complete: {success_count} succeeded, {skipped_count} skipped, {error_count} failed")
+                    return success_count > 0 or skipped_count > 0
+    
+    except Exception as e:
+        logger.error(f"Error reading CSV file: {str(e)}")
+        logger.debug(traceback.format_exc())
+        return False
 
 def main():
     """Main function for CLI usage."""
-    parser = argparse.ArgumentParser(description='Import CSV data directly into the database')
-    parser.add_argument('--file', '-f', required=True, help='Path to the CSV file')
-    parser.add_argument('--year', '-y', type=int, help='Override the year value')
+    parser = argparse.ArgumentParser(description='Import data from CSV file to database')
+    parser.add_argument('--file', '-f', required=True, help='CSV file path')
+    parser.add_argument('--table', '-t', required=True, help='Target database table')
+    parser.add_argument('--mapping', '-m', help='JSON mapping of CSV columns to database columns')
+    parser.add_argument('--year', '-y', type=int, help='Year override')
     
     args = parser.parse_args()
     
-    if not os.path.exists(args.file):
-        logger.error(f"File not found: {args.file}")
-        return 1
+    # Parse the mapping if provided
+    mapping = None
+    if args.mapping:
+        import json
+        try:
+            mapping = json.loads(args.mapping)
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON mapping: {args.mapping}")
+            return 1
     
-    success = import_csv(args.file, args.year)
+    success = import_csv(args.file, args.table, mapping, args.year)
     return 0 if success else 1
 
 if __name__ == '__main__':

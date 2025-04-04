@@ -43,16 +43,29 @@ def insert_tax_codes(district_ids, levy_rate=1000.0, levy_amount=None, year=None
     try:
         engine = create_engine(db_url)
         with engine.connect() as conn:
-            # Start a transaction
+            # Start a single transaction for all operations
             with conn.begin():
                 # Get the current maximum ID for tax_code
                 result = conn.execute(text("SELECT MAX(id) FROM tax_code"))
                 max_id = result.scalar() or 0
                 logger.info(f"Current maximum tax code ID: {max_id}")
                 
-                # Insert tax codes for each district
-                success_count = 0
-                for i, district_id in enumerate(district_ids):
+                # Track existing and new tax codes
+                existing_tax_codes = []
+                new_tax_codes = []
+                
+                # Check which tax codes already exist
+                for district_id in district_ids:
+                    # First check if the tax code already exists
+                    result = conn.execute(
+                        text("SELECT id FROM tax_code WHERE tax_code = :tax_code AND year = :year"),
+                        {"tax_code": district_id, "year": year}
+                    )
+                    if result.fetchone():
+                        existing_tax_codes.append(district_id)
+                        logger.info(f"Tax code {district_id} already exists for year {year}, skipping")
+                        continue
+                    
                     # Find the district ID in the tax_district table
                     result = conn.execute(
                         text("SELECT id FROM tax_district WHERE tax_district_id = :district_id AND year = :year"),
@@ -64,6 +77,18 @@ def insert_tax_codes(district_ids, levy_rate=1000.0, levy_amount=None, year=None
                         logger.warning(f"District {district_id} not found for year {year}")
                         continue
                     
+                    # This is a new tax code that we'll need to insert
+                    new_tax_codes.append((district_id, db_district_id))
+                
+                if not new_tax_codes:
+                    logger.info("All tax codes already exist for the specified year")
+                    return True
+                
+                # Insert tax codes for each district
+                success_count = 0
+                skipped_count = len(existing_tax_codes)
+                
+                for i, (district_id, db_district_id) in enumerate(new_tax_codes):
                     new_id = max_id + i + 1
                     try:
                         # Insert with explicit ID that is higher than the max
@@ -92,14 +117,14 @@ def insert_tax_codes(district_ids, levy_rate=1000.0, levy_amount=None, year=None
                 if success_count > 0:
                     try:
                         conn.execute(
-                            text(f"ALTER SEQUENCE tax_code_id_seq RESTART WITH {max_id + len(district_ids) + 1}")
+                            text(f"ALTER SEQUENCE tax_code_id_seq RESTART WITH {max_id + len(new_tax_codes) + 1}")
                         )
-                        logger.info(f"Updated sequence to start with {max_id + len(district_ids) + 1}")
+                        logger.info(f"Updated sequence to start with {max_id + len(new_tax_codes) + 1}")
                     except Exception as e:
                         logger.error(f"Error updating sequence: {str(e)}")
-                
-                logger.info(f"Successfully inserted {success_count} out of {len(district_ids)} tax codes")
-                return success_count > 0
+            
+            logger.info(f"Successfully inserted {success_count} tax codes, skipped {skipped_count} existing tax codes")
+            return success_count > 0 or skipped_count > 0
     
     except Exception as e:
         logger.error(f"Database error: {str(e)}")

@@ -1,0 +1,11 @@
+property_id,address,tax_code,assessed_value,property_type,year,owner_name
+P001,123 Main St,801,250000,Residential,2025,John Smith
+P002,456 Oak Ave,801,320000,Residential,2025,Jane Doe
+P003,789 Elm St,802,1250000,Commercial,2025,ABC Corporation
+P004,321 Pine Rd,802,175000,Residential,2025,Bob Johnson
+P005,654 Maple Dr,803,425000,Residential,2025,Sarah Williams
+P006,987 Cedar Ln,803,550000,Residential,2025,Michael Brown
+P007,159 Birch Ave,804,195000,Residential,2025,Lisa Garcia
+P008,753 Spruce Blvd,804,1750000,Commercial,2025,XYZ Enterprises
+P009,852 Willow Way,805,275000,Residential,2025,Thomas Clark
+P010,951 Ash St,805,325000,Residential,2025,Emily Martin

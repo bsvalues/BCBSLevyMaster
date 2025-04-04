@@ -43,16 +43,36 @@ def insert_districts(district_ids, year=None):
     try:
         engine = create_engine(db_url)
         with engine.connect() as conn:
-            # Start a transaction
+            # Create a new transaction for everything
             with conn.begin():
                 # Get the current maximum ID
                 result = conn.execute(text("SELECT MAX(id) FROM tax_district"))
                 max_id = result.scalar() or 0
                 logger.info(f"Current maximum tax district ID: {max_id}")
                 
-                # Insert each district
+                # Filter out districts that already exist for this year
+                existing_districts = []
+                for district_id in district_ids:
+                    result = conn.execute(
+                        text("SELECT district_code FROM tax_district WHERE district_code = :code AND year = :year"),
+                        {"code": district_id, "year": year}
+                    )
+                    if result.fetchone():
+                        existing_districts.append(district_id)
+                        logger.info(f"District {district_id} already exists for year {year}, skipping")
+                
+                # Only process districts that don't already exist
+                new_districts = [d for d in district_ids if d not in existing_districts]
+                
+                if not new_districts:
+                    logger.info("All districts already exist for the specified year")
+                    return True
+                
+                # Insert each new district
                 success_count = 0
-                for i, district_id in enumerate(district_ids):
+                skipped_count = len(existing_districts)
+                
+                for i, district_id in enumerate(new_districts):
                     new_id = max_id + i + 1
                     try:
                         # Insert with explicit ID that is higher than the max
@@ -82,14 +102,14 @@ def insert_districts(district_ids, year=None):
                 if success_count > 0:
                     try:
                         conn.execute(
-                            text(f"ALTER SEQUENCE tax_district_temp_id_seq RESTART WITH {max_id + len(district_ids) + 1}")
+                            text(f"ALTER SEQUENCE tax_district_temp_id_seq RESTART WITH {max_id + len(new_districts) + 1}")
                         )
-                        logger.info(f"Updated sequence to start with {max_id + len(district_ids) + 1}")
+                        logger.info(f"Updated sequence to start with {max_id + len(new_districts) + 1}")
                     except Exception as e:
                         logger.error(f"Error updating sequence: {str(e)}")
-                
-                logger.info(f"Successfully inserted {success_count} out of {len(district_ids)} districts")
-                return success_count > 0
+            
+            logger.info(f"Successfully inserted {success_count} districts, skipped {skipped_count} existing districts")
+            return success_count > 0 or skipped_count > 0
     
     except Exception as e:
         logger.error(f"Database error: {str(e)}")

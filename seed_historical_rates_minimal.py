@@ -1,139 +1,161 @@
+#!/usr/bin/env python
 """
-Minimal script to add historical rate data for existing tax codes.
+Seed Historical Rates Script
 
-This script adds historical rate data for existing tax codes in the database,
-maintaining a simple approach to avoid model conflicts and schema issues.
+This script seeds the database with sample historical tax rate data using the
+simple_csv_import utility or direct SQL insertion.
 """
 
 import os
 import sys
+import json
 import logging
 from datetime import datetime
-import random
-
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-def get_historical_years(current_year=2024, num_years=5):
-    """Generate a list of historical years."""
-    return list(range(current_year - num_years, current_year + 1))
-
-def seed_historical_rates():
+def seed_historical_rates(tax_codes, start_year=2020, end_year=2024):
     """
-    Add historical rate data for existing tax codes.
+    Seed historical tax rates for a range of years.
     
-    Returns:
-        int: 0 for success, 1 for error
+    Args:
+        tax_codes: List of tax code IDs to create historical rates for
+        start_year: Starting year for historical data (inclusive)
+        end_year: Ending year for historical data (inclusive)
     """
+    # Get database URL from environment
+    db_url = os.environ.get('DATABASE_URL')
+    if not db_url:
+        logger.error("DATABASE_URL environment variable not found")
+        return False
+    
     try:
         # Connect to the database
-        database_url = os.environ.get('DATABASE_URL')
-        if not database_url:
-            logger.error("DATABASE_URL environment variable is not set")
-            return 1
+        engine = create_engine(db_url)
+        # We'll use separate connections for each operation to avoid transaction conflicts
         
-        engine = create_engine(database_url)
-        Session = sessionmaker(bind=engine)
-        session = Session()
-        
-        # Get all current tax codes
-        tax_codes_query = text("""
-            SELECT id, tax_code, effective_tax_rate, total_assessed_value, year 
-            FROM tax_code
-            WHERE year = 2024
-        """)
-        
-        tax_codes = list(session.execute(tax_codes_query))
-        
-        if not tax_codes:
-            logger.warning("No tax codes found for the current year.")
-            return 0
-        
-        # Get historical years (excluding current year which is in tax_code table)
-        historical_years = [year for year in get_historical_years() if year != 2024]
-        
-        # Counter for added records
-        total_added = 0
-        
-        # Iterate through each tax code
-        for tax_code in tax_codes:
-            tax_code_id = tax_code.id
-            base_rate = tax_code.effective_tax_rate
-            base_value = tax_code.total_assessed_value
-            tax_code_name = tax_code.tax_code
-            current_year = tax_code.year
+        # First, check if the table exists
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'tax_code_historical_rate'
+                )
+            """))
+            table_exists = result.scalar()
             
-            # Create entries for each historical year
-            for year in historical_years:
-                # Skip if a historical record already exists for this code and year
-                check_query = text("""
-                    SELECT COUNT(*) FROM tax_code_historical_rate 
-                    WHERE tax_code_id = :tax_code_id AND year = :year
-                """)
-                existing_count = session.execute(
-                    check_query, 
-                    {"tax_code_id": tax_code_id, "year": year}
-                ).scalar()
+            if not table_exists:
+                logger.warning("tax_code_historical_rate table does not exist, creating it")
+                with conn.begin():
+                    conn.execute(text("""
+                        CREATE TABLE tax_code_historical_rate (
+                            id SERIAL PRIMARY KEY,
+                            tax_code_id INTEGER REFERENCES tax_code(id),
+                            year INTEGER NOT NULL,
+                            levy_rate FLOAT NOT NULL,
+                            levy_amount FLOAT,
+                            total_assessed_value FLOAT,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(tax_code_id, year)
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX idx_historical_rate_tax_code_id ON tax_code_historical_rate(tax_code_id)"))
+                    conn.execute(text("CREATE INDEX idx_historical_rate_year ON tax_code_historical_rate(year)"))
+        
+        success_count = 0
+        error_count = 0
+        
+        # For each tax code, create historical rates
+        for tax_code in tax_codes:
+            # Create a new connection for each tax code to avoid transaction conflicts
+            with engine.connect() as conn:
+                # Find the tax code in the database
+                result = conn.execute(text("""
+                    SELECT id, levy_rate FROM tax_code WHERE tax_code = :tax_code
+                """), {"tax_code": tax_code})
+                tax_code_data = result.fetchone()
                 
-                if existing_count > 0:
-                    logger.info(f"Historical rate for tax code {tax_code_name} and year {year} already exists")
+                if not tax_code_data:
+                    logger.warning(f"Tax code {tax_code} not found in the database")
                     continue
                 
-                # Create synthetic rate with variations for prior years
-                year_diff = current_year - year
-                # Rate tends to decrease going backwards in time
-                rate = base_rate * (1.0 - (year_diff * 0.02))  # 2% decrease per year going backwards
-                rate = max(0.01, min(0.2, rate))  # Ensure rate stays in reasonable bounds
+                tax_code_id = tax_code_data[0]
+                current_rate = tax_code_data[1]
                 
-                # Values tend to be lower in prior years
-                assessed_value = base_value * (1.0 - (year_diff * 0.03))  # 3% decrease per year going backwards
-                
-                # Calculate levy amount
-                levy_amount = rate * assessed_value
-                
-                # Insert record using direct SQL to avoid ORM model mismatch
-                now = datetime.utcnow()
-                insert_query = text("""
-                    INSERT INTO tax_code_historical_rate 
-                    (tax_code_id, year, levy_rate, levy_amount, total_assessed_value, created_at, updated_at)
-                    VALUES 
-                    (:tax_code_id, :year, :levy_rate, :levy_amount, :total_assessed_value, :created_at, :updated_at)
-                """)
-                
-                session.execute(insert_query, {
-                    "tax_code_id": tax_code_id,
-                    "year": year,
-                    "levy_rate": rate,
-                    "levy_amount": levy_amount,
-                    "total_assessed_value": assessed_value,
-                    "created_at": now,
-                    "updated_at": now
-                })
-                
-                total_added += 1
-                
-                logger.info(f"Created historical rate for {tax_code_name} in {year}: {rate:.6f}")
+                # Create a batch of historical rates for this tax code
+                for year in range(start_year, end_year + 1):
+                    # Calculate a rate that gradually approaches the current rate
+                    # This creates a realistic trend over time
+                    years_diff = end_year - year + 1
+                    variation = 0.85 + (0.3 * (years_diff / (end_year - start_year + 1)))
+                    historical_rate = current_rate * variation
+                    
+                    # Start a fresh transaction for each year
+                    with conn.begin():
+                        try:
+                            # Check if an entry for this tax code and year already exists
+                            result = conn.execute(text("""
+                                SELECT id FROM tax_code_historical_rate 
+                                WHERE tax_code_id = :tax_code_id AND year = :year
+                            """), {"tax_code_id": tax_code_id, "year": year})
+                            
+                            if result.fetchone():
+                                # Update existing record
+                                conn.execute(text("""
+                                    UPDATE tax_code_historical_rate 
+                                    SET levy_rate = :rate, updated_at = NOW()
+                                    WHERE tax_code_id = :tax_code_id AND year = :year
+                                """), {
+                                    "tax_code_id": tax_code_id,
+                                    "year": year,
+                                    "rate": historical_rate
+                                })
+                            else:
+                                # Insert new record
+                                conn.execute(text("""
+                                    INSERT INTO tax_code_historical_rate 
+                                    (tax_code_id, year, levy_rate, created_at, updated_at)
+                                    VALUES (:tax_code_id, :year, :rate, NOW(), NOW())
+                                """), {
+                                    "tax_code_id": tax_code_id,
+                                    "year": year,
+                                    "rate": historical_rate
+                                })
+                            
+                            success_count += 1
+                            logger.info(f"Created historical rate for tax code {tax_code}, year {year}")
+                            
+                        except Exception as e:
+                            error_count += 1
+                            logger.error(f"Error creating historical rate for tax code {tax_code}, year {year}: {str(e)}")
+        
+        logger.info(f"Completed: {success_count} rates created, {error_count} errors")
+        return success_count > 0
             
-        # Commit all changes
-        session.commit()
-        
-        logger.info(f"Successfully added {total_added} historical rate records")
-        return 0
-        
     except Exception as e:
-        logger.error(f"Error seeding historical rates: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return 1
-    finally:
-        if 'session' in locals():
-            session.close()
+        logger.error(f"Database error: {str(e)}")
+        return False
 
-if __name__ == "__main__":
-    logger.info("Starting minimal historical rate seeding...")
-    exit_code = seed_historical_rates()
-    sys.exit(exit_code)
+def main():
+    """Main function."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Seed historical tax rate data')
+    parser.add_argument('--tax-codes', '-t', nargs='+', required=True, help='Tax codes to create historical rates for')
+    parser.add_argument('--start-year', '-s', type=int, default=2020, help='Starting year (inclusive)')
+    parser.add_argument('--end-year', '-e', type=int, default=2024, help='Ending year (inclusive)')
+    
+    args = parser.parse_args()
+    
+    success = seed_historical_rates(args.tax_codes, args.start_year, args.end_year)
+    return 0 if success else 1
+
+if __name__ == '__main__':
+    sys.exit(main())
