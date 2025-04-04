@@ -436,12 +436,12 @@ def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -
     """
     try:
         # Query district relationships to get all levy codes
-        district_query = TaxDistrict.query.filter_by(tax_district_id=district_id)
+        district_query = TaxDistrict.query.filter_by(id=district_id)
         
         if years:
             district_query = district_query.filter(TaxDistrict.year.in_(years))
         
-        district_records = district_query.order_by(TaxDistrict.year, TaxDistrict.levy_code).all()
+        district_records = district_query.order_by(TaxDistrict.year, TaxDistrict.district_code).all()
         
         if not district_records:
             return {
@@ -449,44 +449,34 @@ def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -
                 'district_id': district_id
             }
         
-        # Extract all levy codes for this district
-        all_levy_codes = set()
-        levy_codes_by_year = defaultdict(set)
-        
-        for record in district_records:
-            all_levy_codes.add(record.levy_code)
-            all_levy_codes.add(record.linked_levy_code)
-            levy_codes_by_year[record.year].add(record.levy_code)
-            levy_codes_by_year[record.year].add(record.linked_levy_code)
-        
         # Get the years represented in the data
-        all_years = sorted(levy_codes_by_year.keys())
+        all_years = sorted(set(record.year for record in district_records))
         
-        # Analyze each year
+        # For each district, find associated tax codes
+        # This is a simplification since we don't have direct district-to-tax-code relationships
+        # Using district_code for now
         aggregated_data = []
+        all_tax_codes = set()
         
         for year in all_years:
-            year_levy_codes = list(levy_codes_by_year[year])
-            
-            # Get tax code IDs for these levy codes
-            tax_codes = TaxCode.query.filter(TaxCode.code.in_(year_levy_codes)).all()
-            tax_code_map = {tc.code: tc.id for tc in tax_codes}
+            # Get tax codes for this year
+            tax_codes_for_year = TaxCode.query.filter_by(year=year).all()
+            year_tax_codes = [tc.tax_code for tc in tax_codes_for_year]
+            all_tax_codes.update(year_tax_codes)
             
             # Get historical rates for this year
             historical_rates = []
-            for levy_code in year_levy_codes:
-                if levy_code in tax_code_map:
-                    tax_code_id = tax_code_map[levy_code]
-                    rate_record = TaxCodeHistoricalRate.query.filter_by(
-                        tax_code_id=tax_code_id, 
-                        year=year
-                    ).first()
-                    
-                    if rate_record:
-                        historical_rates.append({
-                            'code': levy_code,
-                            'rate': rate_record.levy_rate
-                        })
+            for tc in tax_codes_for_year:
+                rate_record = TaxCodeHistoricalRate.query.filter_by(
+                    tax_code_id=tc.id, 
+                    year=year
+                ).first()
+                
+                if rate_record:
+                    historical_rates.append({
+                        'code': tc.tax_code,
+                        'rate': rate_record.levy_rate
+                    })
             
             # Only include years with rate data
             if historical_rates:
@@ -499,8 +489,8 @@ def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -
                 
                 year_data = {
                     'year': year,
-                    'num_levy_codes': len(year_levy_codes),
-                    'levy_codes': sorted(year_levy_codes),
+                    'num_tax_codes': len(year_tax_codes),
+                    'tax_codes': sorted(year_tax_codes),
                     'average_rate': average_rate,
                     'median_rate': median_rate,
                     'min_rate': min_rate,
@@ -512,7 +502,7 @@ def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -
         
         return {
             'district_id': district_id,
-            'levy_codes': sorted(list(all_levy_codes)),
+            'tax_codes': sorted(list(all_tax_codes)),
             'years_analyzed': all_years,
             'aggregated_data': aggregated_data
         }
@@ -600,7 +590,7 @@ def generate_comparison_report(start_year: int, end_year: int,
             # Only include significant changes
             if abs(percent_change) >= min_change_threshold * 100 or direction == 'none':
                 tax_code_changes.append({
-                    'tax_code': tax_code_map[tax_code_id].code,
+                    'tax_code': tax_code_map[tax_code_id].tax_code,
                     'start_rate': start_rate,
                     'end_rate': end_rate,
                     'rate_change': rate_change,

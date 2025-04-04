@@ -45,9 +45,9 @@ def advanced_historical_analysis():
     
     # Get all district IDs
     districts_query = db.session.query(
-        TaxDistrict.tax_district_id
+        TaxDistrict.id
     ).distinct().order_by(
-        TaxDistrict.tax_district_id
+        TaxDistrict.id
     ).all()
     districts = [district[0] for district in districts_query]
     

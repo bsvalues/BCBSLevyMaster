@@ -165,6 +165,11 @@ def register_template_filters(app):
         if value is None:
             return "0"
         return "{:,}".format(int(value))
+        
+    @app.template_filter('add_tooltips')
+    def add_tooltips(value):
+        """Add tooltip highlighting to text."""
+        return f'<span class="tooltip-text" data-toggle="tooltip" title="{value}">{value}</span>'
 
 
 def configure_logging(app):
