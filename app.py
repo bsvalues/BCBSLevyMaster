@@ -13,6 +13,7 @@ from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
+from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -24,6 +25,7 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 csrf = CSRFProtect()
 migrate = Migrate()
+login_manager = LoginManager()
 
 
 def create_app(config_name=None):
@@ -64,6 +66,17 @@ def create_app(config_name=None):
     db.init_app(app)
     csrf.init_app(app)
     migrate.init_app(app, db)
+    
+    # Configure login manager
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_message_category = 'info'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        from models import User
+        return User.query.get(int(user_id))
     
     # Register CLI commands
     try:
@@ -195,6 +208,7 @@ from routes_levy_exports import levy_exports_bp
 from routes_public import public_bp
 from routes_admin import admin_bp
 from routes_glossary import glossary_bp
+from routes_auth import auth_bp, init_auth_routes
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -202,6 +216,9 @@ app.register_blueprint(levy_exports_bp)
 app.register_blueprint(public_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(glossary_bp)
+
+# Initialize authentication routes
+init_auth_routes(app)
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():
