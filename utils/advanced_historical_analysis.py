@@ -1,427 +1,410 @@
 """
-Advanced historical data analysis and forecasting tools.
+Advanced historical data analysis utilities for the Levy Calculation System.
 
-This module provides enhanced analytical capabilities for multi-year levy data:
-1. Statistical analysis (mean, median, variance, etc.)
-2. Trend identification and forecasting
-3. Year-over-year comparisons
-4. Data aggregation by district and year
-5. Anomaly detection in historical trends
+This module provides functions for analyzing historical tax rate data,
+forecasting trends, detecting anomalies, and generating comparative reports.
 """
 
-import logging
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
-import json
 import statistics
-from collections import defaultdict
-
+import logging
 import numpy as np
+from typing import Dict, List, Any, Optional, Tuple, Union
+from datetime import datetime
 from sqlalchemy import func, and_, or_, desc, asc
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import joinedload
 
 from app import db
-from models import TaxCode, TaxCodeHistoricalRate, TaxDistrict
+from models import TaxCode, TaxDistrict, TaxCodeHistoricalRate
 
+# Setup logging
 logger = logging.getLogger(__name__)
 
-def compute_basic_statistics(tax_code: str, years: Optional[List[int]] = None) -> Dict[str, Any]:
+def compute_basic_statistics(tax_code_identifier: str, years: Optional[List[int]] = None) -> Dict[str, Any]:
     """
-    Compute basic statistical measures for a tax code's levy rates across years.
+    Compute basic statistical measures for historical levy rates of a tax code.
     
     Args:
-        tax_code: The tax code to analyze
-        years: Optional list of specific years to analyze (if None, use all available years)
+        tax_code_identifier: The tax code to analyze (can be code or ID)
+        years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
-        Dictionary with statistical measures
+        Dictionary with statistical measures and historical data
     """
+    logger.info(f"Computing statistics for tax code {tax_code_identifier} over years {years or 'all'}")
+    
     try:
-        # Get the tax code record
-        tax_code_record = TaxCode.query.filter_by(tax_code=tax_code).first()
-        if not tax_code_record:
+        # Determine if tax_code_identifier is an ID or a code string
+        try:
+            tax_code_id = int(tax_code_identifier)
+            tax_code_obj = TaxCode.query.get(tax_code_id)
+        except (ValueError, TypeError):
+            # It's a string tax code
+            tax_code_obj = TaxCode.query.filter_by(tax_code=tax_code_identifier).first()
+        
+        if not tax_code_obj:
             return {
-                'error': f'Tax code {tax_code} not found',
-                'tax_code': tax_code
+                'error': f"Tax code {tax_code_identifier} not found",
+                'historical_data': []
             }
         
-        # Query for historical rates
-        query = TaxCodeHistoricalRate.query.filter_by(tax_code_id=tax_code_record.id)
+        # Query historical rates
+        query = TaxCodeHistoricalRate.query.filter_by(tax_code_id=tax_code_obj.id)
         
-        # Apply years filter if provided
+        # Apply year filter if specified
         if years:
             query = query.filter(TaxCodeHistoricalRate.year.in_(years))
         
         # Order by year
-        historical_rates = query.order_by(TaxCodeHistoricalRate.year).all()
+        query = query.order_by(TaxCodeHistoricalRate.year)
+        
+        # Execute query
+        historical_rates = query.all()
         
         if not historical_rates:
             return {
-                'error': f'No historical data found for tax code {tax_code}',
-                'tax_code': tax_code
+                'error': f"No historical data found for tax code {tax_code_identifier} in specified years",
+                'historical_data': []
             }
         
-        # Extract rates and years
+        # Extract rate data
         rates = [rate.levy_rate for rate in historical_rates]
-        years_available = [rate.year for rate in historical_rates]
+        years_data = [rate.year for rate in historical_rates]
         
-        # Compute statistics
-        mean_rate = statistics.mean(rates) if rates else None
-        median_rate = statistics.median(rates) if rates else None
-        min_rate = min(rates) if rates else None
-        max_rate = max(rates) if rates else None
-        range_value = max_rate - min_rate if (min_rate is not None and max_rate is not None) else None
-        
-        # Compute more advanced statistics if we have enough data
-        if len(rates) > 1:
-            variance = statistics.variance(rates)
-            std_deviation = statistics.stdev(rates)
-        else:
-            variance = 0
-            std_deviation = 0
-        
-        # Convert to dictionaries for JSON serialization
-        historical_data = [
-            {
-                'year': rate.year,
-                'levy_rate': rate.levy_rate,
-                'levy_amount': rate.levy_amount,
-                'total_assessed_value': rate.total_assessed_value
-            }
-            for rate in historical_rates
-        ]
-        
-        return {
-            'tax_code': tax_code,
-            'years_analyzed': len(years_available),
-            'years_available': years_available,
-            'mean_rate': mean_rate,
-            'median_rate': median_rate,
-            'min_rate': min_rate,
-            'max_rate': max_rate,
-            'range': range_value,
-            'variance': variance,
-            'std_deviation': std_deviation,
-            'historical_data': historical_data
+        # Compute basic statistics
+        stats = {
+            'tax_code': tax_code_obj.tax_code,
+            'tax_code_id': tax_code_obj.id,
+            'years': years_data,
+            'count': len(rates),
+            'min': min(rates),
+            'max': max(rates),
+            'range': max(rates) - min(rates),
+            'mean': statistics.mean(rates),
+            'median': statistics.median(rates),
+            'historical_data': [
+                {
+                    'year': rate.year,
+                    'levy_rate': rate.levy_rate,
+                    'levy_amount': rate.levy_amount,
+                    'total_assessed_value': rate.total_assessed_value
+                }
+                for rate in historical_rates
+            ]
         }
-    
+        
+        # Add standard deviation if we have enough data points
+        if len(rates) > 1:
+            stats['stddev'] = statistics.stdev(rates)
+            
+            # Calculate coefficient of variation (relative standard deviation)
+            if stats['mean'] > 0:
+                stats['cv'] = (stats['stddev'] / stats['mean']) * 100  # As percentage
+            else:
+                stats['cv'] = None
+            
+            # Calculate year-over-year changes
+            yoy_changes = []
+            for i in range(1, len(rates)):
+                previous = rates[i-1]
+                current = rates[i]
+                if previous > 0:
+                    pct_change = ((current - previous) / previous) * 100
+                    yoy_changes.append({
+                        'from_year': years_data[i-1],
+                        'to_year': years_data[i],
+                        'change': current - previous,
+                        'pct_change': pct_change
+                    })
+            
+            stats['year_over_year_changes'] = yoy_changes
+            
+            if yoy_changes:
+                # Average annual change
+                avg_change = sum(c['change'] for c in yoy_changes) / len(yoy_changes)
+                stats['avg_annual_change'] = avg_change
+                
+                # Average annual percent change
+                avg_pct_change = sum(c['pct_change'] for c in yoy_changes) / len(yoy_changes)
+                stats['avg_annual_pct_change'] = avg_pct_change
+        
+        return stats
+        
     except Exception as e:
-        logger.error(f"Error computing statistics for tax code {tax_code}: {str(e)}")
+        logger.error(f"Error computing statistics: {str(e)}")
         return {
-            'error': f'Error computing statistics: {str(e)}',
-            'tax_code': tax_code
+            'error': f"Error computing statistics: {str(e)}",
+            'historical_data': []
         }
 
-def compute_moving_average(tax_code: str, window_size: int = 3, years: Optional[List[int]] = None) -> Dict[str, Any]:
+
+def compute_moving_average(tax_code_identifier: str, window_size: int = 3, years: Optional[List[int]] = None) -> Dict[str, Any]:
     """
-    Compute moving average for levy rates.
+    Compute moving average for historical levy rates.
     
     Args:
-        tax_code: The tax code to analyze
-        window_size: The size of the moving average window
-        years: Optional list of specific years to analyze (if None, use all available years)
+        tax_code_identifier: The tax code to analyze (can be code or ID)
+        window_size: Size of the moving average window in years
+        years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
         Dictionary with moving average data
     """
+    logger.info(f"Computing {window_size}-year moving average for tax code {tax_code_identifier}")
+    
     try:
-        # Get basic statistics first (including historical data)
-        stats_data = compute_basic_statistics(tax_code, years)
+        # Get basic statistics (includes historical data)
+        stats = compute_basic_statistics(tax_code_identifier, years)
         
-        if 'error' in stats_data:
-            return stats_data
+        if 'error' in stats:
+            return stats
         
-        historical_data = stats_data['historical_data']
+        historical_data = stats['historical_data']
         
-        # Check if we have enough data for the window size
         if len(historical_data) < window_size:
             return {
-                'error': f'Not enough historical data for a window size of {window_size}',
-                'tax_code': tax_code,
+                'error': f"Insufficient data for {window_size}-year moving average (need at least {window_size} years)",
                 'historical_data': historical_data
             }
         
-        # Sort by year to ensure proper order
-        historical_data.sort(key=lambda x: x['year'])
-        
         # Compute moving averages
         moving_averages = []
+        
         for i in range(len(historical_data) - window_size + 1):
-            window = historical_data[i:i+window_size]
-            window_years = [item['year'] for item in window]
-            window_rates = [item['levy_rate'] for item in window]
-            
-            moving_avg = statistics.mean(window_rates)
+            window = historical_data[i:i + window_size]
+            avg_rate = sum(item['levy_rate'] for item in window) / window_size
             
             moving_averages.append({
-                'start_year': min(window_years),
-                'end_year': max(window_years),
-                'years': window_years,
-                'moving_average': moving_avg
+                'start_year': window[0]['year'],
+                'end_year': window[-1]['year'],
+                'years': [item['year'] for item in window],
+                'average_rate': avg_rate,
+                'window_size': window_size
             })
         
         return {
-            'tax_code': tax_code,
+            'tax_code': stats['tax_code'],
+            'tax_code_id': stats['tax_code_id'],
             'window_size': window_size,
-            'years_analyzed': len(historical_data),
-            'historical_data': historical_data,
-            'moving_averages': moving_averages
+            'moving_averages': moving_averages,
+            'historical_data': historical_data
         }
-    
+        
     except Exception as e:
-        logger.error(f"Error computing moving average for tax code {tax_code}: {str(e)}")
+        logger.error(f"Error computing moving average: {str(e)}")
         return {
-            'error': f'Error computing moving average: {str(e)}',
-            'tax_code': tax_code
+            'error': f"Error computing moving average: {str(e)}",
+            'historical_data': []
         }
 
-def forecast_future_rates(tax_code: str, forecast_years: int = 3, 
+
+def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3, 
                          method: str = 'linear', years: Optional[List[int]] = None) -> Dict[str, Any]:
     """
-    Forecast future levy rates based on historical trends.
+    Forecast future levy rates based on historical data.
     
     Args:
-        tax_code: The tax code to forecast
+        tax_code_identifier: The tax code to forecast (can be code or ID)
         forecast_years: Number of years to forecast
         method: Forecasting method ('linear', 'average', 'weighted')
-        years: Optional list of specific years to use as base for forecasting
+        years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
         Dictionary with forecasting results
     """
+    logger.info(f"Forecasting {forecast_years} years for tax code {tax_code_identifier} using {method} method")
+    
     try:
-        # Get historical data first
-        stats_data = compute_basic_statistics(tax_code, years)
+        # Get basic statistics (includes historical data)
+        stats = compute_basic_statistics(tax_code_identifier, years)
         
-        if 'error' in stats_data:
-            return stats_data
+        if 'error' in stats:
+            return stats
         
-        historical_data = stats_data['historical_data']
+        historical_data = stats['historical_data']
         
-        # Need at least 2 years for linear regression, 1 for average
-        min_years_required = 2 if method == 'linear' else 1
-        if len(historical_data) < min_years_required:
+        if len(historical_data) < 2 and method == 'linear':
             return {
-                'error': f'Not enough historical data for forecasting (need at least {min_years_required} years)',
-                'tax_code': tax_code,
-                'method': method,
+                'error': f"Linear forecasting requires at least 2 years of historical data",
                 'historical_data': historical_data
             }
         
-        # Sort by year
-        historical_data.sort(key=lambda x: x['year'])
+        # Simple validation
+        if forecast_years <= 0:
+            return {
+                'error': "Forecast years must be positive",
+                'historical_data': historical_data
+            }
         
-        # Prepare arrays for forecasting
-        hist_years = np.array([item['year'] for item in historical_data])
-        hist_rates = np.array([item['levy_rate'] for item in historical_data])
+        if method not in ['linear', 'average', 'weighted']:
+            return {
+                'error': f"Unsupported forecasting method: {method}",
+                'historical_data': historical_data
+            }
         
-        # Generate years to forecast
-        max_historical_year = max(hist_years)
-        forecast_year_values = [max_historical_year + i + 1 for i in range(forecast_years)]
+        # Extract years and rates for forecasting
+        years_data = [item['year'] for item in historical_data]
+        rates = [item['levy_rate'] for item in historical_data]
         
-        # Apply selected forecasting method
-        forecasts = []
+        # Generate forecast based on selected method
+        forecast_results = []
+        
+        # Start forecasting from the year after the last historical year
+        last_year = max(years_data)
         
         if method == 'linear':
-            # Linear regression using numpy polyfit (degree 1)
-            slope, intercept = np.polyfit(hist_years, hist_rates, 1)
+            # Perform linear regression if we have enough data points
+            if len(years_data) >= 2:
+                # Normalize years to avoid numerical instability
+                base_year = min(years_data)
+                x = np.array([year - base_year for year in years_data])
+                y = np.array(rates)
+                
+                # Linear regression formula: y = mx + b
+                n = len(x)
+                m = (n * np.sum(x * y) - np.sum(x) * np.sum(y)) / (n * np.sum(x**2) - np.sum(x)**2)
+                b = (np.sum(y) - m * np.sum(x)) / n
+                
+                # Generate forecasts
+                for i in range(1, forecast_years + 1):
+                    forecast_year = last_year + i
+                    forecast_x = forecast_year - base_year
+                    forecast_rate = m * forecast_x + b
+                    
+                    # Keep the forecast within reasonable bounds
+                    forecast_rate = max(0.0, forecast_rate)  # No negative rates
+                    
+                    forecast_results.append({
+                        'year': forecast_year,
+                        'forecasted_rate': forecast_rate,
+                        'method': 'linear regression'
+                    })
             
-            for year in forecast_year_values:
-                forecasted_rate = slope * year + intercept
-                
-                # Ensure rate is positive and reasonable
-                forecasted_rate = max(0.0001, forecasted_rate)
-                
-                # Assess confidence based on historical data stability and trend
-                confidence = calculate_forecast_confidence(historical_data, slope)
-                
-                forecasts.append({
-                    'year': year, 
-                    'forecasted_rate': forecasted_rate,
-                    'confidence': confidence
-                })
-        
         elif method == 'average':
             # Simple average of all historical rates
-            avg_rate = np.mean(hist_rates)
+            avg_rate = sum(rates) / len(rates)
             
-            for year in forecast_year_values:
-                # Assess confidence (medium by default for average method)
-                confidence = 'medium'
-                
-                forecasts.append({
-                    'year': year, 
+            for i in range(1, forecast_years + 1):
+                forecast_year = last_year + i
+                forecast_results.append({
+                    'year': forecast_year,
                     'forecasted_rate': avg_rate,
-                    'confidence': confidence
+                    'method': 'historical average'
                 })
-        
+                
         elif method == 'weighted':
-            # Weighted average giving more weight to recent years
-            weights = np.arange(1, len(hist_rates) + 1)  # 1, 2, 3, ... (more weight to recent)
-            weighted_avg = np.average(hist_rates, weights=weights)
+            # Weighted average with more recent years having higher weights
+            total_weight = sum(range(1, len(rates) + 1))
+            weighted_sum = sum(rates[i] * (i + 1) for i in range(len(rates))) / total_weight
             
-            for i, year in enumerate(forecast_year_values):
-                # For weighted average, reduce confidence as we get further into the future
-                if i == 0:
-                    confidence = 'medium-high'
-                elif i == 1:
-                    confidence = 'medium'
-                else:
-                    confidence = 'medium-low'
-                    
-                forecasts.append({
-                    'year': year, 
-                    'forecasted_rate': weighted_avg,
-                    'confidence': confidence
+            for i in range(1, forecast_years + 1):
+                forecast_year = last_year + i
+                forecast_results.append({
+                    'year': forecast_year,
+                    'forecasted_rate': weighted_sum,
+                    'method': 'weighted average'
                 })
         
         return {
-            'tax_code': tax_code,
-            'method': method,
-            'years_analyzed': len(historical_data),
-            'historical_data': historical_data,
-            'forecasts': forecasts
+            'tax_code': stats['tax_code'],
+            'tax_code_id': stats['tax_code_id'],
+            'forecast_method': method,
+            'forecast_years': forecast_years,
+            'forecasted_data': forecast_results,
+            'historical_data': historical_data
         }
-    
-    except Exception as e:
-        logger.error(f"Error forecasting rates for tax code {tax_code}: {str(e)}")
-        return {
-            'error': f'Error forecasting rates: {str(e)}',
-            'tax_code': tax_code,
-            'method': method
-        }
-
-def calculate_forecast_confidence(historical_data: List[Dict[str, Any]], trend_slope: float) -> str:
-    """
-    Calculate confidence level for forecasts based on historical data stability.
-    
-    Args:
-        historical_data: Historical rate data
-        trend_slope: Slope of the trend line
         
-    Returns:
-        Confidence level as string ('low', 'medium', 'high')
-    """
-    # Extract rates for analysis
-    rates = [item['levy_rate'] for item in historical_data]
-    
-    # Not enough data for high confidence
-    if len(rates) < 3:
-        return 'low'
-    
-    # Calculate coefficient of variation to measure stability
-    mean_rate = statistics.mean(rates)
-    
-    # Avoid division by zero
-    if mean_rate == 0:
-        coefficient_of_variation = float('inf')
-    else:
-        std_dev = statistics.stdev(rates)
-        coefficient_of_variation = std_dev / mean_rate
-    
-    # Analyze trend direction and magnitude
-    trend_magnitude = abs(trend_slope)
-    
-    # Determine confidence
-    if coefficient_of_variation < 0.05 and trend_magnitude < 0.001:
-        return 'high'  # Very stable with minimal trend
-    elif coefficient_of_variation < 0.10 and trend_magnitude < 0.005:
-        return 'medium-high'  # Fairly stable with mild trend
-    elif coefficient_of_variation < 0.20 and trend_magnitude < 0.01:
-        return 'medium'  # Moderate stability
-    elif coefficient_of_variation < 0.30:
-        return 'medium-low'  # Less stable
-    else:
-        return 'low'  # Highly variable or extreme trend
+    except Exception as e:
+        logger.error(f"Error forecasting rates: {str(e)}")
+        return {
+            'error': f"Error forecasting rates: {str(e)}",
+            'historical_data': []
+        }
 
-def detect_levy_rate_anomalies(tax_code: str, threshold: float = 2.0, 
-                            years: Optional[List[int]] = None) -> Dict[str, Any]:
+
+def detect_levy_rate_anomalies(tax_code_identifier: str, threshold: float = 2.0, 
+                             years: Optional[List[int]] = None) -> Dict[str, Any]:
     """
-    Detect anomalies in historical levy rates.
+    Detect anomalies in historical levy rates using statistical methods.
     
     Args:
-        tax_code: The tax code to analyze
-        threshold: Z-score threshold for anomaly detection (default: 2.0)
-        years: Optional list of specific years to analyze
+        tax_code_identifier: The tax code to analyze (can be code or ID)
+        threshold: Z-score threshold for anomaly detection
+        years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
         Dictionary with anomaly detection results
     """
+    logger.info(f"Detecting anomalies for tax code {tax_code_identifier} with threshold {threshold}")
+    
     try:
-        # Get the tax code data
-        stats_data = compute_basic_statistics(tax_code, years)
+        # Get basic statistics (includes historical data)
+        stats = compute_basic_statistics(tax_code_identifier, years)
         
-        if 'error' in stats_data:
-            return stats_data
+        if 'error' in stats:
+            return stats
         
-        historical_data = stats_data['historical_data']
+        historical_data = stats['historical_data']
         
-        # Need at least 3 data points for meaningful anomaly detection
         if len(historical_data) < 3:
             return {
-                'error': 'Not enough data for anomaly detection (need at least 3 years)',
-                'tax_code': tax_code,
-                'threshold': threshold
+                'error': f"Anomaly detection requires at least 3 years of data",
+                'all_rates': historical_data
             }
         
-        # Extract rates and years
-        rates = np.array([item['levy_rate'] for item in historical_data])
-        years_list = [item['year'] for item in historical_data]
+        # Extract rates for anomaly detection
+        rates = [item['levy_rate'] for item in historical_data]
+        years_data = [item['year'] for item in historical_data]
         
-        # Calculate mean and standard deviation
-        mean_rate = np.mean(rates)
-        std_dev = np.std(rates)
+        # Compute z-scores for anomaly detection
+        mean_rate = statistics.mean(rates)
+        stddev = statistics.stdev(rates)
         
-        # Detect anomalies using Z-score
         anomalies = []
-        all_rates = []
+        normal_data = []
         
         for i, item in enumerate(historical_data):
             rate = item['levy_rate']
-            z_score = (rate - mean_rate) / std_dev if std_dev != 0 else 0
+            year = item['year']
             
-            # Determine direction of anomaly
-            direction = 'above' if rate > mean_rate else 'below'
-            
-            # Calculate percent difference from mean
-            if mean_rate == 0:
-                percent_diff = float('inf') if rate > 0 else 0
+            # Handle edge case of zero standard deviation
+            if stddev > 0:
+                z_score = (rate - mean_rate) / stddev
             else:
-                percent_diff = ((rate - mean_rate) / mean_rate) * 100
+                z_score = 0
             
-            rate_data = {
-                'year': item['year'],
-                'rate': rate
+            # Check for anomalies
+            is_anomaly = abs(z_score) > threshold
+            
+            result = {
+                'year': year,
+                'levy_rate': rate,
+                'z_score': z_score,
+                'is_anomaly': is_anomaly
             }
-            all_rates.append(rate_data)
             
-            # Check if Z-score exceeds threshold
-            if abs(z_score) >= threshold:
-                anomalies.append({
-                    'year': item['year'],
-                    'rate': rate,
-                    'z_score': z_score,
-                    'direction': direction,
-                    'percent_diff_from_mean': percent_diff
-                })
+            if is_anomaly:
+                anomalies.append(result)
+            else:
+                normal_data.append(result)
         
         return {
-            'tax_code': tax_code,
+            'tax_code': stats['tax_code'],
+            'tax_code_id': stats['tax_code_id'],
             'threshold': threshold,
-            'years_analyzed': len(historical_data),
             'mean_rate': mean_rate,
-            'std_deviation': std_dev,
-            'anomalies': sorted(anomalies, key=lambda x: abs(x['z_score']), reverse=True),
-            'all_rates': all_rates
+            'stddev': stddev,
+            'anomalies': anomalies,
+            'normal_data': normal_data,
+            'all_rates': historical_data
         }
-    
+        
     except Exception as e:
-        logger.error(f"Error detecting anomalies for tax code {tax_code}: {str(e)}")
+        logger.error(f"Error detecting anomalies: {str(e)}")
         return {
-            'error': f'Error detecting anomalies: {str(e)}',
-            'tax_code': tax_code,
-            'threshold': threshold
+            'error': f"Error detecting anomalies: {str(e)}",
+            'all_rates': []
         }
+
 
 def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -> Dict[str, Any]:
     """
@@ -429,121 +412,112 @@ def aggregate_by_district(district_id: int, years: Optional[List[int]] = None) -
     
     Args:
         district_id: The tax district ID to analyze
-        years: Optional list of specific years to analyze
+        years: Optional list of years to include in analysis, defaults to all years
         
     Returns:
         Dictionary with aggregated district data
     """
+    logger.info(f"Aggregating data for district ID {district_id} over years {years or 'all'}")
+    
     try:
-        # Query district to get its information
-        district = TaxDistrict.query.filter_by(id=district_id).first()
+        # Get the district
+        district = TaxDistrict.query.get(district_id)
         
         if not district:
-            return {
-                'error': f'Tax district with ID {district_id} not found',
-                'district_id': district_id
-            }
+            return {'error': f"Tax district with ID {district_id} not found"}
         
-        # Get tax codes associated with this district
-        tax_codes = TaxCode.query.filter_by(tax_district_id=district_id).all()
-        tax_code_ids = [code.id for code in tax_codes]
+        # Get all tax codes for this district
+        tax_codes = TaxCode.query.filter_by(district_id=district_id).all()
         
-        if not tax_code_ids:
-            return {
-                'error': f'No tax codes found for district {district.district_name}',
-                'district_id': district_id,
-                'district_name': district.district_name
-            }
-            
-        # Query historical rates for these tax codes
-        historical_query = TaxCodeHistoricalRate.query.filter(
-            TaxCodeHistoricalRate.tax_code_id.in_(tax_code_ids)
-        )
+        if not tax_codes:
+            return {'error': f"No tax codes found for district {district.district_code}"}
         
+        # Build a list of tax code IDs
+        tax_code_ids = [tc.id for tc in tax_codes]
+        
+        # Query historical rates for all tax codes in this district
+        query = TaxCodeHistoricalRate.query.filter(TaxCodeHistoricalRate.tax_code_id.in_(tax_code_ids))
+        
+        # Apply year filter if specified
         if years:
-            historical_query = historical_query.filter(TaxCodeHistoricalRate.year.in_(years))
-            
-        historical_records = historical_query.order_by(
-            TaxCodeHistoricalRate.year, 
-            TaxCodeHistoricalRate.tax_code_id
-        ).all()
+            query = query.filter(TaxCodeHistoricalRate.year.in_(years))
         
-        if not historical_records:
+        # Order by year and tax code ID
+        query = query.order_by(TaxCodeHistoricalRate.year, TaxCodeHistoricalRate.tax_code_id)
+        
+        # Execute query
+        historical_rates = query.all()
+        
+        if not historical_rates:
             return {
-                'error': f'No historical data found for tax district {district_id}',
-                'district_id': district_id,
-                'district_name': district.district_name
+                'error': f"No historical rate data found for district {district.district_code} in specified years",
+                'tax_codes': [tc.tax_code for tc in tax_codes]
             }
         
-        # Get the years represented in the data
-        all_years = sorted(set(record.year for record in historical_records))
+        # Group by year for district-level analysis
+        years_data = sorted(set(rate.year for rate in historical_rates))
         
-        # Organize data by year
-        aggregated_data = []
-        all_tax_codes = set(code.tax_code for code in tax_codes)
+        district_yearly_data = {}
+        for year in years_data:
+            district_yearly_data[year] = {
+                'year': year,
+                'total_levy_amount': 0,
+                'total_assessed_value': 0,
+                'tax_code_count': 0,
+                'tax_codes': []
+            }
         
-        for year in all_years:
-            # Get historical rates for this year
-            year_records = [record for record in historical_records if record.year == year]
+        # Aggregate data by tax code and year
+        for rate in historical_rates:
+            tax_code = next((tc for tc in tax_codes if tc.id == rate.tax_code_id), None)
+            if not tax_code:
+                continue
+                
+            year = rate.year
             
-            # Map records to their tax codes
-            historical_rates = []
-            for record in year_records:
-                # Find the tax code for this record
-                tax_code = next((tc for tc in tax_codes if tc.id == record.tax_code_id), None)
-                if tax_code:
-                    historical_rates.append({
-                        'code': tax_code.tax_code,
-                        'rate': record.levy_rate
-                    })
+            # Add to district yearly totals
+            if rate.levy_amount:
+                district_yearly_data[year]['total_levy_amount'] += rate.levy_amount
+            if rate.total_assessed_value:
+                district_yearly_data[year]['total_assessed_value'] += rate.total_assessed_value
             
-            # Only include years with rate data
-            if historical_rates:
-                # Calculate statistics
-                rates = [r['rate'] for r in historical_rates]
-                average_rate = statistics.mean(rates) if rates else None
-                median_rate = statistics.median(rates) if rates else None
-                min_rate = min(rates) if rates else None
-                max_rate = max(rates) if rates else None
-                
-                # Get codes for this year
-                year_tax_codes = [r['code'] for r in historical_rates]
-                
-                year_data = {
-                    'year': year,
-                    'num_tax_codes': len(year_tax_codes),
-                    'tax_codes': sorted(year_tax_codes),
-                    'average_rate': average_rate,
-                    'median_rate': median_rate,
-                    'min_rate': min_rate,
-                    'max_rate': max_rate,
-                    'rates': historical_rates
-                }
-                
-                aggregated_data.append(year_data)
+            district_yearly_data[year]['tax_code_count'] += 1
+            district_yearly_data[year]['tax_codes'].append({
+                'tax_code': tax_code.tax_code,
+                'tax_code_id': tax_code.id,
+                'levy_rate': rate.levy_rate,
+                'levy_amount': rate.levy_amount,
+                'total_assessed_value': rate.total_assessed_value
+            })
         
-        # Add district information
+        # Calculate effective rates for each year
+        for year_data in district_yearly_data.values():
+            if year_data['total_assessed_value'] > 0:
+                year_data['effective_rate'] = year_data['total_levy_amount'] / year_data['total_assessed_value']
+            else:
+                year_data['effective_rate'] = None
+        
+        # Put yearly data in a list
+        district_analysis = list(district_yearly_data.values())
+        
         return {
             'district_id': district_id,
-            'district_name': district.district_name,
             'district_code': district.district_code,
-            'tax_codes': sorted(list(all_tax_codes)),
-            'years_analyzed': all_years,
-            'years_count': len(all_years),
-            'aggregated_data': aggregated_data
+            'district_name': district.district_name,
+            'years': years_data,
+            'tax_code_count': len(tax_codes),
+            'yearly_analysis': district_analysis
         }
-    
+        
     except Exception as e:
-        logger.error(f"Error aggregating data for district {district_id}: {str(e)}")
-        return {
-            'error': f'Error aggregating district data: {str(e)}',
-            'district_id': district_id
-        }
+        logger.error(f"Error aggregating district data: {str(e)}")
+        return {'error': f"Error aggregating district data: {str(e)}"}
+
 
 def generate_comparison_report(start_year: int, end_year: int, 
-                              min_change_threshold: float = 0.01) -> Dict[str, Any]:
+                          min_change_threshold: float = 0.01) -> Dict[str, Any]:
     """
-    Generate a comprehensive year-over-year comparison report.
+    Generate a year-over-year comparison report for levy rates.
     
     Args:
         start_year: The starting year for comparison
@@ -553,131 +527,159 @@ def generate_comparison_report(start_year: int, end_year: int,
     Returns:
         Dictionary with detailed comparison report
     """
+    logger.info(f"Generating comparison report for {start_year} to {end_year}")
+    
     try:
+        # Validate inputs
         if start_year >= end_year:
-            return {
-                'error': 'Start year must be before end year',
-                'start_year': start_year,
-                'end_year': end_year
-            }
+            return {'error': f"Start year must be before end year"}
         
-        # Get tax codes that have data for both years
+        # Get all tax codes with historical data in both years
         start_year_rates = TaxCodeHistoricalRate.query.filter_by(year=start_year).all()
         end_year_rates = TaxCodeHistoricalRate.query.filter_by(year=end_year).all()
         
         if not start_year_rates:
-            return {
-                'error': f'No data found for start year {start_year}',
-                'start_year': start_year,
-                'end_year': end_year
-            }
+            return {'error': f"No data found for start year {start_year}"}
         
         if not end_year_rates:
-            return {
-                'error': f'No data found for end year {end_year}',
-                'start_year': start_year,
-                'end_year': end_year
-            }
+            return {'error': f"No data found for end year {end_year}"}
         
-        # Create mappings for easy lookup
-        start_year_map = {rate.tax_code_id: rate for rate in start_year_rates}
-        end_year_map = {rate.tax_code_id: rate for rate in end_year_rates}
+        # Create dictionaries for quick lookup
+        start_rates = {rate.tax_code_id: rate for rate in start_year_rates}
+        end_rates = {rate.tax_code_id: rate for rate in end_year_rates}
         
-        # Find overlapping tax codes
-        common_tax_code_ids = set(start_year_map.keys()) & set(end_year_map.keys())
+        # Find tax codes present in both years
+        common_tax_code_ids = set(start_rates.keys()).intersection(set(end_rates.keys()))
         
-        # Get tax code objects for all the common IDs
+        if not common_tax_code_ids:
+            return {'error': f"No common tax codes found between years {start_year} and {end_year}"}
+        
+        # Get tax code objects for these IDs
         tax_codes = TaxCode.query.filter(TaxCode.id.in_(common_tax_code_ids)).all()
-        tax_code_map = {tc.id: tc for tc in tax_codes}
+        tax_code_lookup = {tc.id: tc for tc in tax_codes}
         
-        # Analyze changes
-        tax_code_changes = []
+        # Generate comparison data
+        comparison_data = []
+        totals = {
+            'start_year': {
+                'year': start_year,
+                'total_levy_amount': 0,
+                'total_assessed_value': 0
+            },
+            'end_year': {
+                'year': end_year,
+                'total_levy_amount': 0,
+                'total_assessed_value': 0
+            },
+            'increases': 0,
+            'decreases': 0,
+            'no_change': 0
+        }
         
         for tax_code_id in common_tax_code_ids:
-            start_rate = start_year_map[tax_code_id].levy_rate
-            end_rate = end_year_map[tax_code_id].levy_rate
+            start_rate = start_rates[tax_code_id]
+            end_rate = end_rates[tax_code_id]
+            tax_code = tax_code_lookup.get(tax_code_id)
             
-            rate_change = end_rate - start_rate
+            if not tax_code:
+                continue
             
-            # Calculate percent change safely
-            if start_rate == 0:
-                percent_change = float('inf') if end_rate > 0 else 0
+            # Calculate changes
+            rate_change = end_rate.levy_rate - start_rate.levy_rate
+            
+            if start_rate.levy_rate > 0:
+                pct_change = (rate_change / start_rate.levy_rate) * 100
             else:
-                percent_change = (rate_change / start_rate) * 100
-            
-            # Determine direction
-            if rate_change > 0:
-                direction = 'increase'
-            elif rate_change < 0:
-                direction = 'decrease'
-            else:
-                direction = 'none'
+                pct_change = 0 if rate_change == 0 else float('inf')
             
             # Only include significant changes
-            if abs(percent_change) >= min_change_threshold * 100 or direction == 'none':
-                tax_code_changes.append({
-                    'tax_code': tax_code_map[tax_code_id].tax_code,
-                    'start_rate': start_rate,
-                    'end_rate': end_rate,
-                    'rate_change': rate_change,
-                    'percent_change': percent_change,
-                    'direction': direction
-                })
+            if abs(rate_change) >= min_change_threshold:
+                comparison_item = {
+                    'tax_code': tax_code.tax_code,
+                    'tax_code_id': tax_code_id,
+                    'district_id': tax_code.district_id,
+                    'district_code': tax_code.district.district_code if tax_code.district else 'Unknown',
+                    'start_year': {
+                        'year': start_year,
+                        'levy_rate': start_rate.levy_rate,
+                        'levy_amount': start_rate.levy_amount,
+                        'assessed_value': start_rate.total_assessed_value
+                    },
+                    'end_year': {
+                        'year': end_year,
+                        'levy_rate': end_rate.levy_rate,
+                        'levy_amount': end_rate.levy_amount,
+                        'assessed_value': end_rate.total_assessed_value
+                    },
+                    'changes': {
+                        'rate_change': rate_change,
+                        'pct_change': pct_change
+                    }
+                }
+                
+                comparison_data.append(comparison_item)
+                
+                # Update counters
+                if rate_change > 0:
+                    totals['increases'] += 1
+                elif rate_change < 0:
+                    totals['decreases'] += 1
+                else:
+                    totals['no_change'] += 1
+            
+            # Update totals
+            if start_rate.levy_amount:
+                totals['start_year']['total_levy_amount'] += start_rate.levy_amount
+            if start_rate.total_assessed_value:
+                totals['start_year']['total_assessed_value'] += start_rate.total_assessed_value
+            
+            if end_rate.levy_amount:
+                totals['end_year']['total_levy_amount'] += end_rate.levy_amount
+            if end_rate.total_assessed_value:
+                totals['end_year']['total_assessed_value'] += end_rate.total_assessed_value
         
-        # Sort by percent change (absolute value) descending
-        tax_code_changes.sort(key=lambda x: abs(x['percent_change']), reverse=True)
+        # Calculate overall changes
+        levy_change = totals['end_year']['total_levy_amount'] - totals['start_year']['total_levy_amount']
+        if totals['start_year']['total_levy_amount'] > 0:
+            levy_pct_change = (levy_change / totals['start_year']['total_levy_amount']) * 100
+        else:
+            levy_pct_change = 0 if levy_change == 0 else float('inf')
         
-        # Compute summary statistics
-        total_tax_codes = len(common_tax_code_ids)
-        increases = sum(1 for change in tax_code_changes if change['direction'] == 'increase')
-        decreases = sum(1 for change in tax_code_changes if change['direction'] == 'decrease')
-        no_change = sum(1 for change in tax_code_changes if change['direction'] == 'none')
+        # Calculate effective rates
+        if totals['start_year']['total_assessed_value'] > 0:
+            totals['start_year']['effective_rate'] = totals['start_year']['total_levy_amount'] / totals['start_year']['total_assessed_value']
+        else:
+            totals['start_year']['effective_rate'] = None
+            
+        if totals['end_year']['total_assessed_value'] > 0:
+            totals['end_year']['effective_rate'] = totals['end_year']['total_levy_amount'] / totals['end_year']['total_assessed_value']
+        else:
+            totals['end_year']['effective_rate'] = None
         
-        # Calculate averages
-        all_changes = [change['rate_change'] for change in tax_code_changes]
-        all_percent_changes = [change['percent_change'] for change in tax_code_changes 
-                            if not np.isinf(change['percent_change'])]  # Exclude infinite values
-        
-        average_rate_change = statistics.mean(all_changes) if all_changes else 0
-        average_percent_change = statistics.mean(all_percent_changes) if all_percent_changes else 0
-        
-        # Find max increase and decrease
-        max_increase = None
-        max_decrease = None
-        
-        for change in tax_code_changes:
-            if change['direction'] == 'increase':
-                if max_increase is None or change['percent_change'] > max_increase['percent_change']:
-                    max_increase = change
-            elif change['direction'] == 'decrease':
-                if max_decrease is None or change['percent_change'] < max_decrease['percent_change']:
-                    max_decrease = change
-        
-        # Create summary
-        summary = {
-            'total_tax_codes': total_tax_codes,
-            'tax_codes_with_significant_change': len(tax_code_changes),
-            'increases': increases,
-            'decreases': decreases,
-            'no_change': no_change,
-            'average_rate_change': average_rate_change,
-            'average_percent_change': average_percent_change,
-            'max_increase': max_increase,
-            'max_decrease': max_decrease
-        }
+        # Overall effective rate change
+        if totals['start_year']['effective_rate'] is not None and totals['end_year']['effective_rate'] is not None:
+            totals['effective_rate_change'] = totals['end_year']['effective_rate'] - totals['start_year']['effective_rate']
+            
+            if totals['start_year']['effective_rate'] > 0:
+                totals['effective_rate_pct_change'] = (totals['effective_rate_change'] / totals['start_year']['effective_rate']) * 100
+            else:
+                totals['effective_rate_pct_change'] = 0 if totals['effective_rate_change'] == 0 else float('inf')
         
         return {
             'start_year': start_year,
             'end_year': end_year,
-            'min_change_threshold': min_change_threshold * 100,  # Convert back to percentage
-            'summary': summary,
-            'tax_code_changes': tax_code_changes
+            'year_difference': end_year - start_year,
+            'min_change_threshold': min_change_threshold,
+            'tax_codes_analyzed': len(common_tax_code_ids),
+            'significant_changes': len(comparison_data),
+            'comparison_data': comparison_data,
+            'totals': totals,
+            'overall_changes': {
+                'levy_change': levy_change,
+                'levy_pct_change': levy_pct_change
+            }
         }
-    
+        
     except Exception as e:
         logger.error(f"Error generating comparison report: {str(e)}")
-        return {
-            'error': f'Error generating comparison report: {str(e)}',
-            'start_year': start_year,
-            'end_year': end_year
-        }
+        return {'error': f"Error generating comparison report: {str(e)}"}
