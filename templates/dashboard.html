@@ -241,42 +241,95 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Only create chart if canvas exists
-    const chartCanvas = document.getElementById('levyOverviewChart');
-    if (chartCanvas) {
+    // Chart colors palette
+    const colorPalette = [
+        'rgba(52, 152, 219, 0.8)',  // Blue
+        'rgba(46, 204, 113, 0.8)',  // Green
+        'rgba(155, 89, 182, 0.8)',  // Purple
+        'rgba(231, 76, 60, 0.8)',   // Red
+        'rgba(241, 196, 15, 0.8)',  // Yellow
+        'rgba(149, 165, 166, 0.8)'  // Gray
+    ];
+
+    const borderColorPalette = [
+        'rgba(52, 152, 219, 1)',   // Blue
+        'rgba(46, 204, 113, 1)',   // Green
+        'rgba(155, 89, 182, 1)',   // Purple
+        'rgba(231, 76, 60, 1)',    // Red
+        'rgba(241, 196, 15, 1)',   // Yellow
+        'rgba(149, 165, 166, 1)'   // Gray
+    ];
+
+    // Fetch dashboard metrics
+    fetch('/dashboard/metrics?year={{ current_year }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                createDistrictChart(data.district_data);
+                createHistoricalRateChart(data.historical_data);
+            } else {
+                console.error('Error fetching dashboard metrics:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching dashboard metrics:', error);
+        });
+
+    // Also fetch system stats
+    fetch('/dashboard/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                updateSystemStats(data.stats);
+            } else {
+                console.error('Error fetching dashboard stats:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching dashboard stats:', error);
+        });
+
+    // Create the district breakdown chart
+    function createDistrictChart(districtData) {
+        const chartCanvas = document.getElementById('levyOverviewChart');
+        if (!chartCanvas) return;
+
         const ctx = chartCanvas.getContext('2d');
         
-        // Sample data - replace with actual data in production
+        // If we have real district data, use it
+        const labels = districtData.labels.length > 0 ? 
+                        districtData.labels : 
+                        ['School', 'County', 'City', 'Fire', 'Hospital', 'Other'];
+        
+        const chartData = districtData.values.length > 0 ? 
+                        districtData.values : 
+                        [
+                            {{ (total_levy_amount * 0.55)|round(2) }}, 
+                            {{ (total_levy_amount * 0.15)|round(2) }}, 
+                            {{ (total_levy_amount * 0.12)|round(2) }}, 
+                            {{ (total_levy_amount * 0.08)|round(2) }}, 
+                            {{ (total_levy_amount * 0.05)|round(2) }}, 
+                            {{ (total_levy_amount * 0.05)|round(2) }}
+                        ];
+        
+        // Create dynamic colors based on number of districts
+        const backgroundColor = [];
+        const borderColor = [];
+        
+        for (let i = 0; i < labels.length; i++) {
+            backgroundColor.push(colorPalette[i % colorPalette.length]);
+            borderColor.push(borderColorPalette[i % borderColorPalette.length]);
+        }
+        
         const chart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['School', 'County', 'City', 'Fire', 'Hospital', 'Other'],
+                labels: labels,
                 datasets: [{
                     label: 'Levy Amount',
-                    data: [
-                        {{ (total_levy_amount * 0.55)|round(2) }}, 
-                        {{ (total_levy_amount * 0.15)|round(2) }}, 
-                        {{ (total_levy_amount * 0.12)|round(2) }}, 
-                        {{ (total_levy_amount * 0.08)|round(2) }}, 
-                        {{ (total_levy_amount * 0.05)|round(2) }}, 
-                        {{ (total_levy_amount * 0.05)|round(2) }}
-                    ],
-                    backgroundColor: [
-                        'rgba(52, 152, 219, 0.8)', 
-                        'rgba(46, 204, 113, 0.8)', 
-                        'rgba(155, 89, 182, 0.8)',
-                        'rgba(231, 76, 60, 0.8)',
-                        'rgba(241, 196, 15, 0.8)',
-                        'rgba(149, 165, 166, 0.8)'
-                    ],
-                    borderColor: [
-                        'rgba(52, 152, 219, 1)', 
-                        'rgba(46, 204, 113, 1)', 
-                        'rgba(155, 89, 182, 1)',
-                        'rgba(231, 76, 60, 1)',
-                        'rgba(241, 196, 15, 1)',
-                        'rgba(149, 165, 166, 1)'
-                    ],
+                    data: chartData,
+                    backgroundColor: backgroundColor,
+                    borderColor: borderColor,
                     borderWidth: 1
                 }]
             },
@@ -297,6 +350,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     legend: {
                         display: false
                     },
+                    title: {
+                        display: true,
+                        text: 'Levy Distribution by District Type',
+                        font: {
+                            size: 16
+                        }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -312,6 +372,153 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+    
+    // Create historical rate trend chart
+    function createHistoricalRateChart(historicalData) {
+        // Create a new canvas for the historical chart
+        const containerDiv = document.createElement('div');
+        containerDiv.className = 'mt-4';
+        containerDiv.innerHTML = `
+            <h5 class="text-muted mb-3">Historical Rate Trends</h5>
+            <div class="chart-container">
+                <canvas id="historicalRateChart" height="250"></canvas>
+            </div>
+        `;
+        
+        // Insert after the existing chart
+        const existingChart = document.getElementById('levyOverviewChart');
+        if (existingChart && existingChart.parentNode) {
+            existingChart.parentNode.appendChild(containerDiv);
+            
+            const histChartCanvas = document.getElementById('historicalRateChart');
+            const ctx = histChartCanvas.getContext('2d');
+            
+            // If we have real historical data, use it
+            const labels = historicalData.labels.length > 0 ? 
+                           historicalData.labels : 
+                           [{{ current_year - 4 }}, {{ current_year - 3 }}, {{ current_year - 2 }}, {{ current_year - 1 }}, {{ current_year }}];
+            
+            const chartData = historicalData.values.length > 0 ? 
+                           historicalData.values : 
+                           [{{ avg_levy_rate * 0.85 }}, {{ avg_levy_rate * 0.9 }}, {{ avg_levy_rate * 0.95 }}, {{ avg_levy_rate * 0.98 }}, {{ avg_levy_rate }}];
+            
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Average Levy Rate',
+                        data: chartData,
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(3);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(4);
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
+    // Update system stats from API data
+    function updateSystemStats(stats) {
+        // Create a new stats row under the existing metrics
+        const containerDiv = document.createElement('div');
+        containerDiv.className = 'row mt-4 mb-4 text-center';
+        containerDiv.innerHTML = `
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Users</h6>
+                        <h4>${stats.user_count}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Admins</h6>
+                        <h4>${stats.admin_count}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Imports</h6>
+                        <h4>${stats.import_count}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Exports</h6>
+                        <h4>${stats.export_count}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Import Success</h6>
+                        <h4>${stats.import_success_rate.toFixed(1)}%</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="card border-0 bg-light h-100">
+                    <div class="card-body">
+                        <h6 class="text-muted">Export Success</h6>
+                        <h4>${stats.export_success_rate.toFixed(1)}%</h4>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Insert after the existing row
+        const systemOverviewCard = document.querySelector('.card-body .row.text-center.mb-4');
+        if (systemOverviewCard && systemOverviewCard.parentNode) {
+            systemOverviewCard.parentNode.appendChild(containerDiv);
+        }
     }
 });
 </script>
