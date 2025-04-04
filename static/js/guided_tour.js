@@ -138,8 +138,15 @@ function startTour(tourName) {
   }
   
   try {
+    // Check if introJs is defined
+    if (typeof introJs !== 'function') {
+      console.error('introJs is not defined or not a function');
+      return;
+    }
+    
     // Initialize IntroJS
     const tour = introJs();
+    console.debug('introJs initialized');
     
     // Configure the tour
     tour.setOptions({
@@ -158,9 +165,11 @@ function startTour(tourName) {
       tooltipClass: 'levy-tour-tooltip',
       highlightClass: 'levy-tour-highlight'
     });
+    console.debug('Tour options set');
     
     // Start the tour
     tour.start();
+    console.debug('Tour started');
     
     // Listen for tour events
     tour.oncomplete(function() {
@@ -185,6 +194,7 @@ function startTour(tourName) {
 function checkAutoTour() {
   // Get current page path
   const path = window.location.pathname;
+  console.debug('Checking auto tour for path:', path);
   
   // Check different paths and show relevant tours for first-time visitors
   if (path === '/dashboard' || path === '/') {
@@ -208,6 +218,8 @@ function checkAutoTour() {
 
 // Initialize the tour system when document is ready
 document.addEventListener('DOMContentLoaded', function() {
+  console.debug('Tour system initializing');
+  
   // Check for auto-tour based on current page
   if (localStorage.getItem('enable_auto_tours') !== 'false') {
     checkAutoTour();
@@ -221,4 +233,6 @@ document.addEventListener('DOMContentLoaded', function() {
       startTour(tourName);
     });
   });
+  
+  console.debug('Tour system initialized');
 });
