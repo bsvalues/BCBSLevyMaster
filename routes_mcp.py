@@ -8,9 +8,9 @@ It integrates with the Anthropic Claude API to provide AI-powered insights.
 import json
 import logging
 import os
-from datetime import datetime
-from flask import Blueprint, render_template, current_app, request, jsonify
-from sqlalchemy import desc, func
+from datetime import datetime, timedelta
+from flask import Blueprint, render_template, current_app, request, jsonify, session, redirect, url_for, flash
+from sqlalchemy import desc, func, case
 
 from app import db
 from models import TaxDistrict, TaxCode, Property, ImportLog, ExportLog
@@ -194,6 +194,211 @@ def api_status():
     including diagnostics, troubleshooting guides, and links to external resources.
     """
     return render_template('mcp_api_status.html')
+    
+
+@mcp_bp.route('/api-analytics', methods=['GET'])
+def api_analytics():
+    """
+    Render the API analytics page with historical data and performance metrics.
+    
+    This page provides charts, graphs, and tables showing API usage patterns,
+    error rates, and performance statistics over different time periods.
+    """
+    return render_template('api_analytics.html')
+
+
+@mcp_bp.route('/api/timeseries', methods=['GET'])
+def api_timeseries():
+    """
+    API endpoint to retrieve time series data for API calls.
+    
+    This endpoint returns JSON with data points for API calls over time,
+    grouped by the specified interval.
+    
+    Query Parameters:
+    - timeframe: Filter by time period (day, week, month, all)
+    - interval: Interval for grouping (hour, day, week, month)
+    - service: Filter by service name (optional)
+    """
+    try:
+        from models import APICallLog, db
+        from sqlalchemy import func
+        
+        # Parse query parameters
+        timeframe = request.args.get('timeframe', 'week')
+        interval = request.args.get('interval', 'day')
+        service_filter = request.args.get('service')
+        
+        # Determine timestamp truncation function based on interval
+        if interval == 'hour':
+            # Truncate to hour
+            date_trunc = func.date_trunc('hour', APICallLog.timestamp)
+        elif interval == 'day':
+            # Truncate to day
+            date_trunc = func.date_trunc('day', APICallLog.timestamp)
+        elif interval == 'week':
+            # Truncate to week
+            date_trunc = func.date_trunc('week', APICallLog.timestamp)
+        else:  # month
+            # Truncate to month
+            date_trunc = func.date_trunc('month', APICallLog.timestamp)
+        
+        # Build query
+        query = db.session.query(
+            date_trunc.label('interval'),
+            func.count().label('total'),
+            func.sum(case([(APICallLog.success == True, 1)], else_=0)).label('success'),
+            func.sum(case([(APICallLog.success == False, 1)], else_=0)).label('error'),
+            func.avg(APICallLog.duration_ms).label('avg_duration')
+        )
+        
+        # Apply timeframe filter
+        if timeframe == 'day':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+            )
+        elif timeframe == 'week':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+            )
+        elif timeframe == 'month':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+            )
+        
+        # Apply service filter if provided
+        if service_filter:
+            query = query.filter(APICallLog.service == service_filter)
+        
+        # Group by interval and order by interval
+        query = query.group_by(date_trunc).order_by(date_trunc)
+        
+        # Execute query
+        results = query.all()
+        
+        # Format results
+        data_points = []
+        for result in results:
+            data_points.append({
+                'timestamp': result.interval.isoformat(),
+                'total': result.total,
+                'success': result.success or 0,
+                'error': result.error or 0,
+                'avg_duration_ms': float(result.avg_duration or 0)
+            })
+        
+        # Return JSON response
+        return jsonify({
+            'data_points': data_points,
+            'timeframe': timeframe,
+            'interval': interval,
+            'service': service_filter or 'all'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving API time series data: {str(e)}")
+        return jsonify({
+            'error': True,
+            'message': str(e)
+        }), 500
+
+
+@mcp_bp.route('/api/historical-calls', methods=['GET'])
+def api_historical_calls():
+    """
+    API endpoint to retrieve historical API call data.
+    
+    This endpoint returns JSON with a list of recent API calls from the database,
+    with pagination support.
+    
+    Query Parameters:
+    - timeframe: Filter by time period (day, week, month, all)
+    - page: Page number for pagination (default: 1)
+    - per_page: Number of records per page (default: 10)
+    - service: Filter by service name (optional)
+    - success: Filter by success status (true/false, optional)
+    """
+    try:
+        from models import APICallLog, db
+        
+        # Parse query parameters
+        timeframe = request.args.get('timeframe', 'all')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+        service_filter = request.args.get('service')
+        success_filter = request.args.get('success')
+        
+        # Build query
+        query = db.session.query(APICallLog)
+        
+        # Apply timeframe filter
+        if timeframe == 'day':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+            )
+        elif timeframe == 'week':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+            )
+        elif timeframe == 'month':
+            query = query.filter(
+                APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+            )
+        
+        # Apply service filter if provided
+        if service_filter:
+            query = query.filter(APICallLog.service == service_filter)
+        
+        # Apply success filter if provided
+        if success_filter is not None:
+            success_bool = success_filter.lower() == 'true'
+            query = query.filter(APICallLog.success == success_bool)
+        
+        # Order by timestamp descending (most recent first)
+        query = query.order_by(APICallLog.timestamp.desc())
+        
+        # Paginate results
+        total_count = query.count()
+        calls = query.limit(per_page).offset((page - 1) * per_page).all()
+        
+        # Format results
+        results = []
+        for call in calls:
+            results.append({
+                'id': call.id,
+                'timestamp': call.timestamp.isoformat(),
+                'service': call.service,
+                'method': call.method,
+                'duration_ms': call.duration_ms,
+                'success': call.success,
+                'error_message': call.error_message,
+                'details': call.details
+            })
+        
+        # Build pagination metadata
+        total_pages = (total_count + per_page - 1) // per_page
+        has_next = page < total_pages
+        has_prev = page > 1
+        
+        # Return JSON response
+        return jsonify({
+            'calls': results,
+            'meta': {
+                'page': page,
+                'per_page': per_page,
+                'total_count': total_count,
+                'total_pages': total_pages,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error retrieving historical API calls: {str(e)}")
+        return jsonify({
+            'error': True,
+            'message': str(e)
+        }), 500
 
 @mcp_bp.route('/insights', methods=['GET'])
 def insights():
@@ -425,11 +630,96 @@ def api_statistics():
     success rates, error rates, and performance metrics.
     """
     try:
-        # Get API statistics from the tracking system
-        statistics = get_api_statistics()
+        # Check if we should include historical data (from database)
+        include_historical = request.args.get('historical', 'false').lower() == 'true'
+        timeframe = request.args.get('timeframe', 'session')  # session, day, week, month, all
+        
+        # Get current session API statistics from the in-memory tracker
+        current_stats = get_api_statistics()
         
         # Add timestamp to the response
+        statistics = current_stats.copy()
         statistics['timestamp'] = datetime.utcnow().isoformat()
+        
+        # If historical data is requested, query the database
+        if include_historical and timeframe != 'session':
+            from models import APICallLog, db
+            from sqlalchemy import func
+            
+            # Build query based on timeframe
+            query = db.session.query(
+                func.count().label('total'),
+                func.sum(case([(APICallLog.success == True, 1)], else_=0)).label('success_count'),
+                func.sum(case([(APICallLog.success == False, 1)], else_=0)).label('error_count'),
+                func.avg(APICallLog.duration_ms).label('avg_duration'),
+                func.sum(APICallLog.duration_ms).label('total_duration')
+            )
+            
+            # Apply timeframe filter
+            if timeframe == 'day':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+                )
+            elif timeframe == 'week':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+                )
+            elif timeframe == 'month':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+                )
+            
+            # Execute query
+            result = query.first()
+            
+            # Get service breakdown
+            service_query = db.session.query(
+                APICallLog.service,
+                func.count().label('count')
+            )
+            
+            # Apply same timeframe filter
+            if timeframe == 'day':
+                service_query = service_query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+                )
+            elif timeframe == 'week':
+                service_query = service_query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+                )
+            elif timeframe == 'month':
+                service_query = service_query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+                )
+            
+            # Group by service and execute
+            service_query = service_query.group_by(APICallLog.service)
+            service_counts = {row.service: row.count for row in service_query.all()}
+            
+            # Only update stats if we have historical data
+            if result.total:
+                # Calculate statistics from database results
+                historical_stats = {
+                    'total_calls': result.total or 0,
+                    'success_count': result.success_count or 0,
+                    'error_count': result.error_count or 0,
+                    'avg_duration_ms': round(result.avg_duration or 0, 2),
+                    'total_duration_ms': round(result.total_duration or 0, 2),
+                    'calls_by_service': service_counts,
+                    'source': f'historical_{timeframe}',
+                    'timeframe': timeframe
+                }
+                
+                # Calculate error rate
+                if historical_stats['total_calls'] > 0:
+                    historical_stats['error_rate_percent'] = round(
+                        (historical_stats['error_count'] / historical_stats['total_calls']) * 100, 2
+                    )
+                else:
+                    historical_stats['error_rate_percent'] = 0
+                
+                # Replace memory-only stats with historical stats
+                statistics.update(historical_stats)
         
         # Add human-readable summaries for the dashboard
         if statistics['total_calls'] > 0:

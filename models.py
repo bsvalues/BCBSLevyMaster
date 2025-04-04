@@ -595,3 +595,37 @@ class AIAnalysisRequest(AuditMixin, db.Model):
     
     def __repr__(self):
         return f'<AIAnalysisRequest {self.id} {self.request_type} {self.status}>'
+
+
+class APICallLog(db.Model):
+    """
+    Model for logging historical API calls for monitoring and analytics.
+    Stores permanent record of API calls for trend analysis and auditing.
+    """
+    __tablename__ = 'api_call_log'
+    
+    id = Column(Integer, primary_key=True)
+    service = Column(String(64), nullable=False, index=True)  # e.g. "anthropic", "openai", etc.
+    endpoint = Column(String(128), nullable=False, index=True)
+    method = Column(String(16), nullable=False)  # HTTP method
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    duration_ms = Column(Float, nullable=True)
+    status_code = Column(Integer, nullable=True)
+    success = Column(Boolean, default=False, nullable=False, index=True)
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0, nullable=False)
+    params = Column(JSON, nullable=True)  # Redacted parameters
+    response_summary = Column(JSON, nullable=True)  # Summarized response
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=True, index=True)
+    
+    # Relationships
+    user = relationship('User', foreign_keys=[user_id], backref=backref('api_calls', lazy='dynamic'))
+    
+    # Indexes for common queries
+    __table_args__ = (
+        Index('idx_api_call_service_success', 'service', 'success'),
+        Index('idx_api_call_timestamp_service', 'timestamp', 'service'),
+    )
+    
+    def __repr__(self):
+        return f'<APICallLog {self.id} {self.service}.{self.endpoint} success={self.success}>'

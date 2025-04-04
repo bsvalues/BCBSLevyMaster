@@ -163,10 +163,27 @@
                     </li>
                     {% endif %}
                     {% if config.get('ENABLE_MCP') %}
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'mcp.insights' %}active{% endif %}" href="{{ url_for('mcp.insights') }}">
-                            <i class="bi bi-lightbulb me-1"></i>AI Insights
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="mcpDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-cpu me-1"></i>MCP
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="mcpDropdown">
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'mcp.insights' %}active{% endif %}" href="{{ url_for('mcp.insights') }}">
+                                    <i class="bi bi-lightbulb me-2"></i>AI Insights
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'mcp.api_status' %}active{% endif %}" href="{{ url_for('mcp.api_status') }}">
+                                    <i class="bi bi-activity me-2"></i>API Status
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'mcp.api_analytics' %}active{% endif %}" href="{{ url_for('mcp.api_analytics') }}">
+                                    <i class="bi bi-bar-chart me-2"></i>API Analytics
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     {% endif %}
                     {% endif %}

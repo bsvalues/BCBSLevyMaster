@@ -15,6 +15,7 @@ import time
 from datetime import datetime
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Union
+from flask import current_app, g
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -268,6 +269,43 @@ def log_api_call(service: str, endpoint: str, level: str = "info") -> Callable:
     return decorator
 
 
+def save_api_call_to_database(call_record: APICallRecord, user_id: Optional[int] = None):
+    """
+    Save an API call record to the database for historical tracking.
+    
+    Args:
+        call_record: The API call record to save
+        user_id: Optional user ID associated with the call
+    """
+    from models import APICallLog, db
+    
+    try:
+        # Create database record
+        db_record = APICallLog(
+            service=call_record.service,
+            endpoint=call_record.endpoint,
+            method=call_record.method,
+            timestamp=datetime.fromtimestamp(call_record.start_time),
+            duration_ms=call_record.duration_ms,
+            status_code=call_record.status_code,
+            success=call_record.success,
+            error_message=call_record.error_message,
+            retry_count=call_record.retry_count,
+            params=call_record.params,
+            response_summary=call_record.response_summary,
+            user_id=user_id
+        )
+        
+        # Save to database
+        with current_app.app_context():
+            db.session.add(db_record)
+            db.session.commit()
+            logger.debug(f"Saved API call {call_record.service}.{call_record.endpoint} to database (ID: {db_record.id})")
+    except Exception as e:
+        # Log error but don't propagate exception to avoid disrupting application flow
+        logger.error(f"Failed to save API call to database: {str(e)}")
+
+
 class APICallTracker:
     """
     Class to track API calls and record statistics.
@@ -282,6 +320,7 @@ class APICallTracker:
         self.error_count = 0
         self.success_count = 0
         self.total_duration_ms = 0
+        self.persist_to_database = True
     
     def record_call(self, call_record: APICallRecord):
         """
@@ -300,6 +339,17 @@ class APICallTracker:
             
         if call_record.duration_ms:
             self.total_duration_ms += call_record.duration_ms
+            
+        # Save to database if enabled (for historical tracking)
+        if self.persist_to_database:
+            # Get current user ID if available
+            user_id = getattr(g, 'user_id', None) if hasattr(g, 'user_id') else None
+            
+            # Save asynchronously to avoid impacting API performance
+            try:
+                save_api_call_to_database(call_record, user_id)
+            except Exception as e:
+                logger.error(f"Error saving API call to database: {str(e)}")
     
     def get_statistics(self) -> Dict[str, Any]:
         """
