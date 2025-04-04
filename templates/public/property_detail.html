@@ -1,6 +1,6 @@
 {% extends 'simple_base.html' %}
 
-{% block title %}Property {{ property.parcel_id }} - Benton County Property Tax Portal{% endblock %}
+{% block title %}Property {{ property.property_id }} - Benton County Property Tax Portal{% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -11,7 +11,7 @@
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ url_for('public.index') }}">Home</a></li>
                     <li class="breadcrumb-item"><a href="{{ url_for('public.search') }}">Property Search</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Property {{ property.parcel_id }}</li>
+                    <li class="breadcrumb-item active" aria-current="page">Property {{ property.property_id }}</li>
                 </ol>
             </nav>
             <div class="d-flex justify-content-between align-items-center flex-wrap">
@@ -23,11 +23,11 @@
                         </button>
                         <ul class="dropdown-menu" aria-labelledby="yearDropdown">
                             {% for year in available_years %}
-                                <li><a class="dropdown-item {% if year == current_year %}active{% endif %}" href="{{ url_for('public.property_detail', parcel_id=property.parcel_id, year=year) }}">{{ year }}</a></li>
+                                <li><a class="dropdown-item {% if year == current_year %}active{% endif %}" href="{{ url_for('public.property_detail', property_id=property.property_id, year=year) }}">{{ year }}</a></li>
                             {% endfor %}
                         </ul>
                     </div>
-                    <a href="{{ url_for('public.compare_properties', property_ids=[property.parcel_id]) }}" class="btn btn-primary">
+                    <a href="{{ url_for('public.compare_properties', property_ids=[property.property_id]) }}" class="btn btn-primary">
                         <i class="bi bi-bar-chart me-2"></i><span class="d-none d-md-inline">Compare</span>
                     </a>
                 </div>
@@ -50,7 +50,7 @@
                                 <tbody>
                                     <tr>
                                         <th style="width: 40%">Parcel ID:</th>
-                                        <td>{{ property.parcel_id }}</td>
+                                        <td>{{ property.property_id }}</td>
                                     </tr>
                                     <tr>
                                         <th>Tax Year:</th>
@@ -274,7 +274,7 @@
                                     {% for item in tax_history %}
                                         <tr {% if item.year == current_year %}class="table-active"{% endif %}>
                                             <td>
-                                                <a href="{{ url_for('public.property_detail', parcel_id=property.parcel_id, year=item.year) }}">
+                                                <a href="{{ url_for('public.property_detail', property_id=property.property_id, year=item.year) }}">
                                                     {{ item.year }}
                                                 </a>
                                             </td>
@@ -286,7 +286,7 @@
                             </table>
                         </div>
                         <div class="text-center mt-3">
-                            <a href="{{ url_for('public.compare_properties', property_ids=[property.parcel_id]) }}" class="btn btn-sm btn-outline-primary">
+                            <a href="{{ url_for('public.compare_properties', property_ids=[property.property_id]) }}" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-bar-chart me-1"></i>View Detailed Tax History
                             </a>
                         </div>
@@ -355,7 +355,7 @@
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('public.compare_properties', property_ids=[property.parcel_id]) }}" class="btn btn-outline-primary">
+                        <a href="{{ url_for('public.compare_properties', property_ids=[property.property_id]) }}" class="btn btn-outline-primary">
                             <i class="bi bi-bar-chart me-2"></i>Compare Tax History
                         </a>
                         <a href="#" class="btn btn-outline-secondary">

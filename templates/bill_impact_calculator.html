@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const diffClass = difference > 0 ? 'impact-positive' : (difference < 0 ? 'impact-negative' : 'impact-neutral');
                 
                 row.innerHTML = `
-                    <td>${prop.parcel_id}<br><span class="small text-muted">${prop.address || 'No address'}</span></td>
+                    <td>${prop.property_id}<br><span class="small text-muted">${prop.address || 'No address'}</span></td>
                     <td>${formatCurrency(prop.assessed_value)}</td>
                     <td>${formatCurrency(prop.current_tax)}</td>
                     <td>${formatCurrency(prop.proposed_tax)}</td>

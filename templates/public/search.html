@@ -27,9 +27,9 @@
                     <form action="{{ url_for('public.search') }}" method="post">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="parcel_id" class="form-label">Parcel ID</label>
-                                <input type="text" class="form-control" id="parcel_id" name="parcel_id" 
-                                       value="{{ query_params.get('parcel_id', '') }}" placeholder="Enter parcel number">
+                                <label for="property_id" class="form-label">Parcel ID</label>
+                                <input type="text" class="form-control" id="property_id" name="property_id" 
+                                       value="{{ query_params.get('property_id', '') }}" placeholder="Enter parcel number">
                             </div>
                             <div class="col-md-6">
                                 <label for="address" class="form-label">Property Address</label>
@@ -108,17 +108,17 @@
                                 <tbody>
                                     {% for property in results %}
                                         <tr>
-                                            <td><a href="{{ url_for('public.property_detail', parcel_id=property.parcel_id) }}">{{ property.parcel_id }}</a></td>
+                                            <td><a href="{{ url_for('public.property_detail', property_id=property.property_id) }}">{{ property.property_id }}</a></td>
                                             <td>{{ property.address }}</td>
                                             <td>{{ property.owner_name }}</td>
                                             <td>${{ "{:,.2f}".format(property.assessed_value) if property.assessed_value else 'N/A' }}</td>
                                             <td>{{ property.year }}</td>
                                             <td class="text-center">
                                                 <div class="btn-group btn-group-sm">
-                                                    <a href="{{ url_for('public.property_detail', parcel_id=property.parcel_id) }}" class="btn btn-outline-primary" title="View Details">
+                                                    <a href="{{ url_for('public.property_detail', property_id=property.property_id) }}" class="btn btn-outline-primary" title="View Details">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <a href="{{ url_for('public.compare_properties', property_ids=[property.parcel_id]) }}" class="btn btn-outline-secondary" title="Compare">
+                                                    <a href="{{ url_for('public.compare_properties', property_ids=[property.property_id]) }}" class="btn btn-outline-secondary" title="Compare">
                                                         <i class="bi bi-bar-chart"></i>
                                                     </a>
                                                 </div>
@@ -242,7 +242,7 @@
             resetButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 // Clear all form fields
-                document.getElementById('parcel_id').value = '';
+                document.getElementById('property_id').value = '';
                 document.getElementById('address').value = '';
                 document.getElementById('owner_name').value = '';
                 document.getElementById('tax_code').value = '';

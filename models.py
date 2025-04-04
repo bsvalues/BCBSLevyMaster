@@ -212,7 +212,7 @@ class Property(AuditMixin, YearMixin, db.Model):
     __tablename__ = 'property'
     
     id = Column(Integer, primary_key=True)
-    parcel_id = Column(String(64), nullable=False, index=True)
+    property_id = Column(String(64), nullable=False, index=True)
     tax_code_id = Column(Integer, ForeignKey('tax_code.id'), nullable=False, index=True)
     owner_name = Column(String(128))
     property_address = Column(String(256))
@@ -234,14 +234,14 @@ class Property(AuditMixin, YearMixin, db.Model):
     # Relationships
     tax_code = relationship('TaxCode', back_populates='properties')
     
-    # Ensure parcel_id is unique per year
+    # Ensure property_id is unique per year
     __table_args__ = (
-        UniqueConstraint('parcel_id', 'year', name='uix_parcel_year'),
+        UniqueConstraint('property_id', 'year', name='uix_property_year'),
         Index('idx_property_location', 'longitude', 'latitude'),
     )
     
     def __repr__(self):
-        return f'<Property {self.parcel_id}>'
+        return f'<Property {self.property_id}>'
 
 
 class LevyRate(AuditMixin, YearMixin, db.Model):
