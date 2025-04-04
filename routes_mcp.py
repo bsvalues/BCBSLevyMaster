@@ -54,9 +54,7 @@ def configure_api_key():
     Configure the Anthropic API key for MCP insights.
     
     This endpoint accepts a POST request with the API key to be configured.
-    It doesn't actually set environment variables (which would require server restart),
-    but demonstrates the concept and could be implemented with a proper
-    configuration management system.
+    It sets the key in the environment and validates it, checking for credit issues.
     """
     try:
         data = request.json
@@ -65,14 +63,38 @@ def configure_api_key():
         if not api_key:
             return jsonify({'success': False, 'message': 'API key is required'}), 400
             
-        # In a real implementation, we would securely store this key
-        # For demonstration purposes, we'll just return success
+        # Basic validation
+        if not api_key.startswith('sk-ant-'):
+            return jsonify({'success': False, 'message': 'Invalid API key format. Anthropic API keys should start with "sk-ant-"'}), 400
         
-        logger.info("API key configuration request received")
-        return jsonify({
-            'success': True, 
-            'message': 'API key configuration request received. In a production environment, this would update your configuration.'
-        })
+        # Set the key in the environment
+        os.environ['ANTHROPIC_API_KEY'] = api_key
+        
+        # Validate the key and check its status
+        key_status = check_api_key_status()
+        logger.info(f"API key configured with status: {key_status['status']}")
+        
+        if key_status['status'] == 'valid':
+            # Successfully configured
+            return jsonify({
+                'success': True, 
+                'message': 'API key configured successfully',
+                'status': key_status['status']
+            })
+        elif key_status['status'] == 'no_credits':
+            # Key is valid but has no credits
+            return jsonify({
+                'success': False, 
+                'message': 'API key is valid but has insufficient credits. Please add credits to your Anthropic account.',
+                'status': key_status['status']
+            })
+        else:
+            # Other validation issues
+            return jsonify({
+                'success': False, 
+                'message': f'API key validation failed: {key_status["message"]}',
+                'status': key_status['status']
+            })
     except Exception as e:
         logger.error(f"Error configuring API key: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -193,6 +215,22 @@ def generate_mcp_insights(tax_codes):
             "<button type='button' class='btn btn-sm btn-outline-success' "
             "data-bs-toggle='modal' data-bs-target='#apiKeyModal'>"
             "<i class='bi bi-gear me-1'></i>Configure API Key</button>"
+            "</div>"
+            "</div>"
+        )
+    elif api_key_status == "no_credits":
+        default_insights['narrative'] += sanitize_html(
+            "<div class='alert alert-danger mt-3'>"
+            "<i class='bi bi-exclamation-triangle me-2'></i>"
+            "<strong>Credit Balance Issue:</strong> Your Anthropic API key is valid, "
+            "but has insufficient credits. Add credits to your account or configure a different key."
+            "<div class='mt-2'>"
+            "<a href='https://console.anthropic.com/settings/billing' "
+            "class='btn btn-sm btn-outline-danger me-2' target='_blank'>"
+            "<i class='bi bi-credit-card me-1'></i>Add Credits</a>"
+            "<button type='button' class='btn btn-sm btn-outline-primary' "
+            "data-bs-toggle='modal' data-bs-target='#apiKeyModal'>"
+            "<i class='bi bi-key me-1'></i>Update API Key</button>"
             "</div>"
             "</div>"
         )

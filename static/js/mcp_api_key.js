@@ -21,6 +21,10 @@ document.addEventListener("DOMContentLoaded", function() {
         return;
       }
       
+      // Update button state during submission
+      saveApiKeyBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Validating...';
+      saveApiKeyBtn.disabled = true;
+      
       // Send API key to server
       fetch("/mcp/configure-api-key", {
         method: "POST",
@@ -31,18 +35,41 @@ document.addEventListener("DOMContentLoaded", function() {
       })
       .then(response => response.json())
       .then(data => {
+        // Reset button state
+        saveApiKeyBtn.innerHTML = 'Save API Key';
+        saveApiKeyBtn.disabled = false;
+        
         if (data.success) {
-          alert("API key configuration received. In a production environment, this would update your system configuration.");
-          // Close modal and reload page
+          // Close modal and display success message
           const modal = bootstrap.Modal.getInstance(document.getElementById("apiKeyModal"));
           if (modal) modal.hide();
-          window.location.reload();
+          
+          // Show a success toast
+          showNotification("API Key Configured", "Your Anthropic API key has been successfully configured.", "success");
+          
+          // Reload page to reflect changes
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
         } else {
-          alert("Error: " + data.message);
+          // Show error message
+          let errorMessage = data.message || "An error occurred while configuring the API key.";
+          
+          // Add detailed guidance based on status
+          if (data.status === "no_credits") {
+            errorMessage += " Please add credits to your Anthropic account or use a different API key.";
+            showNotification("Credit Balance Issue", errorMessage, "warning");
+          } else {
+            showNotification("Configuration Error", errorMessage, "danger");
+          }
         }
       })
       .catch(error => {
-        alert("Error: " + error.message);
+        // Reset button state
+        saveApiKeyBtn.innerHTML = 'Save API Key';
+        saveApiKeyBtn.disabled = false;
+        
+        showNotification("Error", "Error: " + error.message, "danger");
       });
     });
   }
@@ -63,27 +90,6 @@ document.addEventListener("DOMContentLoaded", function() {
           } else if (data.status === "no_credits") {
             statusBadge.className = "badge bg-danger";
             statusBadge.innerHTML = "No API Credits";
-            
-            // Add a message about the credit issue
-            const apiKeyMessage = document.getElementById("apiKeyMessage");
-            if (apiKeyMessage) {
-              apiKeyMessage.innerHTML = `
-                <div class="alert alert-danger mt-3">
-                  <i class="bi bi-exclamation-triangle me-2"></i>
-                  <strong>Credit Balance Issue:</strong> Your Anthropic API key is valid, but has insufficient credits.
-                  <div class="mt-2">
-                    <a href="https://console.anthropic.com/settings/billing" 
-                      class="btn btn-sm btn-outline-danger me-2" target="_blank">
-                      <i class="bi bi-credit-card me-1"></i>Add Credits
-                    </a>
-                    <button type="button" class="btn btn-sm btn-outline-primary" 
-                      data-bs-toggle="modal" data-bs-target="#apiKeyModal">
-                      <i class="bi bi-key me-1"></i>Update API Key
-                    </button>
-                  </div>
-                </div>
-              `;
-            }
           } else {
             statusBadge.className = "badge bg-warning text-dark";
             statusBadge.innerHTML = "API Key Required";
@@ -93,6 +99,33 @@ document.addEventListener("DOMContentLoaded", function() {
       .catch(error => {
         console.error("Error checking API key status:", error);
       });
+  }
+  
+  // Helper function to show notifications
+  function showNotification(title, message, type) {
+    // Create a Bootstrap toast notification
+    const toastContainer = document.createElement("div");
+    toastContainer.className = "position-fixed bottom-0 end-0 p-3";
+    toastContainer.style.zIndex = "5";
+    
+    // Create toast content
+    toastContainer.innerHTML = `
+      <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-${type} text-white">
+          <strong class="me-auto">${title}</strong>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          ${message}
+        </div>
+      </div>
+    `;
+    
+    // Add to document and auto-remove after delay
+    document.body.appendChild(toastContainer);
+    setTimeout(() => {
+      toastContainer.remove();
+    }, 5000);
   }
   
   // Check API key status on page load

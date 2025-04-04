@@ -72,14 +72,15 @@
                 {% elif mcp_insights.data.api_status == "no_credits" %}
                     <div class="alert alert-danger mt-3">
                         <p><strong>Credit Balance Issue:</strong> Your Anthropic API key is valid, but has insufficient credits.</p>
+                        <p>To resolve this issue, you have two options:</p>
                         <div class="mt-2">
                             <a href="https://console.anthropic.com/settings/billing" 
                                 class="btn btn-sm btn-outline-danger me-2" target="_blank">
-                                <i class="bi bi-credit-card me-1"></i>Add Credits
+                                <i class="bi bi-credit-card me-1"></i>Add Credits to Current Key
                             </a>
                             <button type="button" class="btn btn-sm btn-outline-primary" 
                                 data-bs-toggle="modal" data-bs-target="#apiKeyModal">
-                                <i class="bi bi-key me-1"></i>Update API Key
+                                <i class="bi bi-key me-1"></i>Use a Different API Key
                             </button>
                         </div>
                     </div>
