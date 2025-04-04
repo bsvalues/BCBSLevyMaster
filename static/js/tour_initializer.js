@@ -144,6 +144,150 @@ const tourConfigurations = {
                 position: 'left'
             }
         ]
+    },
+    
+    // Admin dashboard tour
+    'admin-dashboard': {
+        steps: [
+            {
+                element: '.admin-header',
+                title: 'Admin Dashboard',
+                intro: 'Welcome to the Admin Dashboard! Here you can manage all aspects of the Levy Calculation System.',
+                position: 'bottom'
+            },
+            {
+                element: '.admin-users',
+                title: 'User Management',
+                intro: 'Manage system users, including creating new accounts and setting permissions.',
+                position: 'right'
+            },
+            {
+                element: '.admin-districts',
+                title: 'Tax District Management',
+                intro: 'Administer tax districts, including creation, deletion, and configuration.',
+                position: 'left'
+            },
+            {
+                element: '.admin-settings',
+                title: 'System Settings',
+                intro: 'Configure system-wide settings such as default values, display options, and calculation parameters.',
+                position: 'top'
+            },
+            {
+                element: '.admin-logs',
+                title: 'System Logs',
+                intro: 'Review system logs to monitor activity and troubleshoot issues.',
+                position: 'bottom'
+            }
+        ]
+    },
+    
+    // Public lookup tour
+    'public-lookup': {
+        steps: [
+            {
+                element: '.public-header',
+                title: 'Property Tax Lookup',
+                intro: 'Welcome to the Public Property Tax Lookup! This tool allows you to search for properties and view their tax information.',
+                position: 'bottom'
+            },
+            {
+                element: '.lookup-form',
+                title: 'Search Form',
+                intro: 'Enter your property details here to find specific property tax information.',
+                position: 'right'
+            },
+            {
+                element: '.search-options',
+                title: 'Search Options',
+                intro: 'Use these options to refine your search by district, year, or other criteria.',
+                position: 'top'
+            },
+            {
+                element: '.district-list',
+                title: 'Tax District List',
+                intro: 'Browse tax districts to find your property or view district-wide information.',
+                position: 'left'
+            }
+        ]
+    },
+    
+    // Reports tour
+    'reports': {
+        steps: [
+            {
+                element: '.reports-header',
+                title: 'Reports Dashboard',
+                intro: 'Welcome to the Reports Dashboard! Here you can generate and view various reports about tax levies and properties.',
+                position: 'bottom'
+            },
+            {
+                element: '.report-selector',
+                title: 'Report Selection',
+                intro: 'Choose from different report types such as district summaries, historical trends, and compliance reports.',
+                position: 'right'
+            },
+            {
+                element: '.report-filters',
+                title: 'Report Filters',
+                intro: 'Customize your report by applying filters for specific time periods, districts, or properties.',
+                position: 'top'
+            },
+            {
+                element: '.export-options',
+                title: 'Export Options',
+                intro: 'Download your report in various formats including PDF, Excel, or CSV for sharing and analysis.',
+                position: 'left'
+            },
+            {
+                element: '.saved-reports',
+                title: 'Saved Reports',
+                intro: 'Access your previously generated reports or reports shared with you by other users.',
+                position: 'bottom'
+            }
+        ]
+    },
+    
+    // Levy calculation tour (alternative to levy_calculator with different CSS selectors)
+    'levy-calculation': {
+        steps: [
+            {
+                element: '#calculator-container',
+                title: 'Levy Calculation Tool',
+                intro: 'Welcome to the Levy Calculation Tool! This powerful calculator helps you determine property tax levies for your districts.',
+                position: 'bottom'
+            },
+            {
+                element: '#district-select',
+                title: 'District Selection',
+                intro: 'Select the tax district you want to calculate levies for from this dropdown menu.',
+                position: 'right'
+            },
+            {
+                element: '#year-select',
+                title: 'Year Selection',
+                intro: 'Choose the tax year for which you want to calculate the levy.',
+                position: 'left'
+            },
+            {
+                element: '#assessment-input',
+                title: 'Assessment Value',
+                intro: 'Enter the total assessed value for the district or leave blank to use the value from the database.',
+                position: 'top'
+            },
+            {
+                element: '#rate-adjustment',
+                title: 'Rate Adjustment',
+                intro: 'Apply adjustments to the levy rate based on special circumstances or legal requirements.',
+                position: 'bottom'
+            },
+            {
+                element: '#calculate-button',
+                title: 'Calculate Levy',
+                intro: 'Click this button to calculate the levy based on your inputs and view the results.',
+                position: 'right'
+            }
+        ]
     }
 };
 
@@ -176,11 +320,17 @@ function checkForAutomaticTour() {
     if (path === '/dashboard' || path === '/') {
         tourToShow = 'dashboard';
     } else if (path === '/levy-calculator') {
-        tourToShow = 'levy_calculator';
+        tourToShow = 'levy-calculation';
     } else if (path === '/import') {
         tourToShow = 'data_import';
     } else if (path === '/property-lookup') {
         tourToShow = 'property_search';
+    } else if (path === '/admin' || path === '/admin/dashboard') {
+        tourToShow = 'admin-dashboard';
+    } else if (path === '/public/lookup') {
+        tourToShow = 'public-lookup';
+    } else if (path === '/reports') {
+        tourToShow = 'reports';
     }
     
     // Start the tour if it's relevant to the current page and hasn't been completed

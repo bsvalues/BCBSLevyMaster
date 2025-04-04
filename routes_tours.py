@@ -40,6 +40,34 @@ TOUR_CONFIGS = {
         'description': 'Explore how to search for properties and view their details.',
         'route': 'data_management.property_lookup',
         'steps': 4
+    },
+    'admin-dashboard': {
+        'id': 'admin-dashboard',
+        'name': 'Admin Dashboard Tour',
+        'description': 'Learn how to manage users, districts, and system settings as an administrator.',
+        'route': 'admin.dashboard',
+        'steps': 5
+    },
+    'public-lookup': {
+        'id': 'public-lookup',
+        'name': 'Public Lookup Tour',
+        'description': 'Discover how to use the public property tax lookup portal.',
+        'route': 'public.lookup',
+        'steps': 4
+    },
+    'reports': {
+        'id': 'reports',
+        'name': 'Reports Tour',
+        'description': 'Learn how to generate and customize reports about tax data.',
+        'route': 'reports.index',
+        'steps': 5
+    },
+    'levy-calculation': {
+        'id': 'levy-calculation',
+        'name': 'Levy Calculation Tour',
+        'description': 'Master the levy calculation process with this guided tour.',
+        'route': 'levy_calculator.calculator',
+        'steps': 6
     }
 }
 
