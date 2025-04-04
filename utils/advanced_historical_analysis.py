@@ -358,19 +358,111 @@ def forecast_future_rates(tax_code_identifier: str, forecast_years: int = 3,
                             'method': 'simple exponential smoothing'
                         })
                 else:
-                    # Try to detect if there's a trend component
-                    # Simple trend detection using linear regression slope
+                    # Detect data patterns (trend and potential seasonality)
                     x = np.array(sorted_years)
                     y = np.array(sorted_rates)
                     trend_present = False
+                    seasonality_present = False
                     
                     if n_obs >= 3:
-                        # Calculate the slope of the linear regression
+                        # Calculate the slope of the linear regression to detect trend
                         slope = np.cov(x, y)[0, 1] / np.var(x)
                         # Consider a trend exists if the absolute slope is above a threshold
                         trend_present = abs(slope) > 0.0005
+                        
+                        # Check for seasonality (simple detection - look for repeating patterns)
+                        # Requires at least 4 observations for minimal seasonality detection
+                        if n_obs >= 4:
+                            # Calculate first differences (removing trend effect)
+                            diffs = np.diff(sorted_rates)
+                            # Check for sign changes in differences (potential seasonal turns)
+                            sign_changes = np.sum(np.diff(np.signbit(diffs)))
+                            # If there are enough sign changes relative to the data length, consider seasonality
+                            seasonality_present = sign_changes >= n_obs // 3
                     
-                    if trend_present:
+                    # Select the appropriate smoothing method based on data patterns
+                    if seasonality_present and trend_present and n_obs >= 6:
+                        # Triple Exponential Smoothing (Holt-Winters) for data with both trend and seasonality
+                        alpha = 0.3  # Level smoothing factor
+                        beta = 0.1   # Trend smoothing factor
+                        gamma = 0.1  # Seasonal smoothing factor
+                        
+                        # Determine seasonality period (simplified: using 2 for annual data with semi-annual pattern)
+                        # In a real-world scenario, we would do proper period detection
+                        season_period = min(n_obs // 2, 2)  # Default to 2 or half the data length
+                        
+                        # Initialize level, trend, and seasonal components
+                        level = np.mean(sorted_rates[:season_period])
+                        trend = (sorted_rates[season_period] - sorted_rates[0]) / season_period
+                        
+                        # Initialize seasonal factors (multiplicative method)
+                        seasonals = np.zeros(season_period)
+                        season_averages = np.zeros(season_period)
+                        
+                        # Calculate initial seasonal components
+                        for i in range(season_period):
+                            indices = range(i, n_obs, season_period)
+                            if indices:
+                                season_vals = [sorted_rates[j] for j in indices]
+                                season_averages[i] = np.mean(season_vals) if season_vals else level
+                        
+                        # Normalize seasonal factors
+                        if np.sum(season_averages) > 0:
+                            seasonals = season_period * season_averages / np.sum(season_averages)
+                        else:
+                            seasonals = np.ones(season_period)
+                        
+                        # Apply Holt-Winters method
+                        levels = [level]
+                        trends = [trend]
+                        all_seasonals = seasonals.tolist()
+                        
+                        for i in range(1, n_obs):
+                            # Seasonal index position
+                            s_idx = (i - 1) % season_period
+                            
+                            # Update components
+                            last_level = level
+                            last_trend = trend
+                            last_seasonal = seasonals[s_idx]
+                            
+                            # Update level
+                            level = alpha * (sorted_rates[i] / last_seasonal) + (1 - alpha) * (last_level + last_trend)
+                            
+                            # Update trend
+                            trend = beta * (level - last_level) + (1 - beta) * last_trend
+                            
+                            # Update seasonal factor
+                            s_new_idx = i % season_period
+                            seasonals[s_new_idx] = gamma * (sorted_rates[i] / level) + (1 - gamma) * last_seasonal
+                            
+                            # Store values
+                            levels.append(level)
+                            trends.append(trend)
+                            all_seasonals.append(seasonals[s_new_idx])
+                        
+                        # Generate forecasts
+                        for i in range(1, forecast_years + 1):
+                            forecast_year = last_year + i
+                            # Get appropriate seasonal factor for this forecast step
+                            season_idx = (n_obs - 1 + i) % season_period
+                            seasonal_factor = seasonals[season_idx]
+                            
+                            # Calculate forecasted rate with seasonal adjustment
+                            base_forecast = level + i * trend
+                            seasonal_forecast = base_forecast * seasonal_factor
+                            forecast_rate = max(0.0, min(1.0, seasonal_forecast))  # Keep within bounds
+                            
+                            # Wider confidence interval for further forecast horizons
+                            ci_width = 0.018 * i
+                            forecast_results.append({
+                                'year': forecast_year,
+                                'forecasted_rate': forecast_rate,
+                                'confidence_interval': {'lower': max(0.0, forecast_rate - ci_width), 'upper': min(1.0, forecast_rate + ci_width)},
+                                'method': 'triple exponential smoothing'
+                            })
+                    
+                    elif trend_present:
                         # Double Exponential Smoothing (Holt's method) for data with trend
                         alpha = 0.3  # Level smoothing factor
                         beta = 0.1   # Trend smoothing factor

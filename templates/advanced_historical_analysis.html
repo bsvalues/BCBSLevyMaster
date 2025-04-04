@@ -239,14 +239,19 @@
                                         <option value="linear">Linear Regression</option>
                                         <option value="average">Average Method</option>
                                         <option value="weighted">Weighted Average</option>
-                                        <option value="exponential">Exponential Smoothing</option>
+                                        <option value="exponential">Enhanced Exponential Smoothing</option>
                                         <option value="arima">ARIMA Model</option>
                                     </select>
                                     <div class="form-text">
                                         <strong>Linear</strong>: Projects future rates based on linear trend<br>
                                         <strong>Average</strong>: Uses the overall average of historical rates<br>
                                         <strong>Weighted</strong>: Gives more weight to recent years<br>
-                                        <strong>Exponential</strong>: Adapts to recent trends with decreasing weights for older data<br>
+                                        <strong>Exponential</strong>: Adaptive smoothing with automatic method selection:<br>
+                                        <ul class="small">
+                                            <li>Simple exponential smoothing for stable data</li>
+                                            <li>Double exponential smoothing (Holt's method) for data with trends</li>
+                                            <li>Triple exponential smoothing (Holt-Winters) for data with seasonality</li>
+                                        </ul>
                                         <strong>ARIMA</strong>: Advanced time-series forecasting (requires 5+ years of data)
                                     </div>
                                 </div>
