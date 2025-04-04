@@ -44,8 +44,9 @@ def insights():
         
         # Get recent import and export logs
         try:
-            recent_imports = ImportLog.query.order_by(desc(ImportLog.import_date)).limit(5).all()
-            recent_exports = ExportLog.query.order_by(desc(ExportLog.export_date)).limit(5).all()
+            # Use actual column names from database
+            recent_imports = db.session.query(ImportLog).order_by(desc(ImportLog.id)).limit(5).all()
+            recent_exports = db.session.query(ExportLog).order_by(desc(ExportLog.export_date)).limit(5).all()
         except Exception as e:
             logger.error(f"Error getting logs: {str(e)}")
             recent_imports = []
@@ -62,7 +63,7 @@ def insights():
                     if tc.total_assessed_value:
                         percent = (tc.total_assessed_value / total_assessed_value) * 100
                         tax_summary.append({
-                            'code': tc.code,
+                            'code': tc.tax_code,  # Using tax_code instead of code
                             'assessed_value': tc.total_assessed_value,
                             'percent_of_total': percent
                         })
@@ -158,10 +159,10 @@ def generate_mcp_insights(tax_codes):
         tax_code_data = []
         for tc in tax_codes:
             tax_code_data.append({
-                'code': tc.code,
+                'code': tc.tax_code,  # Using tax_code attribute
                 'total_assessed_value': tc.total_assessed_value,
                 'levy_rate': tc.levy_rate,
-                'tax_district_name': tc.tax_district.name if tc.tax_district else 'Unknown',
+                'tax_district_name': tc.tax_district.name if hasattr(tc, 'tax_district') and tc.tax_district else 'Unknown',
                 'effective_tax_rate': tc.effective_tax_rate
             })
         
