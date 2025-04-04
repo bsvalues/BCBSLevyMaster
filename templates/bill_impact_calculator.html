@@ -1,507 +1,716 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}Bill Impact Calculator{% endblock %}
+{% block title %}Bill Impact Calculator - Levy Calculation System{% endblock %}
+
+{% block page_title %}Bill Impact Calculator{% endblock %}
+{% block page_subtitle %}Analyze the impact of levy changes on property tax bills{% endblock %}
+
+{% block header_actions %}
+<div class="d-flex gap-2">
+    <a href="{{ url_for('levy_calculator.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Levy Calculator
+    </a>
+    <button type="button" class="btn btn-outline-secondary" data-tour="bill-impact-calculator">
+        <i class="bi bi-info-circle me-1"></i>Tour
+    </button>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .calculator-section {
+        background-color: var(--bs-body-bg);
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    
+    .calculator-header {
+        padding: 1.25rem;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    
+    .calculator-body {
+        padding: 1.25rem;
+    }
+    
+    .result-section {
+        background-color: rgba(var(--bs-success-rgb), 0.05);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+        border: 1px solid rgba(var(--bs-success-rgb), 0.2);
+    }
+    
+    .input-group-text {
+        min-width: 3rem;
+        justify-content: center;
+    }
+    
+    .property-card {
+        transition: transform 0.2s;
+    }
+    
+    .property-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    #calculatorResultsSection {
+        display: none;
+    }
+    
+    .form-label {
+        font-weight: 500;
+    }
+    
+    .comparison-arrow {
+        font-size: 1.5rem;
+        color: var(--bs-primary);
+    }
+    
+    .impact-positive {
+        color: var(--bs-danger);
+    }
+    
+    .impact-negative {
+        color: var(--bs-success);
+    }
+    
+    .impact-neutral {
+        color: var(--bs-secondary);
+    }
+    
+    .chart-container {
+        height: 300px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Bill Impact Calculator</h1>
-    
-    <div class="alert alert-info">
-        <i class="fa fa-info-circle me-2"></i>
-        This tool analyzes the potential impact of pending legislative bills on property taxes and levy rates.
-        Enter the bill details and projected changes to generate an impact analysis.
-    </div>
-    
-    <!-- Bill Impact Form -->
-    <div class="card shadow mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Enter Bill Information</h5>
-        </div>
-        <div class="card-body">
-            <form method="post" action="{{ url_for('bill_impact_calculator') }}">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label for="bill_name" class="form-label">Bill Name/Number</label>
-                        <input type="text" class="form-control" id="bill_name" name="bill_name" 
-                               placeholder="e.g., SB 5302" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="bill_description" class="form-label">Brief Description</label>
-                        <input type="text" class="form-control" id="bill_description" name="bill_description" 
-                               placeholder="e.g., Property Tax Exemption for Seniors">
-                    </div>
-                </div>
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Main Calculator -->
+        <div class="calculator-section mb-4">
+            <div class="calculator-header">
+                <h5 class="mb-0">Property Tax Bill Impact Calculator</h5>
+            </div>
+            <div class="calculator-body">
+                <p class="text-muted mb-4">This calculator shows how changes in levy rates affect individual property tax bills.</p>
                 
-                <!-- Tax Code Rate Changes -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">Tax Code Rate Changes</h6>
+                <form id="billImpactForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="taxDistrict" class="form-label">Tax District</label>
+                            <select class="form-select" id="taxDistrict" name="district_id" required>
+                                <option value="">Select a tax district</option>
+                                {% for district in districts %}
+                                <option value="{{ district.id }}">{{ district.district_name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">The taxing district for this calculation</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="taxCode" class="form-label">Tax Code Area</label>
+                            <select class="form-select" id="taxCode" name="tax_code_id">
+                                <option value="">Select a tax code (optional)</option>
+                            </select>
+                            <div class="form-text">Optional: select a specific tax code area</div>
+                        </div>
                     </div>
-                    <div class="card-body">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="propertyValue" class="form-label">Property Assessed Value</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" class="form-control" id="propertyValue" name="property_value" step="1000" min="0" value="250000" required>
+                            </div>
+                            <div class="form-text">The assessed value of the property</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="taxYear" class="form-label">Tax Year</label>
+                            <select class="form-select" id="taxYear" name="current_year">
+                                <option value="{{ current_year }}">{{ current_year }}</option>
+                                <option value="{{ current_year - 1 }}">{{ current_year - 1 }}</option>
+                                <option value="{{ current_year - 2 }}">{{ current_year - 2 }}</option>
+                            </select>
+                            <div class="form-text">The current tax year</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-3">
+                            <label for="currentRate" class="form-label">Current Levy Rate</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="currentRate" name="current_levy_rate" step="0.0001" min="0" value="10.0000" required>
+                                <span class="input-group-text">per $1K</span>
+                            </div>
+                            <div class="form-text">The current levy rate per $1,000 of assessed value</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="proposedRate" class="form-label">Proposed Levy Rate</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="proposedRate" name="proposed_levy_rate" step="0.0001" min="0" value="10.2500" required>
+                                <span class="input-group-text">per $1K</span>
+                            </div>
+                            <div class="form-text">The proposed levy rate per $1,000 of assessed value</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary" id="calculateBtn">
+                            <i class="bi bi-calculator me-1"></i>Calculate Bill Impact
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Results Section (hidden initially) -->
+                <div id="calculatorResultsSection" class="result-section mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Bill Impact Analysis</h5>
+                        <span class="badge bg-primary px-3 py-2" id="resultImpact">Moderate Impact</span>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card bg-light">
+                                <div class="card-body p-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-4 text-center border-end border-secondary">
+                                            <p class="text-muted mb-1">Current Annual Tax</p>
+                                            <h4 id="currentTax" class="mb-0">--</h4>
+                                        </div>
+                                        <div class="col-md-1 text-center">
+                                            <span class="comparison-arrow">→</span>
+                                        </div>
+                                        <div class="col-md-4 text-center border-start border-secondary">
+                                            <p class="text-muted mb-1">Proposed Annual Tax</p>
+                                            <h4 id="proposedTax" class="mb-0">--</h4>
+                                        </div>
+                                        <div class="col-md-3 text-center">
+                                            <p class="text-muted mb-1">Difference</p>
+                                            <h4 id="taxDifference" class="mb-0 impact-positive">--</h4>
+                                            <p id="percentageChange" class="mb-0">--</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Monthly Impact</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Current monthly payment:</span>
+                                <span id="currentMonthly">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Proposed monthly payment:</span>
+                                <span id="proposedMonthly">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Monthly difference:</span>
+                                <span id="monthlyDifference" class="impact-positive">--</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3">Rate Comparison</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Current levy rate:</span>
+                                <span id="currentRateValue">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Proposed levy rate:</span>
+                                <span id="proposedRateValue">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Rate increase:</span>
+                                <span id="rateIncrease">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chart container -->
+                    <div class="chart-container mb-4">
+                        <canvas id="impactChart"></canvas>
+                    </div>
+                    
+                    <!-- Sample properties (if tax code is selected) -->
+                    <div id="samplePropertiesSection" class="d-none">
+                        <h6 class="mb-3">Sample Properties in This Tax Code Area</h6>
+                        <p class="text-muted mb-3">Below are examples of how the rate change would affect other properties in this tax code area.</p>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>Tax Code</th>
-                                        <th>Current Rate</th>
-                                        <th>Change Type</th>
-                                        <th>New Rate</th>
-                                        <th>Adjustment %</th>
+                                        <th>Parcel/Address</th>
+                                        <th>Assessed Value</th>
+                                        <th>Current Tax</th>
+                                        <th>Proposed Tax</th>
+                                        <th>Difference</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    {% for code in tax_codes %}
-                                    <tr>
-                                        <td>{{ code.code }}</td>
-                                        <td>{{ code.levy_rate if code.levy_rate else 'N/A' }}</td>
-                                        <td>
-                                            <select class="form-select form-select-sm change-type" 
-                                                    name="change_type_{{ code.code }}" 
-                                                    data-code="{{ code.code }}">
-                                                <option value="">No Change</option>
-                                                <option value="absolute">New Rate</option>
-                                                <option value="percentage">Percentage Change</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control form-control-sm new-rate" 
-                                                   name="new_rate_{{ code.code }}" step="0.0001" min="0" 
-                                                   placeholder="e.g., 1.5432" disabled>
-                                        </td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <input type="number" class="form-control adjustment" 
-                                                       name="adjustment_{{ code.code }}" step="0.01" 
-                                                       placeholder="e.g., 5" disabled>
-                                                <span class="input-group-text">%</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
+                                <tbody id="samplePropertiesBody">
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Exemption Changes -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">Exemption Changes</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="current_exemption" class="form-label">Current Exemption Amount ($)</label>
-                                <input type="number" class="form-control" id="current_exemption" name="current_exemption" 
-                                       placeholder="e.g., 100000" min="0">
-                            </div>
-                            <div class="col-md-6">
-                                <label for="new_exemption" class="form-label">New Exemption Amount ($)</label>
-                                <input type="number" class="form-control" id="new_exemption" name="new_exemption" 
-                                       placeholder="e.g., 125000" min="0">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Statutory Limit Changes -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">Statutory Limit Changes</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label for="max_rate" class="form-label">New Maximum Allowed Rate</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="max_rate" name="max_rate" 
-                                           placeholder="Current: {{ statutory_limits.max_rate }}" 
-                                           step="0.01" min="0">
-                                    <span class="input-group-text">per $1000</span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="max_increase" class="form-label">New Maximum Annual Increase</label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="max_increase" name="max_increase" 
-                                           placeholder="Current: {{ (statutory_limits.max_increase - 1) * 100 }}%" 
-                                           step="0.1" min="0">
-                                    <span class="input-group-text">%</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button type="reset" class="btn btn-secondary me-md-2">Reset</button>
-                    <button type="submit" class="btn btn-primary">Calculate Impact</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Results Display -->
-    {% if results %}
-    <div class="card shadow mb-4">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">
-                <i class="fa fa-chart-line me-2"></i>
-                Impact Analysis: {{ results.summary.bill_name }}
-            </h5>
-        </div>
-        <div class="card-body">
-            {% if results.summary.bill_description %}
-            <div class="alert alert-secondary mb-4">
-                {{ results.summary.bill_description }}
-            </div>
-            {% endif %}
-            
-            <!-- Summary Statistics -->
-            <div class="row mb-4">
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-light h-100">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Affected Tax Codes</h6>
-                            <h2 class="mb-0">{{ results.summary.affected_tax_codes }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-light h-100">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Avg Rate Change</h6>
-                            <h2 class="mb-0">{{ "%.4f"|format(results.summary.avg_rate_change|float) }}</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-light h-100">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Avg % Change</h6>
-                            <h2 class="mb-0">{{ "%.2f"|format(results.summary.avg_rate_change_pct|float) }}%</h2>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card bg-light h-100">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Highest Impact</h6>
-                            {% if results.summary.highest_impact_area %}
-                            <h2 class="mb-0">{{ results.summary.highest_impact_area.tax_code }}</h2>
-                            {% else %}
-                            <h2 class="mb-0">N/A</h2>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Tabs for Different Data Views -->
-            <ul class="nav nav-tabs" id="impactTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tax-code-tab" data-bs-toggle="tab" 
-                            data-bs-target="#tax-code" type="button" role="tab" 
-                            aria-controls="tax-code" aria-selected="true">
-                        Tax Code Impacts
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="property-tab" data-bs-toggle="tab" 
-                            data-bs-target="#property" type="button" role="tab" 
-                            aria-controls="property" aria-selected="false">
-                        Property Impacts
-                    </button>
-                </li>
-                {% if results.exemption_impact %}
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="exemption-tab" data-bs-toggle="tab" 
-                            data-bs-target="#exemption" type="button" role="tab" 
-                            aria-controls="exemption" aria-selected="false">
-                        Exemption Changes
-                    </button>
-                </li>
-                {% endif %}
-                {% if results.limit_impact %}
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="limits-tab" data-bs-toggle="tab" 
-                            data-bs-target="#limits" type="button" role="tab" 
-                            aria-controls="limits" aria-selected="false">
-                        Statutory Limits
-                    </button>
-                </li>
-                {% endif %}
-            </ul>
-            
-            <div class="tab-content mt-3" id="impactTabContent">
-                <!-- Tax Code Impact Tab -->
-                <div class="tab-pane fade show active" id="tax-code" role="tabpanel" aria-labelledby="tax-code-tab">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Tax Code</th>
-                                    <th>Current Rate</th>
-                                    <th>New Rate</th>
-                                    <th>Change</th>
-                                    <th>% Change</th>
-                                    <th>Current Levy</th>
-                                    <th>New Levy</th>
-                                    <th>Levy Change</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for code, impact in results.impacted_tax_codes.items() %}
-                                <tr>
-                                    <td>{{ code }}</td>
-                                    <td>{{ "%.4f"|format(impact.current_rate|float) if impact.current_rate is not none else 'N/A' }}</td>
-                                    <td>{{ "%.4f"|format(impact.new_rate|float) if impact.new_rate is not none else 'N/A' }}</td>
-                                    <td>
-                                        {% if impact.rate_change is not none %}
-                                            <span class="{{ 'text-success' if impact.rate_change < 0 else 'text-danger' if impact.rate_change > 0 else '' }}">
-                                                {{ "%.4f"|format(impact.rate_change|float) }}
-                                            </span>
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if impact.rate_change_pct is not none %}
-                                            <span class="{{ 'text-success' if impact.rate_change_pct < 0 else 'text-danger' if impact.rate_change_pct > 0 else '' }}">
-                                                {{ "%.2f"|format(impact.rate_change_pct|float) }}%
-                                            </span>
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ "${:,.2f}".format(impact.current_levy_amount|float) if impact.current_levy_amount is not none else 'N/A' }}</td>
-                                    <td>{{ "${:,.2f}".format(impact.new_levy_amount|float) if impact.new_levy_amount is not none else 'N/A' }}</td>
-                                    <td>
-                                        {% if impact.levy_change is not none %}
-                                            <span class="{{ 'text-success' if impact.levy_change < 0 else 'text-danger' if impact.levy_change > 0 else '' }}">
-                                                {{ "${:,.2f}".format(impact.levy_change|float) }}
-                                            </span>
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- Property Impact Tab -->
-                <div class="tab-pane fade" id="property" role="tabpanel" aria-labelledby="property-tab">
-                    <div class="alert alert-info mb-3">
-                        <i class="fa fa-info-circle me-2"></i>
-                        This tab shows the impact on sample properties of different values for each affected tax code.
-                    </div>
-                    
-                    <!-- Property Value Filter -->
-                    <div class="mb-3">
-                        <label for="propertyFilter" class="form-label">Filter by Property Value:</label>
-                        <select class="form-select" id="propertyFilter">
-                            <option value="all">All Values</option>
-                            {% set property_values = [] %}
-                            {% for impact in results.property_impacts %}
-                                {% if impact.assessed_value not in property_values %}
-                                    {% set property_values = property_values + [impact.assessed_value] %}
-                                    <option value="{{ impact.assessed_value }}">{{ "${:,.0f}".format(impact.assessed_value|float) }}</option>
-                                {% endif %}
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Property Impact Table -->
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="propertyImpactTable">
-                            <thead>
-                                <tr>
-                                    <th>Tax Code</th>
-                                    <th>Assessed Value</th>
-                                    <th>Current Tax</th>
-                                    <th>New Tax</th>
-                                    <th>Change</th>
-                                    <th>% Change</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for impact in results.property_impacts %}
-                                <tr data-value="{{ impact.assessed_value }}">
-                                    <td>{{ impact.tax_code }}</td>
-                                    <td>{{ "${:,.0f}".format(impact.assessed_value|float) }}</td>
-                                    <td>{{ "${:,.2f}".format(impact.current_tax|float) if impact.current_tax is not none else 'N/A' }}</td>
-                                    <td>{{ "${:,.2f}".format(impact.new_tax|float) if impact.new_tax is not none else 'N/A' }}</td>
-                                    <td>
-                                        {% if impact.tax_change is not none %}
-                                            <span class="{{ 'text-success' if impact.tax_change < 0 else 'text-danger' if impact.tax_change > 0 else '' }}">
-                                                {{ "${:,.2f}".format(impact.tax_change|float) }}
-                                            </span>
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if impact.tax_change_pct is not none %}
-                                            <span class="{{ 'text-success' if impact.tax_change_pct < 0 else 'text-danger' if impact.tax_change_pct > 0 else '' }}">
-                                                {{ "%.2f"|format(impact.tax_change_pct|float) }}%
-                                            </span>
-                                        {% else %}
-                                            N/A
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <!-- Exemption Changes Tab -->
-                {% if results.exemption_impact %}
-                <div class="tab-pane fade" id="exemption" role="tabpanel" aria-labelledby="exemption-tab">
-                    <div class="row">
-                        <div class="col-md-6 offset-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Exemption Change Summary</h6>
-                                </div>
-                                <div class="card-body">
-                                    <table class="table">
-                                        <tr>
-                                            <th>Current Exemption:</th>
-                                            <td>{{ "${:,.0f}".format(results.exemption_impact.current_exemption|float) }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>New Exemption:</th>
-                                            <td>{{ "${:,.0f}".format(results.exemption_impact.new_exemption|float) }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Exemption Change:</th>
-                                            <td>
-                                                <span class="{{ 'text-success' if results.exemption_impact.exemption_change > 0 else 'text-danger' if results.exemption_impact.exemption_change < 0 else '' }}">
-                                                    {{ "${:,.0f}".format(results.exemption_impact.exemption_change|float) }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        {% if results.exemption_impact.exemption_change_pct is not none %}
-                                        <tr>
-                                            <th>Percentage Change:</th>
-                                            <td>
-                                                <span class="{{ 'text-success' if results.exemption_impact.exemption_change_pct > 0 else 'text-danger' if results.exemption_impact.exemption_change_pct < 0 else '' }}">
-                                                    {{ "%.2f"|format(results.exemption_impact.exemption_change_pct|float) }}%
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Statutory Limits Tab -->
-                {% if results.limit_impact %}
-                <div class="tab-pane fade" id="limits" role="tabpanel" aria-labelledby="limits-tab">
-                    <div class="row">
-                        <div class="col-md-6 offset-md-3">
-                            <div class="card">
-                                <div class="card-header bg-light">
-                                    <h6 class="mb-0">Statutory Limit Changes</h6>
-                                </div>
-                                <div class="card-body">
-                                    <table class="table">
-                                        <tr>
-                                            <th>Current Maximum Rate:</th>
-                                            <td>{{ "%.2f"|format(results.limit_impact.current_max_rate|float) }} per $1000</td>
-                                        </tr>
-                                        <tr>
-                                            <th>New Maximum Rate:</th>
-                                            <td>{{ "%.2f"|format(results.limit_impact.new_max_rate|float) }} per $1000</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Rate Limit Change:</th>
-                                            <td>
-                                                <span class="{{ 'text-success' if results.limit_impact.max_rate_change > 0 else 'text-danger' if results.limit_impact.max_rate_change < 0 else '' }}">
-                                                    {{ "%.2f"|format(results.limit_impact.max_rate_change|float) }}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <th>Current Annual Increase:</th>
-                                            <td>{{ "%.1f"|format((results.limit_impact.current_max_increase|float - 1) * 100) }}%</td>
-                                        </tr>
-                                        <tr>
-                                            <th>New Annual Increase:</th>
-                                            <td>{{ "%.1f"|format((results.limit_impact.new_max_increase|float - 1) * 100) }}%</td>
-                                        </tr>
-                                        <tr>
-                                            <th>Increase Limit Change:</th>
-                                            <td>
-                                                <span class="{{ 'text-success' if results.limit_impact.max_increase_change > 0 else 'text-danger' if results.limit_impact.max_increase_change < 0 else '' }}">
-                                                    {{ "%.1f"|format(results.limit_impact.max_increase_change|float * 100) }}%
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
-    {% endif %}
+    <div class="col-lg-4">
+        <!-- Help & Resources -->
+        <div class="calculator-section mb-4">
+            <div class="calculator-header">
+                <h5 class="mb-0">About This Calculator</h5>
+            </div>
+            <div class="calculator-body">
+                <p>The Bill Impact Calculator helps you understand how changes to levy rates affect property owners' tax bills. Use this tool to:</p>
+                <ul>
+                    <li>Compare current and proposed levy rates</li>
+                    <li>Analyze the dollar impact on properties of different values</li>
+                    <li>See how a rate change affects monthly payments</li>
+                    <li>Understand how various properties in a tax code area are impacted</li>
+                </ul>
+                <h6 class="mb-2 mt-4">How It Works</h6>
+                <p>Property taxes are calculated by multiplying the property's assessed value by the levy rate (expressed per $1,000 of assessed value):</p>
+                <div class="card bg-light mb-3">
+                    <div class="card-body p-2">
+                        <code>Annual Tax = (Assessed Value × Levy Rate) ÷ 1,000</code>
+                    </div>
+                </div>
+                <p>For example, a property with an assessed value of $300,000 in a district with a levy rate of 10.5000 would pay:</p>
+                <div class="card bg-light mb-3">
+                    <div class="card-body p-2">
+                        <code>$300,000 × 10.5000 ÷ 1,000 = $3,150 annual tax</code>
+                    </div>
+                </div>
+                <p class="small text-muted">Note: This calculator provides estimates based on levy rates alone. The actual tax bill may also include special assessments, fees, and other charges not included in this calculation.</p>
+            </div>
+        </div>
+        
+        <!-- Levy Rate Recommendations -->
+        <div class="calculator-section mb-4">
+            <div class="calculator-header">
+                <h5 class="mb-0">Impact Categories</h5>
+            </div>
+            <div class="calculator-body">
+                <div class="card bg-light mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-arrow-down-circle-fill text-success fs-3"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Minimal Impact</h6>
+                                <p class="mb-0 small">Rate change < 1% or dollar impact < $20/year</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-light mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-arrow-right-circle-fill text-primary fs-3"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Moderate Impact</h6>
+                                <p class="mb-0 small">Rate change 1-5% or dollar impact $20-100/year</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-light mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-arrow-up-circle-fill text-warning fs-3"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Significant Impact</h6>
+                                <p class="mb-0 small">Rate change 5-10% or dollar impact $100-200/year</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-light">
+                    <div class="card-body p-3">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="bi bi-arrow-up-circle-fill text-danger fs-3"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">High Impact</h6>
+                                <p class="mb-0 small">Rate change > 10% or dollar impact > $200/year</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
 
-<!-- JavaScript for Form Interactions -->
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle change type selection to enable/disable appropriate fields
-    const changeTypeSelects = document.querySelectorAll('.change-type');
-    changeTypeSelects.forEach(select => {
-        select.addEventListener('change', function() {
-            const code = this.getAttribute('data-code');
-            const newRateInput = document.querySelector(`input[name="new_rate_${code}"]`);
-            const adjustmentInput = document.querySelector(`input[name="adjustment_${code}"]`);
-            
-            // Reset and disable all inputs
-            newRateInput.value = '';
-            newRateInput.disabled = true;
-            adjustmentInput.value = '';
-            adjustmentInput.disabled = true;
-            
-            // Enable appropriate input based on selection
-            if (this.value === 'absolute') {
-                newRateInput.disabled = false;
-            } else if (this.value === 'percentage') {
-                adjustmentInput.disabled = false;
+    // DOM elements
+    const billImpactForm = document.getElementById('billImpactForm');
+    const calculatorResultsSection = document.getElementById('calculatorResultsSection');
+    const samplePropertiesSection = document.getElementById('samplePropertiesSection');
+    const taxDistrictSelect = document.getElementById('taxDistrict');
+    const taxCodeSelect = document.getElementById('taxCode');
+    
+    // Chart variables
+    let impactChart = null;
+    
+    // Form submission handler
+    billImpactForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Get form data
+        const formData = new FormData(billImpactForm);
+        
+        // Send calculation request
+        fetch('/levy-calculator/calculate-bill-impact', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayResults(data.result);
+                
+                // Show results section
+                calculatorResultsSection.style.display = 'block';
+                
+                // Scroll to results
+                calculatorResultsSection.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                alert('Error: ' + data.message);
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while calculating the bill impact.');
         });
     });
     
-    // Property value filter functionality
-    const propertyFilter = document.getElementById('propertyFilter');
-    if (propertyFilter) {
-        propertyFilter.addEventListener('change', function() {
-            const selectedValue = this.value;
-            const rows = document.querySelectorAll('#propertyImpactTable tbody tr');
-            
-            rows.forEach(row => {
-                if (selectedValue === 'all' || row.getAttribute('data-value') === selectedValue) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
+    // Tax district change handler
+    taxDistrictSelect.addEventListener('change', function(e) {
+        const districtId = e.target.value;
+        if (districtId) {
+            // Load tax codes for this district
+            fetch(`/levy-calculator/tax-codes/${districtId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Populate tax code dropdown
+                    taxCodeSelect.innerHTML = '<option value="">Select a tax code (optional)</option>';
+                    data.tax_codes.forEach(code => {
+                        const option = document.createElement('option');
+                        option.value = code.id;
+                        option.textContent = `${code.tax_code} - ${code.description || 'No description'}`;
+                        taxCodeSelect.appendChild(option);
+                    });
+                    
+                    // Load district rates
+                    return fetch(`/levy-calculator/district/${districtId}`);
                 }
+            })
+            .then(response => response ? response.json() : null)
+            .then(data => {
+                if (data && data.status === 'success' && data.levy_rates && data.levy_rates.length > 0) {
+                    // Pre-fill current rate from district data
+                    const latestRate = data.levy_rates[0];
+                    document.getElementById('currentRate').value = latestRate.levy_rate.toFixed(4);
+                    
+                    // Pre-fill proposed rate with a 2.5% increase as a starting point
+                    const proposedRate = latestRate.levy_rate * 1.025;
+                    document.getElementById('proposedRate').value = proposedRate.toFixed(4);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
             });
+        }
+    });
+    
+    // Display results function
+    function displayResults(result) {
+        // Current and proposed tax values
+        document.getElementById('currentTax').textContent = formatCurrency(result.current_tax);
+        document.getElementById('proposedTax').textContent = formatCurrency(result.proposed_tax);
+        
+        // Tax difference and percentage
+        const taxDifference = document.getElementById('taxDifference');
+        taxDifference.textContent = formatCurrency(result.difference);
+        
+        // Handle positive or negative difference
+        if (result.difference > 0) {
+            taxDifference.className = 'mb-0 impact-positive';
+            taxDifference.textContent = `+${formatCurrency(result.difference)}`;
+        } else if (result.difference < 0) {
+            taxDifference.className = 'mb-0 impact-negative';
+        } else {
+            taxDifference.className = 'mb-0 impact-neutral';
+        }
+        
+        // Percentage change
+        const percentageChange = document.getElementById('percentageChange');
+        percentageChange.textContent = `${result.percentage_change > 0 ? '+' : ''}${result.percentage_change.toFixed(2)}%`;
+        
+        // Monthly values
+        document.getElementById('currentMonthly').textContent = formatCurrency(result.current_tax / 12);
+        document.getElementById('proposedMonthly').textContent = formatCurrency(result.proposed_tax / 12);
+        
+        // Monthly difference
+        const monthlyDifference = document.getElementById('monthlyDifference');
+        const monthlyDiff = result.difference / 12;
+        
+        if (monthlyDiff > 0) {
+            monthlyDifference.className = 'impact-positive';
+            monthlyDifference.textContent = `+${formatCurrency(monthlyDiff)}`;
+        } else if (monthlyDiff < 0) {
+            monthlyDifference.className = 'impact-negative';
+            monthlyDifference.textContent = formatCurrency(monthlyDiff);
+        } else {
+            monthlyDifference.className = 'impact-neutral';
+            monthlyDifference.textContent = formatCurrency(0);
+        }
+        
+        // Rate values
+        document.getElementById('currentRateValue').textContent = `${result.current_levy_rate.toFixed(4)} per $1,000`;
+        document.getElementById('proposedRateValue').textContent = `${result.proposed_levy_rate.toFixed(4)} per $1,000`;
+        
+        // Rate increase
+        const rateIncrease = document.getElementById('rateIncrease');
+        const rateDiff = result.proposed_levy_rate - result.current_levy_rate;
+        const ratePercent = (rateDiff / result.current_levy_rate) * 100;
+        
+        rateIncrease.textContent = `${rateDiff.toFixed(4)} (${ratePercent.toFixed(2)}%)`;
+        
+        // Set impact category
+        const resultImpact = document.getElementById('resultImpact');
+        let impactCategory;
+        
+        if (result.difference <= 20 || Math.abs(result.percentage_change) < 1) {
+            impactCategory = 'Minimal Impact';
+            resultImpact.className = 'badge bg-success px-3 py-2';
+        } else if (result.difference <= 100 || Math.abs(result.percentage_change) < 5) {
+            impactCategory = 'Moderate Impact';
+            resultImpact.className = 'badge bg-primary px-3 py-2';
+        } else if (result.difference <= 200 || Math.abs(result.percentage_change) < 10) {
+            impactCategory = 'Significant Impact';
+            resultImpact.className = 'badge bg-warning px-3 py-2';
+        } else {
+            impactCategory = 'High Impact';
+            resultImpact.className = 'badge bg-danger px-3 py-2';
+        }
+        
+        resultImpact.textContent = impactCategory;
+        
+        // Create or update chart
+        createImpactChart(result);
+        
+        // Handle sample properties
+        if (result.sample_properties && result.sample_properties.length > 0) {
+            const tableBody = document.getElementById('samplePropertiesBody');
+            tableBody.innerHTML = '';
+            
+            result.sample_properties.forEach(prop => {
+                const row = document.createElement('tr');
+                
+                // Calculate difference and add class
+                const difference = prop.proposed_tax - prop.current_tax;
+                const diffClass = difference > 0 ? 'impact-positive' : (difference < 0 ? 'impact-negative' : 'impact-neutral');
+                
+                row.innerHTML = `
+                    <td>${prop.parcel_id}<br><span class="small text-muted">${prop.address || 'No address'}</span></td>
+                    <td>${formatCurrency(prop.assessed_value)}</td>
+                    <td>${formatCurrency(prop.current_tax)}</td>
+                    <td>${formatCurrency(prop.proposed_tax)}</td>
+                    <td class="${diffClass}">${difference > 0 ? '+' : ''}${formatCurrency(difference)}<br>
+                        <span class="small">${prop.percentage_change > 0 ? '+' : ''}${prop.percentage_change.toFixed(2)}%</span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            samplePropertiesSection.classList.remove('d-none');
+        } else {
+            samplePropertiesSection.classList.add('d-none');
+        }
+    }
+    
+    // Create impact chart function
+    function createImpactChart(result) {
+        const ctx = document.getElementById('impactChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (impactChart) {
+            impactChart.destroy();
+        }
+        
+        // Create value breakdown data
+        const propertyValue = parseFloat(document.getElementById('propertyValue').value);
+        
+        // Calculate values at different assessment levels
+        const valueLevels = [
+            propertyValue * 0.5,   // 50% of entered value
+            propertyValue * 0.75,  // 75% of entered value
+            propertyValue,         // 100% of entered value
+            propertyValue * 1.25,  // 125% of entered value
+            propertyValue * 1.5    // 150% of entered value
+        ];
+        
+        const currentTaxes = valueLevels.map(value => (value * result.current_levy_rate) / 1000);
+        const proposedTaxes = valueLevels.map(value => (value * result.proposed_levy_rate) / 1000);
+        const differences = proposedTaxes.map((tax, i) => tax - currentTaxes[i]);
+        const percentages = differences.map((diff, i) => (diff / currentTaxes[i]) * 100);
+        
+        // Create labels for value levels
+        const labels = valueLevels.map(value => formatCurrency(value));
+        
+        // Create the chart
+        impactChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Current Annual Tax',
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        data: currentTaxes
+                    },
+                    {
+                        label: 'Proposed Annual Tax',
+                        backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                        data: proposedTaxes
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Tax Impact by Property Value',
+                        font: {
+                            size: 16
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            afterBody: function(context) {
+                                const dataIndex = context[0].dataIndex;
+                                return [
+                                    `Difference: ${formatCurrency(differences[dataIndex])}`,
+                                    `Change: ${percentages[dataIndex].toFixed(2)}%`
+                                ];
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Property Value'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Annual Tax Amount'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
         });
+    }
+    
+    // Tour functionality
+    document.querySelector('[data-tour="bill-impact-calculator"]').addEventListener('click', function() {
+        // Initialize introjs tour
+        const tour = introJs();
+        
+        tour.setOptions({
+            steps: [
+                {
+                    element: document.querySelector('.calculator-section'),
+                    intro: 'Welcome to the Bill Impact Calculator! This tool helps you understand how changes in levy rates affect property tax bills for individual properties.',
+                    position: 'right'
+                },
+                {
+                    element: document.getElementById('taxDistrict'),
+                    intro: 'Start by selecting a tax district. This will load the current levy rates for that district.',
+                    position: 'bottom'
+                },
+                {
+                    element: document.getElementById('propertyValue'),
+                    intro: 'Enter the assessed value of a property you want to analyze.',
+                    position: 'bottom'
+                },
+                {
+                    element: document.getElementById('currentRate'),
+                    intro: 'The current levy rate will be pre-filled when you select a district, but you can adjust it if needed.',
+                    position: 'bottom'
+                },
+                {
+                    element: document.getElementById('proposedRate'),
+                    intro: 'Enter the proposed levy rate to see how it would impact property tax bills.',
+                    position: 'bottom'
+                },
+                {
+                    element: document.getElementById('calculateBtn'),
+                    intro: 'Click this button to calculate the impact of the rate change on property tax bills.',
+                    position: 'bottom'
+                }
+            ],
+            exitOnOverlayClick: true,
+            showStepNumbers: false,
+            showBullets: true,
+            showProgress: true,
+            hideNext: false,
+            hidePrev: false,
+            doneLabel: 'Done',
+            nextLabel: 'Next →',
+            prevLabel: '← Back',
+        });
+        
+        tour.start();
+    });
+    
+    // Formatting function
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(value);
     }
 });
 </script>

@@ -216,6 +216,7 @@ from routes_admin import admin_bp
 from routes_glossary import glossary_bp
 from routes_auth import auth_bp, init_auth_routes
 from routes_dashboard import dashboard_bp, register_dashboard_routes
+from routes_levy_calculator import levy_calculator_bp, register_levy_calculator_routes
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -224,6 +225,7 @@ app.register_blueprint(public_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(glossary_bp)
 app.register_blueprint(dashboard_bp)
+app.register_blueprint(levy_calculator_bp)
 
 # Initialize authentication routes
 init_auth_routes(app)
