@@ -29,6 +29,9 @@
                                 <a href="{{ url_for('levy_exports.export_data') }}" class="btn btn-success">
                                     <i class="bi bi-download"></i> Export Data
                                 </a>
+                                <a href="{{ url_for('levy_exports.template_manager') }}" class="btn btn-warning">
+                                    <i class="bi bi-file-earmark-plus"></i> Templates
+                                </a>
                                 {% if years_data %}
                                 <a href="{{ url_for('levy_exports.view_year', year=stats.latest_year) }}" class="btn btn-outline-primary">
                                     <i class="bi bi-eye"></i> View Latest Year ({{ stats.latest_year }})
