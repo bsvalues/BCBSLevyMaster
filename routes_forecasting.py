@@ -2,14 +2,16 @@
 Routes for the forecasting module of the Levy Calculation Application.
 
 This module provides routes for generating forecasts of levy rates
-using historical data and various statistical models.
+using historical data and various statistical models, including AI-enhanced forecasting.
 """
 import json
 import logging
 from typing import Dict, Any, List, Tuple, Optional
+from datetime import datetime
 
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from sqlalchemy import func
+import numpy as np
 
 from app2 import db
 from models import TaxCode, TaxCodeHistoricalRate
@@ -24,7 +26,9 @@ from utils.forecasting_utils import (
 try:
     from utils.ai_forecasting_utils import (
         generate_forecast_explanation,
-        generate_forecast_recommendations
+        generate_forecast_recommendations,
+        ai_forecast_model_selector,
+        detect_anomalies_with_ai
     )
     AI_FORECASTING_AVAILABLE = True
 except ImportError:
@@ -63,7 +67,8 @@ def index():
     return render_template(
         'forecasting/index.html',
         page_title='Levy Rate Forecasting',
-        tax_codes=tax_codes
+        tax_codes=tax_codes,
+        ai_forecasting_available=AI_FORECASTING_AVAILABLE
     )
 
 @forecasting_bp.route('/analyze/<int:tax_code_id>', methods=['GET'])
@@ -283,3 +288,208 @@ def forecast():
         preferred_model=preferred_model,
         include_explanation=include_explanation
     )
+
+
+@forecasting_bp.route('/ai', methods=['GET'])
+def ai_dashboard():
+    """Render the AI-enhanced forecasting dashboard."""
+    if not AI_FORECASTING_AVAILABLE:
+        flash('AI-enhanced forecasting is not available.', 'warning')
+        return redirect(url_for('forecasting.index'))
+    
+    # Get tax codes with sufficient historical data (at least 3 years)
+    tax_codes_with_counts = db.session.query(
+        TaxCode,
+        func.count(TaxCodeHistoricalRate.id).label('history_count')
+    ).join(
+        TaxCodeHistoricalRate,
+        TaxCode.id == TaxCodeHistoricalRate.tax_code_id
+    ).group_by(
+        TaxCode.id
+    ).having(
+        func.count(TaxCodeHistoricalRate.id) >= 3
+    ).order_by(
+        TaxCode.code
+    ).all()
+    
+    # Format for the template
+    tax_codes = []
+    for tax_code, history_count in tax_codes_with_counts:
+        tax_codes.append({
+            'id': tax_code.id,
+            'code': tax_code.code,
+            'description': tax_code.description or f"District: {tax_code.district.name if hasattr(tax_code, 'district') and tax_code.district else 'Unknown'}",
+            'history_count': history_count
+        })
+    
+    return render_template(
+        'forecasting/ai_dashboard.html',
+        page_title='AI-Enhanced Forecasting',
+        tax_codes=tax_codes
+    )
+
+
+@forecasting_bp.route('/ai/generate', methods=['POST'])
+def generate_ai_forecast():
+    """Generate an AI-enhanced forecast and return JSON data."""
+    if not AI_FORECASTING_AVAILABLE:
+        return jsonify({'error': 'AI-enhanced forecasting is not available.'}), 400
+    
+    try:
+        # Get form parameters
+        tax_code = request.form.get('tax_code')
+        years_ahead = request.form.get('years_ahead', type=int, default=3)
+        scenario = request.form.get('scenario', default='baseline')
+        
+        # Validate parameters
+        if not tax_code:
+            return jsonify({'error': 'Please select a tax code.'}), 400
+        
+        if years_ahead < 1 or years_ahead > 10:
+            return jsonify({'error': 'Years ahead must be between 1 and 10.'}), 400
+        
+        if scenario not in ['baseline', 'optimistic', 'pessimistic']:
+            return jsonify({'error': 'Invalid scenario.'}), 400
+        
+        # Get the tax code from the database
+        tax_code_obj = TaxCode.query.filter_by(code=tax_code).first()
+        
+        if not tax_code_obj:
+            return jsonify({'error': f'Tax code {tax_code} not found.'}), 404
+        
+        # Get historical rates for this tax code
+        historical_rates = TaxCodeHistoricalRate.query.filter_by(
+            tax_code_id=tax_code_obj.id
+        ).order_by(
+            TaxCodeHistoricalRate.year
+        ).all()
+        
+        if len(historical_rates) < 3:
+            return jsonify({'error': 'Insufficient historical data. At least 3 years of data is required.'}), 400
+        
+        # Extract data for analysis
+        historical_years = [rate.year for rate in historical_rates]
+        historical_rates_values = [rate.levy_rate for rate in historical_rates]
+        
+        # Get additional data for ML analysis
+        assessed_values = [rate.total_assessed_value for rate in historical_rates if rate.total_assessed_value is not None]
+        levy_amounts = [rate.levy_amount for rate in historical_rates if rate.levy_amount is not None]
+        
+        # Use AI to select the best forecasting model
+        data = {
+            'years': historical_years,
+            'rates': historical_rates_values,
+            'assessed_values': assessed_values if assessed_values else None,
+            'levy_amounts': levy_amounts if levy_amounts else None
+        }
+        
+        # Select model using AI
+        selected_model = ai_forecast_model_selector(data)
+        
+        # Fit the model and generate forecast
+        selected_model.fit()
+        
+        # Generate future years
+        last_year = historical_years[-1]
+        forecast_years = [last_year + i + 1 for i in range(years_ahead)]
+        
+        # Apply scenario adjustment to the forecast
+        scenario_adjustment = 1.0  # Baseline scenario
+        if scenario == 'optimistic':
+            scenario_adjustment = 0.85  # More favorable rates (lower)
+        elif scenario == 'pessimistic':
+            scenario_adjustment = 1.15  # Less favorable rates (higher)
+        
+        # Generate point forecasts with scenario adjustment
+        forecast_rates = [selected_model.predict(year) * scenario_adjustment for year in forecast_years]
+        
+        # Calculate confidence intervals (95% by default)
+        historical_std = np.std(historical_rates_values)
+        z_score = 1.96  # for 95% confidence
+        
+        confidence_intervals = []
+        for i, rate in enumerate(forecast_rates):
+            # Adjust confidence interval width based on forecast horizon
+            # Further in the future = wider interval
+            margin = z_score * historical_std * (1 + (i * 0.1))
+            lower = max(0, rate - margin)
+            upper = rate + margin
+            confidence_intervals.append([lower, upper])
+        
+        # Detect anomalies with AI
+        anomalies = detect_anomalies_with_ai(
+            historical_years,
+            historical_rates_values,
+            tax_code
+        )
+        
+        # Generate AI explanation
+        explanation = generate_forecast_explanation(
+            tax_code=tax_code,
+            historical_years=historical_years,
+            historical_rates=historical_rates_values,
+            forecast_years=forecast_years,
+            forecast_rates=forecast_rates,
+            best_model=selected_model.__class__.__name__.replace('RateForecast', '').lower(),
+            anomalies=anomalies
+        )
+        
+        # Generate AI recommendations
+        recommendations = []
+        for i, rec in enumerate(generate_forecast_recommendations(
+            tax_code=tax_code,
+            historical_rates=historical_rates_values,
+            forecast_rates=forecast_rates,
+            current_year=historical_years[-1],
+            forecast_years=forecast_years
+        )):
+            # Assign priority based on position
+            priority = 'high' if i == 0 else ('medium' if i == 1 else 'low')
+            recommendations.append({
+                'title': f"Recommendation {i+1}",
+                'description': rec,
+                'priority': priority
+            })
+        
+        # Format anomalies for the UI
+        formatted_anomalies = []
+        for anomaly in anomalies:
+            if 'explanation' not in anomaly:
+                anomaly['explanation'] = "Statistical anomaly detected."
+            if 'severity' not in anomaly:
+                anomaly['severity'] = "medium"
+            
+            formatted_anomalies.append({
+                'year': anomaly['year'],
+                'rate': anomaly['rate'],
+                'explanation': anomaly['explanation'],
+                'severity': anomaly['severity']
+            })
+        
+        # Prepare response
+        result = {
+            'tax_code': tax_code,
+            'scenario': scenario,
+            'historical_data': {
+                'years': historical_years,
+                'rates': historical_rates_values
+            },
+            'forecast': {
+                'years': forecast_years,
+                'predicted_rates': forecast_rates,
+                'confidence_intervals': confidence_intervals
+            },
+            'ai_enhanced': {
+                'selected_model': selected_model.__class__.__name__.replace('RateForecast', '').lower(),
+                'explanation': explanation,
+                'recommendations': recommendations,
+                'anomalies': formatted_anomalies
+            },
+            'generation_time': datetime.now().isoformat()
+        }
+        
+        return jsonify(result)
+    
+    except Exception as e:
+        logger.exception(f"Error generating AI forecast: {str(e)}")
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
