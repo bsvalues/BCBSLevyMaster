@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Union
 
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, Response, current_app, session
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 import pandas as pd
 import numpy as np
