@@ -81,11 +81,17 @@ class AdvancedAnalysisAgent(MCPAgent):
         
         # Limit array data to prevent token limits
         if isinstance(tax_codes, list) and len(tax_codes) > 10:
-            limited_tax_codes = tax_codes[0:10]
+            limited_tax_codes = []
+            for i in range(10):  # Get first 10 items
+                limited_tax_codes.append(tax_codes[i])
         if isinstance(historical_rates, list) and len(historical_rates) > 10:
-            limited_historical_rates = historical_rates[0:10]
+            limited_historical_rates = []
+            for i in range(10):  # Get first 10 items
+                limited_historical_rates.append(historical_rates[i])
         if property_records and isinstance(property_records, list) and len(property_records) > 10:
-            limited_property_records = property_records[0:10]
+            limited_property_records = []
+            for i in range(10):  # Get first 10 items
+                limited_property_records.append(property_records[i])
         
         analysis_data = {
             "tax_codes": limited_tax_codes,
@@ -411,9 +417,30 @@ class AdvancedAnalysisAgent(MCPAgent):
             
             # Limit array data to prevent token limits
             if isinstance(tax_codes, list) and len(tax_codes) > 10:
-                limited_tax_codes = tax_codes[0:10]  # Use explicit indices rather than slicing
+                limited_tax_codes = []
+                # Safely limit to first 10 items
+                count = 0
+                for item in tax_codes:
+                    if count >= 10:
+                        break
+                    if isinstance(item, dict):
+                        limited_tax_codes.append(dict(item))
+                    else:
+                        limited_tax_codes.append(item)
+                    count += 1
+            
             if isinstance(historical_rates, list) and len(historical_rates) > 10:
-                limited_historical_rates = historical_rates[0:10]  # Use explicit indices rather than slicing
+                limited_historical_rates = []
+                # Safely limit to first 10 items
+                count = 0
+                for item in historical_rates:
+                    if count >= 10:
+                        break
+                    if isinstance(item, dict):
+                        limited_historical_rates.append(dict(item))
+                    else:
+                        limited_historical_rates.append(item)
+                    count += 1
             
             combined_data = {
                 "district_info": district_info,
@@ -642,5 +669,14 @@ def get_advanced_analysis_agent():
     """Get the advanced analysis agent instance, initializing it if necessary."""
     global advanced_analysis_agent
     if advanced_analysis_agent is None:
-        init_advanced_agent()
+        try:
+            advanced_analysis_agent = init_advanced_agent()
+            if advanced_analysis_agent is None:
+                logging.error("Failed to initialize advanced analysis agent")
+                # Create a new instance if initialization failed
+                advanced_analysis_agent = AdvancedAnalysisAgent()
+        except Exception as e:
+            logging.error(f"Error initializing advanced analysis agent: {str(e)}")
+            # Create a new instance if initialization failed with an exception
+            advanced_analysis_agent = AdvancedAnalysisAgent()
     return advanced_analysis_agent
