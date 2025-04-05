@@ -13,7 +13,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from sqlalchemy import func
 import numpy as np
 
-from models import TaxCode, TaxCodeHistoricalRate
+from models import TaxCode, TaxCodeHistoricalRate, TaxDistrict
 from app import db
 from utils.forecasting_utils import (
     generate_forecast_for_tax_code,
@@ -488,6 +488,23 @@ def generate_ai_explanation():
     except Exception as e:
         logger.exception(f"Error generating AI explanation: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@forecasting_bp.route('/ai/enhanced', methods=['GET'])
+def ai_enhanced():
+    """Render the AI-enhanced comprehensive analysis page."""
+    if not AI_FORECASTING_AVAILABLE:
+        flash('AI-enhanced analysis is not available.', 'warning')
+        return redirect(url_for('forecasting.index'))
+    
+    # Get all tax districts
+    districts = TaxDistrict.query.order_by(TaxDistrict.name).all()
+    
+    return render_template(
+        'forecasting/ai_enhanced.html',
+        page_title='AI-Enhanced Comprehensive Analysis',
+        districts=districts,
+        ai_available=AI_FORECASTING_AVAILABLE
+    )
 
 @forecasting_bp.route('/ai/analyze', methods=['POST'])
 def execute_ai_comprehensive_analysis():
