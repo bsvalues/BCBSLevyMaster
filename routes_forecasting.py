@@ -55,7 +55,7 @@ def index():
     ).having(
         func.count(TaxCodeHistoricalRate.id) >= 3
     ).order_by(
-        TaxCode.code
+        TaxCode.tax_code
     ).all()
     
     # Format for the template
@@ -102,7 +102,7 @@ def analyze(tax_code_id: int):
     
     return render_template(
         'forecasting/analyze.html',
-        page_title=f'Tax Code Analysis: {tax_code.code}',
+        page_title=f'Tax Code Analysis: {tax_code.tax_code}',
         tax_code=tax_code,
         historical_rates=historical_rates,
         years=years,
@@ -128,7 +128,7 @@ def forecast():
     ).having(
         func.count(TaxCodeHistoricalRate.id) >= 3
     ).order_by(
-        TaxCode.code
+        TaxCode.tax_code
     ).all()
     
     # Format for the template
@@ -309,7 +309,7 @@ def ai_dashboard():
     ).having(
         func.count(TaxCodeHistoricalRate.id) >= 3
     ).order_by(
-        TaxCode.code
+        TaxCode.tax_code
     ).all()
     
     # Format for the template
@@ -317,7 +317,7 @@ def ai_dashboard():
     for tax_code, history_count in tax_codes_with_counts:
         tax_codes.append({
             'id': tax_code.id,
-            'code': tax_code.code,
+            'code': tax_code.tax_code,
             'description': tax_code.description or f"District: {tax_code.district.name if hasattr(tax_code, 'district') and tax_code.district else 'Unknown'}",
             'history_count': history_count
         })
@@ -352,7 +352,7 @@ def generate_ai_forecast():
             return jsonify({'error': 'Invalid scenario.'}), 400
         
         # Get the tax code from the database
-        tax_code_obj = TaxCode.query.filter_by(code=tax_code).first()
+        tax_code_obj = TaxCode.query.filter_by(tax_code=tax_code).first()
         
         if not tax_code_obj:
             return jsonify({'error': f'Tax code {tax_code} not found.'}), 404
@@ -416,80 +416,109 @@ def generate_ai_forecast():
             upper = rate + margin
             confidence_intervals.append([lower, upper])
         
-        # Detect anomalies with AI
+        # Optional: Use AI to detect anomalies in the historical data
         anomalies = detect_anomalies_with_ai(
-            historical_years,
-            historical_rates_values,
-            tax_code
+            years=historical_years,
+            rates=historical_rates_values
         )
         
-        # Generate AI explanation
+        # Prepare response data
+        response_data = {
+            'tax_code': tax_code,
+            'scenario': scenario,
+            'years': historical_years + forecast_years,
+            'historical_rates': historical_rates_values + [None] * len(forecast_years),
+            'forecast_rates': [None] * len(historical_years) + forecast_rates,
+            'confidence_intervals': [None] * len(historical_years) + confidence_intervals,
+            'anomalies': anomalies,
+            'model_name': selected_model.name
+        }
+        
+        return jsonify(response_data)
+    
+    except Exception as e:
+        logger.exception(f"Error in AI forecast: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@forecasting_bp.route('/ai/explain', methods=['POST'])
+def generate_ai_explanation():
+    """Generate an AI-enhanced explanation of a forecast."""
+    if not AI_FORECASTING_AVAILABLE:
+        return jsonify({'error': 'AI-enhanced forecasting is not available.'}), 400
+    
+    try:
+        # Get form parameters
+        tax_code = request.form.get('tax_code')
+        historical_years = request.form.getlist('historical_years[]', type=int)
+        historical_rates = request.form.getlist('historical_rates[]', type=float)
+        forecast_years = request.form.getlist('forecast_years[]', type=int)
+        forecast_rates = request.form.getlist('forecast_rates[]', type=float)
+        anomalies = request.form.getlist('anomalies[]', type=int)
+        model_name = request.form.get('model_name')
+        
+        # Validate parameters
+        if not tax_code or not historical_years or not historical_rates:
+            return jsonify({'error': 'Missing required parameters.'}), 400
+        
+        # Generate explanation and recommendations
         explanation = generate_forecast_explanation(
             tax_code=tax_code,
             historical_years=historical_years,
-            historical_rates=historical_rates_values,
+            historical_rates=historical_rates,
             forecast_years=forecast_years,
             forecast_rates=forecast_rates,
-            best_model=selected_model.__class__.__name__.replace('RateForecast', '').lower(),
+            best_model=model_name,
             anomalies=anomalies
         )
         
-        # Generate AI recommendations
-        recommendations = []
-        for i, rec in enumerate(generate_forecast_recommendations(
+        recommendations = generate_forecast_recommendations(
             tax_code=tax_code,
-            historical_rates=historical_rates_values,
+            historical_rates=historical_rates,
             forecast_rates=forecast_rates,
             current_year=historical_years[-1],
             forecast_years=forecast_years
-        )):
-            # Assign priority based on position
-            priority = 'high' if i == 0 else ('medium' if i == 1 else 'low')
-            recommendations.append({
-                'title': f"Recommendation {i+1}",
-                'description': rec,
-                'priority': priority
-            })
+        )
         
-        # Format anomalies for the UI
-        formatted_anomalies = []
-        for anomaly in anomalies:
-            if 'explanation' not in anomaly:
-                anomaly['explanation'] = "Statistical anomaly detected."
-            if 'severity' not in anomaly:
-                anomaly['severity'] = "medium"
-            
-            formatted_anomalies.append({
-                'year': anomaly['year'],
-                'rate': anomaly['rate'],
-                'explanation': anomaly['explanation'],
-                'severity': anomaly['severity']
-            })
-        
-        # Prepare response
-        result = {
-            'tax_code': tax_code,
-            'scenario': scenario,
-            'historical_data': {
-                'years': historical_years,
-                'rates': historical_rates_values
-            },
-            'forecast': {
-                'years': forecast_years,
-                'predicted_rates': forecast_rates,
-                'confidence_intervals': confidence_intervals
-            },
-            'ai_enhanced': {
-                'selected_model': selected_model.__class__.__name__.replace('RateForecast', '').lower(),
-                'explanation': explanation,
-                'recommendations': recommendations,
-                'anomalies': formatted_anomalies
-            },
-            'generation_time': datetime.now().isoformat()
-        }
-        
-        return jsonify(result)
+        return jsonify({
+            'explanation': explanation,
+            'recommendations': recommendations
+        })
     
     except Exception as e:
-        logger.exception(f"Error generating AI forecast: {str(e)}")
-        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+        logger.exception(f"Error generating AI explanation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@forecasting_bp.route('/api/tax_codes', methods=['GET'])
+def api_get_tax_codes():
+    """API endpoint to get tax codes with sufficient historical data."""
+    try:
+        # Get tax codes with sufficient historical data (at least 3 years)
+        tax_codes_with_counts = db.session.query(
+            TaxCode,
+            func.count(TaxCodeHistoricalRate.id).label('history_count')
+        ).join(
+            TaxCodeHistoricalRate,
+            TaxCode.id == TaxCodeHistoricalRate.tax_code_id
+        ).group_by(
+            TaxCode.id
+        ).having(
+            func.count(TaxCodeHistoricalRate.id) >= 3
+        ).order_by(
+            TaxCode.tax_code
+        ).all()
+        
+        # Format for JSON
+        response = []
+        for tax_code, history_count in tax_codes_with_counts:
+            response.append({
+                'id': tax_code.id,
+                'code': tax_code.tax_code,
+                'description': tax_code.description or "",
+                'history_count': history_count
+            })
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        logger.exception(f"Error in API get_tax_codes: {str(e)}")
+        return jsonify({'error': str(e)}), 500
