@@ -202,13 +202,7 @@ app = create_app()
 # Root route with welcome page
 @app.route('/')
 def index():
-    """Render welcome page with system status or redirect to dashboard"""
-    from flask_login import current_user
-    
-    # Redirect authenticated users to dashboard
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.index'))
-        
+    """Render welcome page with stunning landing page design"""
     return render_template('index.html')
 
 
@@ -233,7 +227,7 @@ app.register_blueprint(public_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(glossary_bp)
 app.register_blueprint(dashboard_bp)
-app.register_blueprint(levy_calculator_bp)
+# Note: levy_calculator_bp is registered via register_levy_calculator_routes
 app.register_blueprint(tours_bp)
 # Note: historical_analysis_bp is registered via init_historical_analysis_routes
 # Note: mcp_bp is registered via init_mcp_routes
@@ -243,6 +237,9 @@ init_auth_routes(app)
 
 # Initialize tour routes
 register_tour_routes(app)
+
+# Initialize levy calculator routes
+register_levy_calculator_routes(app)
 
 # Initialize historical analysis routes
 init_historical_analysis_routes(app)

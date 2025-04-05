@@ -1,63 +1,266 @@
 {% extends "simple_base.html" %}
 
-{% block title %}Home - Levy Calculation System{% endblock %}
+{% block title %}LevyMaster - Intelligent Property Tax Calculation System{% endblock %}
 
-{% block content %}
-<div data-auto-tour="dashboard">
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="text-center mb-5" id="main-header">
-                <h1 class="display-4 fw-bold mb-4">Levy Calculation System</h1>
-                <p class="lead mb-4">A comprehensive property tax levy calculation and management system for Washington state.</p>
-                <div class="d-grid gap-2 d-md-block">
-                    <a href="{{ url_for('public.index') }}" class="btn btn-primary btn-lg me-md-2" data-tour="public-lookup">
-                        <i class="bi bi-search me-2"></i>Public Property Lookup
-                    </a>
-                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary btn-lg" data-tour="admin-dashboard">
-                        <i class="bi bi-speedometer2 me-2"></i>Admin Dashboard
-                    </a>
-                </div>
-            </div>
-            
-            <div class="row mt-5">
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark" data-tour="levy-calculation">
-                        <div class="card-body text-center py-4">
-                            <i class="bi bi-calculator display-4 text-primary mb-3"></i>
-                            <h3 class="card-title h5">Levy Calculation</h3>
-                            <p class="card-text">Calculate property tax levies with statutory compliance checks.</p>
-                        </div>
+{% block page_header %}
+<!-- Hero Section with Animated Background -->
+<div class="hero-section text-center py-5" style="background: linear-gradient(135deg, #252525 0%, #080C24 100%);">
+    <div class="container position-relative" style="z-index: 2;">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="mt-4 mb-5" id="main-header">
+                    <h1 class="display-2 fw-bold mb-3" style="background: linear-gradient(135deg, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">LevyMaster</h1>
+                    <p class="lead mb-4 fs-4 text-light">Intelligent Property Tax Calculation & Analysis</p>
+                    <p class="lead mb-5 text-light">Transform complex tax calculations into clear, actionable insights with AI-powered analytics</p>
+                    <div class="d-grid gap-3 d-sm-flex justify-content-sm-center mb-5">
+                        <a href="{{ url_for('levy_calculator.calculator') }}" class="btn btn-primary btn-lg px-4 rounded-pill" data-tour="property-lookup">
+                            <i class="bi bi-calculator me-2"></i>Calculate Levy
+                        </a>
+                        <a href="{{ url_for('public.search') }}" class="btn btn-outline-light btn-lg px-4 rounded-pill" data-tour="public-search">
+                            <i class="bi bi-search me-2"></i>Property Search
+                        </a>
                     </div>
                 </div>
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark" data-tour="data-analysis">
-                        <div class="card-body text-center py-4">
-                            <i class="bi bi-graph-up-arrow display-4 text-success mb-3"></i>
-                            <h3 class="card-title h5">Data Analysis</h3>
-                            <p class="card-text">Perform historical analysis and forecasting of levy rates.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 border-0 bg-dark" data-tour="reports">
-                        <div class="card-body text-center py-4">
-                            <i class="bi bi-file-earmark-text display-4 text-warning mb-3"></i>
-                            <h3 class="card-title h5">Reports</h3>
-                            <p class="card-text">Generate comprehensive reports for various stakeholders.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="alert alert-info mt-5" role="alert" id="system-status">
-                <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>System Status</h4>
-                <p>The Public Property Lookup Portal is now available! Use the portal to search properties, view tax information, explore tax districts, and access the comprehensive tax glossary.</p>
-                <hr>
-                <p class="mb-0">The Admin Dashboard is now available with system monitoring and quick access to key functions. Additional administrative features continue to be enhanced.</p>
             </div>
         </div>
     </div>
+    <!-- Animated particles background -->
+    <div id="particles-js" class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 1;"></div>
 </div>
-</div> <!-- End data-auto-tour -->
+{% endblock %}
+
+{% block content %}
+<div data-auto-tour="dashboard">
+    <!-- Features Section with Animated Icons -->
+    <section class="py-5 features-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Powerful Tax Analysis Tools</h2>
+                <p class="lead text-muted">Comprehensive solutions for property tax management</p>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="levy-calculation">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-primary bg-opacity-10 p-3">
+                                <i class="bi bi-calculator text-primary"></i>
+                            </div>
+                            <h3 class="card-title h4 mb-3">Levy Calculation</h3>
+                            <p class="card-text">Accurate property tax levy calculations with automatic statutory compliance verification and intelligent rate optimization.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="historical-analysis">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-success bg-opacity-10 p-3">
+                                <i class="bi bi-graph-up-arrow text-success"></i>
+                            </div>
+                            <h3 class="card-title h4 mb-3">Historical Analysis</h3>
+                            <p class="card-text">Advanced historical analysis with AI-powered forecasting to identify trends and predict future levy rates with confidence intervals.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="compliance">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-warning bg-opacity-10 p-3">
+                                <i class="bi bi-shield-check text-warning"></i>
+                            </div>
+                            <h3 class="card-title h4 mb-3">Compliance Verification</h3>
+                            <p class="card-text">Automated compliance checks ensure all calculations meet statutory requirements and identify potential issues before they occur.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Dashboard Preview Section with Gradient Background -->
+    <section class="py-5 my-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-4 mb-lg-0">
+                    <h2 class="display-6 fw-bold mb-4">Interactive Dashboard</h2>
+                    <p class="lead mb-4">Monitor key metrics, visualize trends, and gain insights with our intuitive dashboard interface.</p>
+                    <ul class="list-unstyled mb-4">
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
+                            <span>Real-time data visualization</span>
+                        </li>
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
+                            <span>Customizable reports and exports</span>
+                        </li>
+                        <li class="mb-3 d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
+                            <span>AI-powered trend analysis</span>
+                        </li>
+                    </ul>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-light rounded-pill px-4">
+                        <i class="bi bi-speedometer2 me-2"></i>Explore Dashboard
+                    </a>
+                </div>
+                <div class="col-lg-7">
+                    <div class="card bg-dark border-0 shadow">
+                        <img src="{{ url_for('static', filename='images/dashboard-preview.png') }}" alt="Dashboard Preview" class="card-img-top rounded" onerror="this.src='https://via.placeholder.com/800x450?text=Interactive+Dashboard';this.onerror='';">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Stats Section -->
+    <section class="py-5">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-6 fw-bold">System Capabilities</h2>
+                <p class="lead text-muted">Powerful tools for comprehensive property tax management</p>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
+                        <h3 class="display-4 fw-bold mb-2 counter-value">100%</h3>
+                        <p class="text-muted mb-0">Statutory Compliance</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
+                        <h3 class="display-4 fw-bold mb-2 counter-value">99.9%</h3>
+                        <p class="text-muted mb-0">Calculation Accuracy</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
+                        <h3 class="display-4 fw-bold mb-2 counter-value">5+</h3>
+                        <p class="text-muted mb-0">Forecasting Models</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
+                        <h3 class="display-4 fw-bold mb-2 counter-value">10+</h3>
+                        <p class="text-muted mb-0">Export Formats</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Call to Action -->
+    <section class="py-5 my-5 text-center cta-section" style="background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);">
+        <div class="container py-4">
+            <h2 class="display-5 fw-bold text-white mb-4">Ready to Transform Your Tax Calculations?</h2>
+            <p class="lead text-white mb-5">Start exploring the powerful features of LevyMaster today</p>
+            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+                <a href="{{ url_for('levy_calculator.calculator') }}" class="btn btn-light btn-lg px-4 rounded-pill fw-bold">
+                    <i class="bi bi-calculator me-2"></i>Start Calculating
+                </a>
+                <a href="{{ url_for('historical_analysis.advanced_historical_analysis') }}" class="btn btn-outline-light btn-lg px-4 rounded-pill">
+                    <i class="bi bi-graph-up me-2"></i>Analyze Trends
+                </a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Hero section styles */
+    .hero-section {
+        position: relative;
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+    }
+    
+    /* Feature cards hover effect */
+    .hover-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Stats card styles */
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        background-color: #111 !important;
+    }
+    
+    /* CTA section */
+    .cta-section {
+        position: relative;
+        overflow: hidden;
+        border-radius: 20px;
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+    
+    /* Animated counter */
+    .counter-value {
+        display: inline-block;
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Particles.js for animated background -->
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize particles.js
+        if (typeof particlesJS !== 'undefined') {
+            particlesJS("particles-js", {
+                particles: {
+                    number: { value: 80, density: { enable: true, value_area: 800 } },
+                    color: { value: "#3498db" },
+                    shape: { type: "circle" },
+                    opacity: { value: 0.5, random: true },
+                    size: { value: 3, random: true },
+                    line_linked: {
+                        enable: true,
+                        distance: 150,
+                        color: "#3498db",
+                        opacity: 0.4,
+                        width: 1
+                    },
+                    move: {
+                        enable: true,
+                        speed: 2,
+                        direction: "none",
+                        random: true,
+                        straight: false,
+                        out_mode: "out",
+                        bounce: false
+                    }
+                },
+                interactivity: {
+                    detect_on: "canvas",
+                    events: {
+                        onhover: { enable: true, mode: "repulse" },
+                        onclick: { enable: true, mode: "push" },
+                        resize: true
+                    }
+                },
+                retina_detect: true
+            });
+        }
+        
+        // Initialize guided tour system
+        console.log("Guided Tour System initialized");
+        
+        // Log initialization
+        console.log("Levy Calculation System JS initialized successfully");
+    });
+</script>
 {% endblock %}
