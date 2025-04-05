@@ -26,22 +26,68 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/benton-county-logo.png') }}">
     
     <style>
-        /* Benton County Color Scheme */
+        /* Benton County Modern Color Scheme */
         :root {
-            --primary-color: #1a7b92;   /* Teal Blue - Primary Brand Color */
-            --secondary-color: #4d7c2d; /* Green - Secondary Brand Color */
-            --accent-color: #5da2b3;    /* Light Teal - Accent Color */
-            --bg-dark: #193046;         /* Dark Navy - Background Color */
-            --text-light: #f7f9fc;      /* Off-White - Text on dark backgrounds */
-            --benton-yellow: #e3b23c;   /* Yellow accent for special highlights */
+            --primary-color: #3DA5BD;   /* Lighter Teal Blue - Primary Brand Color */
+            --secondary-color: #66A355; /* Lighter Green - Secondary Brand Color */
+            --accent-color: #7CBFCC;    /* Light Teal - Accent Color */
+            --bg-dark: #1D3A54;         /* Slightly Lighter Navy - Background Color */
+            --bg-light: #f8fafc;        /* Very Light Gray - Light Background */
+            --text-light: #ffffff;      /* Pure White - Text on dark backgrounds */
+            --text-dark: #334155;       /* Dark Slate - Text on light backgrounds */
+            --benton-yellow: #F0C75C;   /* Brighter Yellow accent */
+            --border-color: #e5e7eb;    /* Light Border Color */
+            --card-bg: #ffffff;         /* Card Background */
+            --hover-bg: #f1f5f9;        /* Hover Background */
         }
         
-        .bg-primary {
-            background-color: var(--primary-color) !important;
+        /* Base Elements */
+        body {
+            color: var(--text-dark);
+            background-color: var(--bg-light);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            letter-spacing: -0.011em;
         }
         
-        .text-primary {
-            color: var(--primary-color) !important;
+        /* Navbar Styling */
+        .navbar {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            background: linear-gradient(90deg, #2D5F8B 0%, #3DA5BD 100%) !important;
+            border-bottom: none;
+            padding: 0.75rem 0;
+        }
+        
+        .navbar-dark .navbar-nav .nav-link {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .navbar-dark .navbar-nav .nav-link:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 0.25rem;
+        }
+        
+        .navbar-dark .navbar-nav .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.2) !important;
+            border-radius: 0.25rem;
+            font-weight: 600;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+        
+        /* Buttons */
+        .btn {
+            font-weight: 500;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
         
         .btn-primary {
@@ -49,25 +95,59 @@
             border-color: var(--primary-color) !important;
         }
         
-        .btn-primary:hover {
-            background-color: #156a80 !important;
-            border-color: #156a80 !important;
+        .btn-primary:hover, .btn-primary:focus {
+            background-color: #2994ac !important;
+            border-color: #2994ac !important;
+            box-shadow: 0 4px 6px rgba(29, 78, 216, 0.1), 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
         }
         
-        .nav-link.active {
-            background-color: rgba(26, 123, 146, 0.2) !important;
+        /* Cards */
+        .card {
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02), 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+            background-color: var(--card-bg);
+        }
+        
+        .card:hover {
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.04), 0 4px 6px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(248, 250, 252, 0.8);
+            font-weight: 600;
         }
         
         /* Custom header with Benton County vineyard image */
         .app-header-bg {
-            background-image: linear-gradient(rgba(25, 48, 70, 0.8), rgba(25, 48, 70, 0.8)), 
+            background-image: linear-gradient(90deg, rgba(29, 58, 84, 0.75), rgba(61, 165, 189, 0.75)), 
                              url('{{ url_for('static', filename='images/benton-county-header.png') }}');
             background-size: cover;
             background-position: center;
             color: white;
-            padding: 1rem 0;
-            margin-bottom: 1.5rem;
-            border-bottom: 4px solid var(--primary-color);
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-bottom: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .app-header-bg h1 {
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+        
+        .app-header-bg .lead {
+            font-weight: 400;
+            opacity: 0.9;
+        }
+        
+        /* Text colors */
+        .text-primary {
+            color: var(--primary-color) !important;
         }
     </style>
 </head>
@@ -316,33 +396,85 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-light py-4 border-top mt-auto" style="border-color: var(--primary-color) !important;">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-4 mb-3 mb-md-0">
-                    <div class="d-flex align-items-center mb-3">
-                        <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="40" class="me-2">
-                        <div>
-                            <h5 class="mb-0">Benton County</h5>
-                            <small>Washington | Est. 1905</small>
+    <footer class="mt-auto" style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);">
+        <!-- Top wave divider -->
+        <div class="wave-divider">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" preserveAspectRatio="none" style="width: 100%; height: 40px; display: block;">
+                <path fill="#3DA5BD" fill-opacity="0.1" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
+                <path fill="#3DA5BD" fill-opacity="0.2" d="M0,96L60,90.7C120,85,240,75,360,74.7C480,75,600,85,720,90.7C840,96,960,96,1080,90.7C1200,85,1320,75,1380,69.3L1440,64L1440,120L1380,120C1320,120,1200,120,1080,120C960,120,840,120,720,120C600,120,480,120,360,120C240,120,120,120,60,120L0,120Z"></path>
+            </svg>
+        </div>
+        
+        <!-- Footer Content -->
+        <div class="py-5">
+            <div class="container">
+                <div class="row g-4">
+                    <div class="col-lg-4 col-md-6">
+                        <div class="d-flex align-items-center mb-4">
+                            <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="50" class="me-3">
+                            <div>
+                                <h5 class="mb-0 fw-bold text-primary">Benton County</h5>
+                                <span class="text-muted">Washington | Est. 1905</span>
+                            </div>
                         </div>
+                        <p class="text-muted mb-4">Providing accurate and transparent property tax assessment services to Benton County residents.</p>
+                        <p class="text-muted small">&copy; {{ current_year }} Benton County Assessor's Office</p>
                     </div>
-                    <p class="mb-0">&copy; {{ current_year }} Benton County LevyMaster v1.0</p>
-                    <p class="mb-0">Assessor's Office</p>
+                    
+                    <div class="col-lg-2 col-md-6">
+                        <h6 class="fw-bold mb-3 text-primary">Tax Tools</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><a href="{{ url_for('levy_calculator.calculator') }}" class="text-decoration-none text-muted">Levy Calculator</a></li>
+                            <li class="mb-2"><a href="{{ url_for('forecasting.forecast') }}" class="text-decoration-none text-muted">Forecasting</a></li>
+                            <li class="mb-2"><a href="{{ url_for('levy_calculator.impact_calculator') }}" class="text-decoration-none text-muted">Impact Calculator</a></li>
+                            <li class="mb-2"><a href="{{ url_for('glossary.glossary') }}" class="text-decoration-none text-muted">Glossary</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-lg-2 col-md-6">
+                        <h6 class="fw-bold mb-3 text-primary">Quick Links</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><a href="{{ url_for('dashboard.index') }}" class="text-decoration-none text-muted">Dashboard</a></li>
+                            <li class="mb-2"><a href="{{ url_for('data_management.districts') }}" class="text-decoration-none text-muted">Tax Districts</a></li>
+                            <li class="mb-2"><a href="{{ url_for('data_management.property_lookup') }}" class="text-decoration-none text-muted">Property Lookup</a></li>
+                            <li class="mb-2"><a href="{{ url_for('historical_analysis.historical_analysis') }}" class="text-decoration-none text-muted">Historical Analysis</a></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-lg-4 col-md-6">
+                        <h6 class="fw-bold mb-3 text-primary">Contact Information</h6>
+                        <ul class="list-unstyled mb-4">
+                            <li class="d-flex mb-3">
+                                <i class="bi bi-geo-alt-fill text-primary me-2 mt-1"></i>
+                                <span class="text-muted">5600 W. Canal Drive<br>Kennewick, WA 99336</span>
+                            </li>
+                            <li class="d-flex mb-3">
+                                <i class="bi bi-telephone-fill text-primary me-2 mt-1"></i>
+                                <span class="text-muted">(509) 736-3080</span>
+                            </li>
+                            <li class="d-flex mb-3">
+                                <i class="bi bi-envelope-fill text-primary me-2 mt-1"></i>
+                                <span class="text-muted">assessor@co.benton.wa.us</span>
+                            </li>
+                        </ul>
+                        <a href="https://www.co.benton.wa.us/" class="btn btn-outline-primary btn-sm rounded-pill" target="_blank">
+                            <i class="bi bi-globe me-1"></i> Visit County Website
+                        </a>
+                    </div>
                 </div>
-                <div class="col-md-4 mb-3 mb-md-0">
-                    <h5 class="mb-3">Quick Links</h5>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><a href="{{ url_for('levy_calculator.calculator') }}" class="text-decoration-none link-light">Levy Calculator</a></li>
-                        <li class="mb-2"><a href="{{ url_for('forecasting.forecast') }}" class="text-decoration-none link-light">Forecasting</a></li>
-                        <li class="mb-2"><a href="{{ url_for('glossary.glossary') }}" class="text-decoration-none link-light">Glossary</a></li>
-                    </ul>
-                </div>
-                <div class="col-md-4">
-                    <h5 class="mb-3">Contact Information</h5>
-                    <p class="mb-1"><i class="bi bi-geo-alt-fill me-2"></i>5600 W. Canal Drive, Kennewick, WA</p>
-                    <p class="mb-1"><i class="bi bi-telephone-fill me-2"></i>(509) 736-3080</p>
-                    <p class="mb-1"><i class="bi bi-globe me-2"></i><a href="https://www.co.benton.wa.us/" class="text-decoration-none link-light" target="_blank">www.co.benton.wa.us</a></p>
+            </div>
+        </div>
+        
+        <!-- Bottom Copyright Bar -->
+        <div class="border-top py-3" style="background-color: rgba(248, 250, 252, 0.8);">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-6 text-center text-md-start">
+                        <small class="text-muted">LevyMaster v1.0 | Benton County Property Tax Calculator</small>
+                    </div>
+                    <div class="col-md-6 text-center text-md-end">
+                        <small class="text-muted">Current Assessment Year: {{ current_year }}</small>
+                    </div>
                 </div>
             </div>
         </div>

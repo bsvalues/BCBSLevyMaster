@@ -4,14 +4,20 @@
 
 {% block page_header %}
 <!-- Hero Section with Animated Background -->
-<div class="hero-section text-center py-5" style="background: linear-gradient(135deg, #252525 0%, #080C24 100%);">
+<div class="hero-section text-center py-5">
     <div class="container position-relative" style="z-index: 2;">
         <div class="row justify-content-center">
             <div class="col-lg-10">
-                <div class="mt-4 mb-5" id="main-header">
-                    <h1 class="display-2 fw-bold mb-3" style="background: linear-gradient(135deg, #3498db, #9b59b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">LevyMaster</h1>
-                    <p class="lead mb-4 fs-4 text-light">Intelligent Property Tax Calculation & Analysis</p>
+                <div class="mt-5 mb-5" id="main-header">
+                    <!-- Benton County Logo Badge -->
+                    <div class="mx-auto mb-4" style="max-width: 120px;">
+                        <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" class="img-fluid">
+                    </div>
+                    
+                    <h1 class="display-2 fw-bold mb-3 gradient-text">LevyMaster</h1>
+                    <p class="lead mb-4 fs-4 text-light">Benton County's Intelligent Property Tax Platform</p>
                     <p class="lead mb-5 text-light">Transform complex tax calculations into clear, actionable insights with AI-powered analytics</p>
+                    
                     <div class="d-grid gap-3 d-sm-flex justify-content-sm-center mb-5">
                         <a href="{{ url_for('levy_calculator.calculator') }}" class="btn btn-primary btn-lg px-4 rounded-pill" data-tour="levy-calculation">
                             <i class="bi bi-calculator me-2"></i>Calculate Levy
@@ -31,45 +37,49 @@
 
 {% block content %}
 <div data-auto-tour="dashboard">
-    <!-- Features Section with Animated Icons -->
+    <!-- Features Section with Elegant Cards -->
     <section class="py-5 features-section">
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="display-5 fw-bold">Powerful Tax Analysis Tools</h2>
-                <p class="lead text-muted">Comprehensive solutions for property tax management</p>
+                <p class="lead text-muted">Comprehensive solutions for property tax management in Benton County</p>
+                <div class="separator mx-auto my-4" style="width: 80px; height: 4px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
             </div>
             
             <div class="row g-4">
                 <div class="col-md-4">
-                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="levy-calculation">
+                    <div class="card h-100 border-0 shadow-sm hover-card" data-tour="levy-calculation" style="overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100 h-2" style="background: linear-gradient(90deg, #3DA5BD, #5da2b3); height: 4px;"></div>
                         <div class="card-body text-center p-5">
-                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-primary bg-opacity-10 p-3">
-                                <i class="bi bi-calculator text-primary"></i>
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(61, 165, 189, 0.1);">
+                                <i class="bi bi-calculator" style="color: #3DA5BD;"></i>
                             </div>
-                            <h3 class="card-title h4 mb-3">Levy Calculation</h3>
-                            <p class="card-text">Accurate property tax levy calculations with automatic statutory compliance verification and intelligent rate optimization.</p>
+                            <h3 class="card-title h4 mb-3 fw-bold">Levy Calculation</h3>
+                            <p class="card-text text-muted">Accurate property tax levy calculations with automatic statutory compliance verification and intelligent rate optimization.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="historical-analysis">
+                    <div class="card h-100 border-0 shadow-sm hover-card" data-tour="historical-analysis" style="overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100 h-2" style="background: linear-gradient(90deg, #66A355, #78c265); height: 4px;"></div>
                         <div class="card-body text-center p-5">
-                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-success bg-opacity-10 p-3">
-                                <i class="bi bi-graph-up-arrow text-success"></i>
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(102, 163, 85, 0.1);">
+                                <i class="bi bi-graph-up-arrow" style="color: #66A355;"></i>
                             </div>
-                            <h3 class="card-title h4 mb-3">Historical Analysis</h3>
-                            <p class="card-text">Advanced historical analysis with AI-powered forecasting to identify trends and predict future levy rates with confidence intervals.</p>
+                            <h3 class="card-title h4 mb-3 fw-bold">Historical Analysis</h3>
+                            <p class="card-text text-muted">Advanced historical analysis with AI-powered forecasting to identify trends and predict future levy rates with confidence intervals.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card h-100 border-0 bg-dark shadow-sm hover-card" data-tour="compliance">
+                    <div class="card h-100 border-0 shadow-sm hover-card" data-tour="compliance" style="overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100 h-2" style="background: linear-gradient(90deg, #F0C75C, #f5d78a); height: 4px;"></div>
                         <div class="card-body text-center p-5">
-                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle bg-warning bg-opacity-10 p-3">
-                                <i class="bi bi-shield-check text-warning"></i>
+                            <div class="feature-icon mb-4 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(240, 199, 92, 0.1);">
+                                <i class="bi bi-shield-check" style="color: #F0C75C;"></i>
                             </div>
-                            <h3 class="card-title h4 mb-3">Compliance Verification</h3>
-                            <p class="card-text">Automated compliance checks ensure all calculations meet statutory requirements and identify potential issues before they occur.</p>
+                            <h3 class="card-title h4 mb-3 fw-bold">Compliance Verification</h3>
+                            <p class="card-text text-muted">Automated compliance checks ensure all calculations meet statutory requirements and identify potential issues before they occur.</p>
                         </div>
                     </div>
                 </div>
@@ -77,34 +87,196 @@
         </div>
     </section>
     
-    <!-- Dashboard Preview Section with Gradient Background -->
-    <section class="py-5 my-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);">
-        <div class="container">
+    <!-- Dashboard Preview Section with Modern Design -->
+    <section class="py-5 my-5 app-header-bg rounded-4 mx-3">
+        <div class="container py-4">
             <div class="row align-items-center">
                 <div class="col-lg-5 mb-4 mb-lg-0">
                     <h2 class="display-6 fw-bold mb-4">Interactive Dashboard</h2>
-                    <p class="lead mb-4">Monitor key metrics, visualize trends, and gain insights with our intuitive dashboard interface.</p>
-                    <ul class="list-unstyled mb-4">
-                        <li class="mb-3 d-flex align-items-center">
-                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
-                            <span>Real-time data visualization</span>
-                        </li>
-                        <li class="mb-3 d-flex align-items-center">
-                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
-                            <span>Customizable reports and exports</span>
-                        </li>
-                        <li class="mb-3 d-flex align-items-center">
-                            <i class="bi bi-check-circle-fill text-primary me-2"></i>
-                            <span>AI-powered trend analysis</span>
-                        </li>
-                    </ul>
-                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-light rounded-pill px-4">
+                    <p class="lead mb-4 text-light opacity-90">Monitor key metrics, visualize trends, and gain insights with our intuitive dashboard interface.</p>
+                    <div class="bg-white bg-opacity-10 p-4 rounded-3 mb-4">
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-3 d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-white me-3" style="color: #F0C75C !important;"></i>
+                                <span class="text-light">Real-time data visualization</span>
+                            </li>
+                            <li class="mb-3 d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-white me-3" style="color: #F0C75C !important;"></i>
+                                <span class="text-light">Customizable reports and exports</span>
+                            </li>
+                            <li class="mb-3 d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-white me-3" style="color: #F0C75C !important;"></i>
+                                <span class="text-light">AI-powered trend analysis</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-light rounded-pill px-4 fw-medium">
                         <i class="bi bi-speedometer2 me-2"></i>Explore Dashboard
                     </a>
                 </div>
                 <div class="col-lg-7">
-                    <div class="card bg-dark border-0 shadow">
-                        <img src="{{ url_for('static', filename='images/dashboard-preview.png') }}" alt="Dashboard Preview" class="card-img-top rounded" onerror="this.src='https://via.placeholder.com/800x450?text=Interactive+Dashboard';this.onerror='';">
+                    <div class="card border-0 shadow-lg rounded-4 overflow-hidden position-relative">
+                        <!-- Decorative dots pattern overlay -->
+                        <div class="position-absolute top-0 end-0 p-3">
+                            <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="10" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="30" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="50" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="70" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="90" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="10" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="30" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="50" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="70" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="90" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="10" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="30" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="50" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="70" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
+                            </svg>
+                        </div>
+                        <img src="{{ url_for('static', filename='images/dashboard-preview.png') }}" alt="Dashboard Preview" class="card-img-top" onerror="this.src='https://via.placeholder.com/800x450?text=Interactive+Dashboard';this.onerror='';">
+                        <!-- Image shade overlay for better text visibility -->
+                        <div class="card-img-overlay d-flex align-items-end" style="background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.1), transparent);">
+                            <div class="text-white px-3 py-2">
+                                <h5 class="mb-0 fw-bold">Benton County Tax Dashboard</h5>
+                                <p class="small mb-0">Data visualization & forecasting</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- AI Features Section -->
+    <section class="py-5 bg-light" style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">AI-Powered Intelligence</h2>
+                <p class="lead text-muted">Advanced analytics and insights powered by machine learning</p>
+                <div class="separator mx-auto my-4" style="width: 80px; height: 4px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
+            </div>
+            
+            <div class="row g-4">
+                <!-- Feature Cards Row 1 -->
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #3DA5BD, #7CBFCC); height: 4px;"></div>
+                        <div class="card-body p-4 p-lg-5">
+                            <div class="d-flex align-items-center mb-4">
+                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(61, 165, 189, 0.1);">
+                                    <i class="bi bi-graph-up" style="color: #3DA5BD;"></i>
+                                </div>
+                                <h3 class="card-title h4 mb-0 fw-bold">Predictive Analytics</h3>
+                            </div>
+                            <p class="card-text text-muted">Leverage advanced machine learning algorithms to predict future tax trends, identify potential rate changes, and optimize planning decisions.</p>
+                            <hr class="my-4" style="opacity: 0.1;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2" style="width: 40px; height: 40px;">
+                                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                                fill="none" stroke="#e5e7eb" stroke-width="3" />
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                                fill="none" stroke="#3DA5BD" stroke-width="3" stroke-dasharray="94.3, 100" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-muted">Accuracy: <span class="fw-bold">94.3%</span></span>
+                                </div>
+                                <a href="{{ url_for('forecasting.forecast') }}" class="btn btn-outline-primary rounded-pill px-4">
+                                    <i class="bi bi-eye me-2"></i>View Forecasts
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #66A355, #78c265); height: 4px;"></div>
+                        <div class="card-body p-4 p-lg-5">
+                            <div class="d-flex align-items-center mb-4">
+                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(102, 163, 85, 0.1);">
+                                    <i class="bi bi-chat-left-dots" style="color: #66A355;"></i>
+                                </div>
+                                <h3 class="card-title h4 mb-0 fw-bold">Natural Language Analysis</h3>
+                            </div>
+                            <p class="card-text text-muted">Ask complex questions in plain English and receive detailed answers about property tax data, historical trends, and compliance requirements.</p>
+                            <hr class="my-4" style="opacity: 0.1;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-cpu me-2 text-primary"></i>
+                                    <span class="text-muted">Powered by <span class="fw-bold">Claude AI</span></span>
+                                </div>
+                                <a href="{{ url_for('mcp.insights') }}" class="btn btn-outline-success rounded-pill px-4" style="border-color: #66A355; color: #66A355;">
+                                    <i class="bi bi-chat-dots me-2"></i>Start Chat
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Feature Cards Row 2 -->
+            <div class="row mt-4 g-4">
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #F0C75C, #f5d78a); height: 4px;"></div>
+                        <div class="card-body p-4 p-lg-5">
+                            <div class="d-flex align-items-center mb-4">
+                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(240, 199, 92, 0.1);">
+                                    <i class="bi bi-lightbulb" style="color: #F0C75C;"></i>
+                                </div>
+                                <h3 class="card-title h4 mb-0 fw-bold">Intelligent Recommendations</h3>
+                            </div>
+                            <p class="card-text text-muted">Receive data-driven recommendations for optimizing levy rates, improving compliance, and enhancing operational efficiency.</p>
+                            <hr class="my-4" style="opacity: 0.1;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="d-flex me-2">
+                                        <div class="badge bg-light text-dark px-2 me-1" style="border: 1px solid #e5e7eb;">Data</div>
+                                        <div class="badge bg-light text-dark px-2 me-1" style="border: 1px solid #e5e7eb;">Trends</div>
+                                        <div class="badge bg-light text-dark px-2" style="border: 1px solid #e5e7eb;">Compliance</div>
+                                    </div>
+                                </div>
+                                <a href="{{ url_for('advanced_mcp.advanced_insights') }}" class="btn btn-outline-warning rounded-pill px-4" style="border-color: #F0C75C; color: #d6b04e;">
+                                    <i class="bi bi-lightning me-2"></i>View Insights
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
+                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #E57373, #ef9a9a); height: 4px;"></div>
+                        <div class="card-body p-4 p-lg-5">
+                            <div class="d-flex align-items-center mb-4">
+                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(229, 115, 115, 0.1);">
+                                    <i class="bi bi-bar-chart" style="color: #E57373;"></i>
+                                </div>
+                                <h3 class="card-title h4 mb-0 fw-bold">Anomaly Detection</h3>
+                            </div>
+                            <p class="card-text text-muted">Automatically identify unusual patterns, outliers, and potential errors in tax data to ensure accuracy and compliance.</p>
+                            <hr class="my-4" style="opacity: 0.1;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2" style="width: 40px; height: 40px;">
+                                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                                fill="none" stroke="#e5e7eb" stroke-width="3" />
+                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                                                fill="none" stroke="#E57373" stroke-width="3" stroke-dasharray="99.7, 100" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-muted">Detection rate: <span class="fw-bold">99.7%</span></span>
+                                </div>
+                                <a href="{{ url_for('advanced_mcp.anomaly_detection') }}" class="btn btn-outline-danger rounded-pill px-4" style="border-color: #E57373; color: #E57373;">
+                                    <i class="bi bi-search me-2"></i>Find Anomalies
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -117,30 +289,31 @@
             <div class="text-center mb-5">
                 <h2 class="display-6 fw-bold">System Capabilities</h2>
                 <p class="lead text-muted">Powerful tools for comprehensive property tax management</p>
+                <div class="separator mx-auto my-4" style="width: 60px; height: 3px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
             </div>
             
             <div class="row g-4">
                 <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
-                        <h3 class="display-4 fw-bold mb-2 counter-value">100%</h3>
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
+                        <h3 class="display-4 fw-bold mb-2 counter-value text-primary">100%</h3>
                         <p class="text-muted mb-0">Statutory Compliance</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
-                        <h3 class="display-4 fw-bold mb-2 counter-value">99.9%</h3>
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
+                        <h3 class="display-4 fw-bold mb-2 counter-value text-success">99.9%</h3>
                         <p class="text-muted mb-0">Calculation Accuracy</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
-                        <h3 class="display-4 fw-bold mb-2 counter-value">5+</h3>
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
+                        <h3 class="display-4 fw-bold mb-2 counter-value" style="color: #F0C75C;">5+</h3>
                         <p class="text-muted mb-0">Forecasting Models</p>
                     </div>
                 </div>
                 <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 bg-dark text-center p-4 stat-card">
-                        <h3 class="display-4 fw-bold mb-2 counter-value">10+</h3>
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
+                        <h3 class="display-4 fw-bold mb-2 counter-value" style="color: #E57373;">10+</h3>
                         <p class="text-muted mb-0">Export Formats</p>
                     </div>
                 </div>
