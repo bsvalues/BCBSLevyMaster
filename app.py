@@ -219,6 +219,7 @@ from routes_levy_calculator import levy_calculator_bp, register_levy_calculator_
 from routes_tours import tours_bp, register_routes as register_tour_routes
 from routes_historical_analysis import historical_analysis_bp, init_historical_analysis_routes
 from routes_mcp import mcp_bp, init_mcp_routes
+from routes_advanced_mcp import advanced_mcp_bp
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -231,6 +232,7 @@ app.register_blueprint(dashboard_bp)
 app.register_blueprint(tours_bp)
 # Note: historical_analysis_bp is registered via init_historical_analysis_routes
 # Note: mcp_bp is registered via init_mcp_routes
+app.register_blueprint(advanced_mcp_bp)
 
 # Initialize authentication routes
 init_auth_routes(app)
@@ -255,6 +257,14 @@ with app.app_context():
         init_mcp()
         init_mcp_api_routes(app)
         app.logger.info("MCP framework initialized")
+        
+        # Initialize Advanced AI Agent
+        try:
+            from utils.advanced_ai_agent import init_advanced_agent
+            init_advanced_agent()
+            app.logger.info("Advanced Analysis Agent initialized")
+        except Exception as e:
+            app.logger.error(f"Error initializing Advanced Analysis Agent: {str(e)}")
     except Exception as e:
         app.logger.error(f"Error initializing MCP framework: {str(e)}")
     # Create tables if they don't exist

@@ -342,8 +342,15 @@ class APICallTracker:
             
         # Save to database if enabled (for historical tracking)
         if self.persist_to_database:
-            # Get current user ID if available
-            user_id = getattr(g, 'user_id', None) if hasattr(g, 'user_id') else None
+            # Get current user ID if available, with app context check
+            user_id = None
+            try:
+                from flask import g, has_app_context
+                if has_app_context():
+                    user_id = getattr(g, 'user_id', None)
+            except (ImportError, RuntimeError):
+                # Either Flask is not available or there's no app context
+                pass
             
             # Save asynchronously to avoid impacting API performance
             try:
