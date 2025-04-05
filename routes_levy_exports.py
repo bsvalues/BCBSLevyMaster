@@ -29,6 +29,7 @@ from models import (
 )
 from utils.import_utils import detect_file_type, read_data_from_file
 from utils.levy_export_parser import LevyExportParser, LevyExportFormat
+import json
 
 
 # Create blueprint
@@ -912,4 +913,83 @@ def export_data():
         year=year,
         district_id=district_id,
         format=format
+    )
+
+
+@levy_exports_bp.route("/template", methods=["GET"])
+def create_template():
+    """Create a template file for levy export data."""
+    try:
+        # Get query parameters
+        format_type = request.args.get('format', default='csv')
+        include_sample_data = request.args.get('sample_data', default='1') == '1'
+        year = request.args.get('year', default=str(datetime.now().year))
+        
+        # Convert format string to enum
+        format_enum = None
+        if format_type.lower() == 'csv':
+            format_enum = LevyExportFormat.CSV
+            mime_type = 'text/csv'
+            file_ext = 'csv'
+        elif format_type.lower() == 'json':
+            format_enum = LevyExportFormat.JSON
+            mime_type = 'application/json'
+            file_ext = 'json'
+        elif format_type.lower() == 'xlsx':
+            format_enum = LevyExportFormat.XLSX
+            mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            file_ext = 'xlsx'
+        elif format_type.lower() == 'xml':
+            format_enum = LevyExportFormat.XML
+            mime_type = 'application/xml'
+            file_ext = 'xml'
+        elif format_type.lower() == 'txt':
+            format_enum = LevyExportFormat.TXT
+            mime_type = 'text/plain'
+            file_ext = 'txt'
+        else:
+            # Default to CSV
+            format_enum = LevyExportFormat.CSV
+            mime_type = 'text/csv'
+            file_ext = 'csv'
+        
+        # Create the template
+        template_content = LevyExportParser.create_template(format_enum, include_sample_data)
+        
+        # Create the response
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"levy_template_{year}_{timestamp}.{file_ext}"
+        
+        # Create response object with appropriate headers
+        if isinstance(template_content, bytes):
+            response = Response(template_content, mimetype=mime_type)
+        else:
+            response = Response(template_content, mimetype=mime_type)
+        
+        # Set content disposition header
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        
+        # Log the template creation
+        logger.info(f"Created template file: {filename} ({format_type})")
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error creating template: {str(e)}")
+        flash(f"Error creating template: {str(e)}", "error")
+        return redirect(url_for('levy_exports.index'))
+
+
+@levy_exports_bp.route("/templates", methods=["GET"])
+def template_manager():
+    """Render the template manager page."""
+    return render_template(
+        "levy_exports/templates.html",
+        current_year=datetime.now().year,
+        available_formats=[
+            {'id': 'csv', 'name': 'CSV (Comma-Separated Values)'},
+            {'id': 'xlsx', 'name': 'Excel (XLSX)'},
+            {'id': 'json', 'name': 'JSON'},
+            {'id': 'xml', 'name': 'XML'},
+            {'id': 'txt', 'name': 'TXT (Fixed-width text)'}
+        ]
     )

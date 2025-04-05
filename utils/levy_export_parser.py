@@ -8,8 +8,10 @@ including text (.txt), Excel (.xls, .xlsx), and XML formats.
 import os
 import re
 import csv
+import json
 import logging
 import tempfile
+import io
 from enum import Enum
 from typing import List, Dict, Any, Union, Optional, Tuple
 from datetime import datetime
@@ -990,3 +992,174 @@ class LevyExportParser:
         
         logger.info(f"Parsed {len(records)} records from XML file")
         return LevyExportData(records, {'format': 'xml', 'year': year})
+        
+    @classmethod
+    def create_template(cls, format_type: LevyExportFormat, include_sample_data: bool = True) -> Union[str, bytes]:
+        """
+        Create a template file for levy exports.
+        
+        Args:
+            format_type: Format type to create template for
+            include_sample_data: Whether to include sample data in the template
+            
+        Returns:
+            File content as string or bytes depending on format
+        """
+        year = datetime.now().year
+        sample_records = []
+        
+        if include_sample_data:
+            # Create sample data
+            sample_records = [
+                {
+                    'tax_district_id': '001',
+                    'levy_cd': '001-001',
+                    'levy_cd_linked': '001-002',
+                    'levy_rate': 5.5000,
+                    'levy_amount': 550000.00,
+                    'assessed_value': 10000000.00,
+                    'year': year
+                },
+                {
+                    'tax_district_id': '002',
+                    'levy_cd': '002-001',
+                    'levy_cd_linked': '002-002',
+                    'levy_rate': 6.2500,
+                    'levy_amount': 312500.00,
+                    'assessed_value': 5000000.00,
+                    'year': year
+                },
+                {
+                    'tax_district_id': '003',
+                    'levy_cd': '003-001',
+                    'levy_cd_linked': '003-002',
+                    'levy_rate': 4.8750,
+                    'levy_amount': 243750.00,
+                    'assessed_value': 5000000.00,
+                    'year': year
+                }
+            ]
+        else:
+            # Create empty template with just column headers
+            sample_records = [
+                {
+                    'tax_district_id': '',
+                    'levy_cd': '',
+                    'levy_cd_linked': '',
+                    'levy_rate': None,
+                    'levy_amount': None,
+                    'assessed_value': None,
+                    'year': year
+                }
+            ]
+        
+        # Create template based on format type
+        if format_type == LevyExportFormat.CSV:
+            # Create CSV template
+            output = io.StringIO()
+            fieldnames = ['tax_district_id', 'levy_cd', 'levy_cd_linked', 'levy_rate', 'levy_amount', 'assessed_value', 'year']
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            for record in sample_records:
+                writer.writerow(record)
+            return output.getvalue()
+            
+        elif format_type == LevyExportFormat.JSON:
+            # Create JSON template
+            data = {
+                'metadata': {
+                    'year': year,
+                    'created_at': datetime.now().isoformat(),
+                    'format_version': '1.0'
+                },
+                'records': sample_records
+            }
+            return json.dumps(data, indent=2)
+            
+        elif format_type == LevyExportFormat.XLSX:
+            # Create Excel template
+            output = io.BytesIO()
+            df = pd.DataFrame(sample_records)
+            writer = pd.ExcelWriter(output, engine='openpyxl')
+            df.to_excel(writer, index=False, sheet_name='Levy Data')
+            
+            # Add a documentation sheet
+            doc_data = {
+                'Field': ['tax_district_id', 'levy_cd', 'levy_cd_linked', 'levy_rate', 'levy_amount', 'assessed_value', 'year'],
+                'Description': [
+                    'Tax district identifier',
+                    'Primary levy code',
+                    'Linked levy code (optional)',
+                    'Levy rate per $1000 of assessed value',
+                    'Total levy amount in dollars',
+                    'Total assessed value in dollars',
+                    'Tax year'
+                ],
+                'Example': [
+                    '001',
+                    '001-001',
+                    '001-002',
+                    '5.5000',
+                    '550000.00',
+                    '10000000.00',
+                    str(year)
+                ]
+            }
+            doc_df = pd.DataFrame(doc_data)
+            doc_df.to_excel(writer, index=False, sheet_name='Documentation')
+            
+            writer.close()
+            return output.getvalue()
+            
+        elif format_type == LevyExportFormat.XML:
+            # Create XML template
+            root = f"""<?xml version="1.0" encoding="UTF-8"?>
+<levy_export>
+    <metadata>
+        <year>{year}</year>
+        <created_at>{datetime.now().isoformat()}</created_at>
+        <format_version>1.0</format_version>
+    </metadata>
+    <records>
+"""
+            
+            for record in sample_records:
+                root += f"""        <record>
+            <tax_district_id>{record['tax_district_id']}</tax_district_id>
+            <levy_cd>{record['levy_cd']}</levy_cd>
+            <levy_cd_linked>{record['levy_cd_linked']}</levy_cd_linked>
+            <levy_rate>{record['levy_rate']}</levy_rate>
+            <levy_amount>{record['levy_amount']}</levy_amount>
+            <assessed_value>{record['assessed_value']}</assessed_value>
+            <year>{record['year']}</year>
+        </record>
+"""
+            
+            root += """    </records>
+</levy_export>
+"""
+            return root
+            
+        elif format_type == LevyExportFormat.TXT:
+            # Create TXT template (fixed width format)
+            output = io.StringIO()
+            output.write(f"LEVY EXPORT DATA - YEAR {year}\n")
+            output.write("-" * 80 + "\n")
+            output.write("LEVY CODE      RATE        LEVY        VALUE\n")
+            output.write("-" * 80 + "\n")
+            
+            for record in sample_records:
+                levy_cd = f"{record['levy_cd']}"
+                if record['levy_cd_linked']:
+                    levy_cd += f"/{record['levy_cd_linked']}"
+                    
+                rate = record['levy_rate'] if record['levy_rate'] is not None else 0
+                levy = record['levy_amount'] if record['levy_amount'] is not None else 0
+                value = record['assessed_value'] if record['assessed_value'] is not None else 0
+                
+                output.write(f"{levy_cd:<15} {rate:<11.4f} {levy:<11.2f} {value:<15.2f}\n")
+                
+            return output.getvalue()
+        
+        else:
+            raise ValueError(f"Unsupported template format: {format_type}")
