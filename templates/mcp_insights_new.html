@@ -36,6 +36,79 @@
         border-radius: 0.375rem;
         margin-right: 0.5rem;
     }
+    
+    /* Enhanced Data Analysis Cards */
+    .border-left-accent {
+        border-left-width: 4px !important;
+    /* Enhanced Data Analysis Cards */
+    .border-left-accent {
+        border-left-width: 4px !important;
+    }
+    
+    .card-header-primary {
+        background-color: rgba(77, 116, 224, 0.1) !important;
+        color: #4d74e0 !important;
+    }
+    
+    .card-header-warning {
+        background-color: rgba(246, 194, 62, 0.1) !important;
+        color: #f6c23e !important;
+    }
+    
+    .card-header-success {
+        background-color: rgba(28, 200, 138, 0.1) !important;
+        color: #1cc88a !important;
+    }
+    }
+    
+        color: #4d74e0 !important;
+    }
+    
+    .card-header-warning {
+        background-color: rgba(246, 194, 62, 0.1) !important;
+        color: #f6c23e !important;
+    }
+    
+    .card-header-success {
+        background-color: rgba(28, 200, 138, 0.1) !important;
+        color: #1cc88a !important;
+    }
+    
+    .card-header.bg-primary {
+        background-color: rgba(77, 116, 224, 0.1) !important;
+        color: #4d74e0;
+    }
+    
+    .card-header.bg-warning {
+        background-color: rgba(246, 194, 62, 0.1) !important;
+        color: #f6c23e;
+    }
+    
+    .card-header.bg-success {
+        background-color: rgba(28, 200, 138, 0.1) !important;
+        color: #1cc88a;
+    }
+    
+    .border-primary {
+        border-color: #4d74e0 !important;
+    }
+    
+    .border-warning {
+        border-color: #f6c23e !important;
+    }
+    
+    .border-success {
+        border-color: #1cc88a !important;
+    }
+    
+    .card h6 {
+        font-weight: 600;
+    }
+    
+    .list-unstyled li {
+        padding: 8px 0;
+        position: relative;
+    }
 </style>
 {% endblock %}
 
@@ -107,7 +180,11 @@
                     <span class="badge badge-mcp">MCP</span>
                     AI Analysis
                 </h5>
-                <span class="badge bg-primary">Claude 3.5 Sonnet</span>
+                {% if mcp_insights.data.api_status == "configured" %}
+                    <span class="badge bg-primary">Claude 3.5 Sonnet</span>
+                {% else %}
+                    <span class="badge bg-secondary">Statistical Analysis</span>
+                {% endif %}
             </div>
                 
             <!-- AI Action Recommendations -->
@@ -132,7 +209,77 @@
                     </div>
                     {% endfor %}
                 </div>
+                
+                <!-- Data Insights: Trends, Anomalies, and Impacts -->
+                {% if mcp_insights.data.trends or mcp_insights.data.anomalies or mcp_insights.data.impacts %}
+                <div class="mt-4">
+                    <h6 class="border-bottom pb-2 mb-3">Data Analysis</h6>
+                    
+                    <div class="row">
+                        {% if mcp_insights.data.trends %}
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary border-left-accent">
+                                <div class="card-header card-header-primary text-primary">
+                                    <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>Trends</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                        {% for trend in mcp_insights.data.trends[:3] %}
+                                        <li class="mb-3 pb-2 border-bottom border-light"><i class="bi bi-arrow-right-short me-1 text-primary"></i>{{ trend }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if mcp_insights.data.anomalies %}
+                        <div class="col-md-4">
+                            <div class="card h-100 border-warning border-left-accent">
+                                <div class="card-header card-header-warning text-warning">
+                                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Anomalies</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                        {% for anomaly in mcp_insights.data.anomalies[:3] %}
+                                        <li class="mb-3 pb-2 border-bottom border-light"><i class="bi bi-exclamation-circle me-1 text-warning"></i>{{ anomaly }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if mcp_insights.data.impacts %}
+                        <div class="col-md-4">
+                            <div class="card h-100 border-success border-left-accent">
+                                <div class="card-header card-header-success text-success">
+                                    <h6 class="mb-0"><i class="bi bi-receipt me-2"></i>Fiscal Impacts</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="list-unstyled">
+                                        {% for impact in mcp_insights.data.impacts[:3] %}
+                                        <li class="mb-3 pb-2 border-bottom border-light"><i class="bi bi-cash-stack me-1 text-success"></i>{{ impact }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
+            
+            {% if mcp_insights.data.api_status != "configured" %}
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Note: These insights are based on basic statistical analysis. 
+                    For advanced AI-powered insights, please configure a valid Anthropic API key with sufficient credits.
+                </small>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

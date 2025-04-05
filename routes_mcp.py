@@ -682,7 +682,10 @@ def generate_mcp_insights(tax_codes):
                 'Explore Reports': 'Review existing reports for manual insights.'
             },
             'avg_assessed_value': 'N/A',
-            'api_status': api_key_status
+            'api_status': api_key_status,
+            'trends': [],
+            'anomalies': [],
+            'impacts': []
         }
     }
     
@@ -726,6 +729,21 @@ def generate_mcp_insights(tax_codes):
         default_insights['data']['avg_assessed_value'] = "${:,.2f}".format(avg_value)
     else:
         default_insights['data']['avg_assessed_value'] = "N/A"
+    
+    # Generate enhanced fallback insights based on available data
+    # These fallback insights will be used if the API is unavailable or lacks credits
+    if api_key_status != "configured":
+        # Enhanced fallback recommendations based on database state
+        enhanced_fallback = generate_enhanced_fallback_insights(tax_codes)
+        if enhanced_fallback:
+            default_insights['data']['recommendations'] = enhanced_fallback['recommendations']
+            default_insights['data']['trends'] = enhanced_fallback['trends']
+            default_insights['data']['anomalies'] = enhanced_fallback['anomalies']
+            default_insights['data']['impacts'] = enhanced_fallback['impacts']
+            
+            # Add limited narrative based on data analysis
+            if enhanced_fallback.get('narrative'):
+                default_insights['narrative'] += sanitize_html(enhanced_fallback['narrative'])
     
     try:
         # Check if we can access the Claude service
@@ -803,6 +821,111 @@ def generate_mcp_insights(tax_codes):
     except Exception as e:
         logger.error(f"Error generating MCP insights: {str(e)}")
         return default_insights
+
+def generate_enhanced_fallback_insights(tax_codes):
+    """
+    Generate basic insights without using the AI API, based on available data.
+    
+    Args:
+        tax_codes: List of TaxCode objects
+        
+    Returns:
+        Dictionary with enhanced insights based on database state and statistics
+    """
+    try:
+        if not tax_codes or len(tax_codes) == 0:
+            return None
+            
+        # Process tax codes to calculate basic statistics
+        total_assessed_values = []
+        tax_rates = []
+        levy_amounts = []
+        
+        for tc in tax_codes:
+            try:
+                total_assessed_value = getattr(tc, 'total_assessed_value', 0)
+                effective_tax_rate = getattr(tc, 'effective_tax_rate', 0)
+                total_levy_amount = getattr(tc, 'total_levy_amount', 0)
+                
+                if total_assessed_value:
+                    total_assessed_values.append(total_assessed_value)
+                if effective_tax_rate:
+                    tax_rates.append(effective_tax_rate)
+                if total_levy_amount:
+                    levy_amounts.append(total_levy_amount)
+            except Exception:
+                continue
+        
+        # Generate basic trends based on statistics
+        trends = []
+        anomalies = []
+        impacts = []
+        recommendations = {}
+        
+        # Calculate statistics if we have enough data
+        if total_assessed_values:
+            avg_assessed = sum(total_assessed_values) / len(total_assessed_values)
+            max_assessed = max(total_assessed_values)
+            min_assessed = min(total_assessed_values)
+            
+            trends.append(f"Average assessed property value is ${avg_assessed:,.2f}")
+            
+            if max_assessed > avg_assessed * 2:
+                anomalies.append(f"Highest property assessment (${max_assessed:,.2f}) is significantly above average")
+            
+            if tax_rates:
+                avg_rate = sum(tax_rates) / len(tax_rates)
+                trends.append(f"Average effective tax rate is {avg_rate:.4f}")
+                
+                # Find any outliers in tax rates
+                outlier_threshold = avg_rate * 1.5
+                outliers = [rate for rate in tax_rates if rate > outlier_threshold]
+                if outliers:
+                    anomalies.append(f"Some tax rates exceed {outlier_threshold:.4f}, which is 50% above the average")
+            
+            if levy_amounts:
+                total_levy = sum(levy_amounts)
+                impacts.append(f"Total levy amount across all properties is ${total_levy:,.2f}")
+        
+        # Generate recommendations based on the data
+        recommendations = {
+            "Review Tax Data": "Analyze the distribution of property values to identify potential assessment issues",
+            "Rate Optimization": "Consider adjusting tax rates based on property value distribution for more equitable taxation",
+            "Data Completeness": "Ensure all property records have complete assessment information for accurate calculations"
+        }
+        
+        # Create a narrative based on findings
+        narrative = ""
+        if trends or anomalies or impacts:
+            narrative = "<p>Based on basic statistical analysis of your property tax data:</p><ul>"
+            
+            for trend in trends[:2]:
+                narrative += f"<li>{trend}</li>"
+            
+            for anomaly in anomalies[:1]:
+                narrative += f"<li>{anomaly}</li>"
+            
+            for impact in impacts[:1]:
+                narrative += f"<li>{impact}</li>"
+                
+            narrative += "</ul>"
+            
+            # Add note about limited analysis
+            narrative += "<p><em>Note: These insights are based on basic statistical analysis. " + \
+                        "For more comprehensive insights, please configure an Anthropic API key " + \
+                        "with sufficient credits.</em></p>"
+        
+        return {
+            'recommendations': recommendations,
+            'trends': trends,
+            'anomalies': anomalies,
+            'impacts': impacts,
+            'narrative': narrative
+        }
+    
+    except Exception as e:
+        logger.error(f"Error generating enhanced fallback insights: {str(e)}")
+        return None
 
 
 @mcp_bp.route('/api/statistics', methods=['GET'])
