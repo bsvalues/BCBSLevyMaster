@@ -392,14 +392,192 @@ class APICallTracker:
 api_tracker = APICallTracker()
 
 
-def get_api_statistics() -> Dict[str, Any]:
+def get_api_statistics(include_db_stats=False, timeframe=None) -> Dict[str, Any]:
     """
     Get current API call statistics.
     
+    Args:
+        include_db_stats: Whether to include historical stats from the database
+        timeframe: Time period to include database records for (day, week, month, all)
+        
     Returns:
-        Dictionary with API call statistics
+        Dictionary with API call statistics from current session and optionally database
     """
-    return api_tracker.get_statistics()
+    # Get current session statistics
+    session_stats = api_tracker.get_statistics()
+    
+    # Base response with current session stats
+    stats = {
+        "session": session_stats,
+        "total_calls": session_stats["total_calls"],
+        "success_count": session_stats["success_count"],
+        "error_count": session_stats["error_count"],
+        "error_rate_percent": session_stats["error_rate_percent"],
+        "avg_duration_ms": session_stats["avg_duration_ms"]
+    }
+    
+    # Add API status summary
+    if session_stats["total_calls"] > 0:
+        if session_stats["error_rate_percent"] >= 50:
+            stats["summary"] = {
+                "status": "error",
+                "message": f"High error rate: {session_stats['error_rate_percent']}%"
+            }
+        elif session_stats["error_rate_percent"] >= 20:
+            stats["summary"] = {
+                "status": "warning",
+                "message": f"Elevated error rate: {session_stats['error_rate_percent']}%"
+            }
+        else:
+            stats["summary"] = {
+                "status": "healthy",
+                "message": "API integration functioning normally"
+            }
+    else:
+        stats["summary"] = {
+            "status": "inactive",
+            "message": "No API calls recorded in current session"
+        }
+    
+    # Include database statistics if requested
+    if include_db_stats:
+        try:
+            from models import APICallLog, db
+            from sqlalchemy import func
+            from datetime import datetime, timedelta
+            import math
+            
+            # Build query
+            query = db.session.query(
+                func.count().label('total'),
+                func.sum(APICallLog.success.cast(db.Integer)).label('success_count'),
+                func.avg(APICallLog.duration_ms).label('avg_duration'),
+                func.min(APICallLog.duration_ms).label('min_duration'),
+                func.max(APICallLog.duration_ms).label('max_duration')
+            )
+            
+            # Apply timeframe filter
+            if timeframe == 'day':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+                )
+            elif timeframe == 'week':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+                )
+            elif timeframe == 'month':
+                query = query.filter(
+                    APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+                )
+            
+            # Execute query
+            result = query.first()
+            
+            if result and result.total > 0:
+                # Calculate error count and rate
+                db_error_count = result.total - (result.success_count or 0)
+                db_error_rate = (db_error_count / result.total) * 100 if result.total > 0 else 0
+                
+                # Update stats with database values
+                stats.update({
+                    "total_calls": result.total,
+                    "success_count": int(result.success_count or 0),
+                    "error_count": db_error_count,
+                    "error_rate_percent": round(db_error_rate, 2),
+                    "avg_duration_ms": round(result.avg_duration or 0, 2),
+                    "min_duration_ms": round(result.min_duration or 0, 2),
+                    "max_duration_ms": round(result.max_duration or 0, 2)
+                })
+                
+                # Get metrics for response time distribution
+                # Define buckets for response time
+                buckets = [
+                    {"name": "under_500ms", "max": 500},
+                    {"name": "500ms_to_1s", "min": 500, "max": 1000},
+                    {"name": "1s_to_2s", "min": 1000, "max": 2000},
+                    {"name": "2s_to_5s", "min": 2000, "max": 5000},
+                    {"name": "over_5s", "min": 5000}
+                ]
+                
+                # Get distribution of response times
+                distribution = {}
+                for bucket in buckets:
+                    bucket_query = db.session.query(func.count().label('count'))
+                    
+                    if 'min' in bucket and 'max' in bucket:
+                        bucket_query = bucket_query.filter(
+                            APICallLog.duration_ms >= bucket['min'],
+                            APICallLog.duration_ms < bucket['max']
+                        )
+                    elif 'min' in bucket:
+                        bucket_query = bucket_query.filter(
+                            APICallLog.duration_ms >= bucket['min']
+                        )
+                    else:
+                        bucket_query = bucket_query.filter(
+                            APICallLog.duration_ms < bucket['max']
+                        )
+                    
+                    # Apply the same timeframe filter
+                    if timeframe == 'day':
+                        bucket_query = bucket_query.filter(
+                            APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+                        )
+                    elif timeframe == 'week':
+                        bucket_query = bucket_query.filter(
+                            APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+                        )
+                    elif timeframe == 'month':
+                        bucket_query = bucket_query.filter(
+                            APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+                        )
+                    
+                    distribution[bucket['name']] = bucket_query.scalar() or 0
+                
+                stats["response_time_distribution"] = distribution
+                
+                # Calculate performance metrics
+                p95_query = db.session.query(APICallLog.duration_ms).order_by(APICallLog.duration_ms.asc())
+                
+                # Apply the same timeframe filter
+                if timeframe == 'day':
+                    p95_query = p95_query.filter(
+                        APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=1))
+                    )
+                elif timeframe == 'week':
+                    p95_query = p95_query.filter(
+                        APICallLog.timestamp >= (datetime.utcnow() - timedelta(weeks=1))
+                    )
+                elif timeframe == 'month':
+                    p95_query = p95_query.filter(
+                        APICallLog.timestamp >= (datetime.utcnow() - timedelta(days=30))
+                    )
+                
+                # Get all durations
+                durations = [r[0] for r in p95_query.all() if r[0] is not None]
+                
+                # Calculate percentiles if we have data
+                if durations:
+                    durations.sort()
+                    p95_index = math.ceil(len(durations) * 0.95) - 1
+                    p99_index = math.ceil(len(durations) * 0.99) - 1
+                    p50_index = math.ceil(len(durations) * 0.5) - 1
+                    
+                    # Ensure indices are within bounds
+                    p95_index = min(max(0, p95_index), len(durations) - 1)
+                    p99_index = min(max(0, p99_index), len(durations) - 1)
+                    p50_index = min(max(0, p50_index), len(durations) - 1)
+                    
+                    stats["performance"] = {
+                        "p50_ms": round(durations[p50_index], 2),
+                        "p95_ms": round(durations[p95_index], 2),
+                        "p99_ms": round(durations[p99_index], 2)
+                    }
+        except Exception as e:
+            logger.error(f"Error getting database statistics: {str(e)}")
+            stats["db_error"] = str(e)
+    
+    return stats
 
 
 def track_anthropic_api_call(func: Callable) -> Callable:

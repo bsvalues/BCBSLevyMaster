@@ -967,6 +967,7 @@ def generate_enhanced_fallback_insights(tax_codes):
         levy_amounts = []
         tax_code_identifiers = []
         district_ids = set()
+        years = set()
         
         for tc in tax_codes:
             try:
@@ -975,11 +976,14 @@ def generate_enhanced_fallback_insights(tax_codes):
                 effective_tax_rate = getattr(tc, 'effective_tax_rate', 0)
                 total_levy_amount = getattr(tc, 'total_levy_amount', 0)
                 district_id = getattr(tc, 'tax_district_id', None)
+                year = getattr(tc, 'year', None)
                 
                 if tax_code_id:
                     tax_code_identifiers.append(tax_code_id)
                 if district_id:
                     district_ids.add(district_id)
+                if year:
+                    years.add(year)
                 if total_assessed_value:
                     total_assessed_values.append(total_assessed_value)
                 if effective_tax_rate:
@@ -994,6 +998,7 @@ def generate_enhanced_fallback_insights(tax_codes):
         anomalies = []
         impacts = []
         recommendations = {}
+        statistics_cards = []
         
         # Calculate advanced statistics if we have enough data
         if total_assessed_values:
@@ -1012,6 +1017,13 @@ def generate_enhanced_fallback_insights(tax_codes):
             mid = len(sorted_values) // 2
             median_assessed = sorted_values[mid] if len(sorted_values) % 2 == 1 else (sorted_values[mid-1] + sorted_values[mid]) / 2
             
+            # Calculate quartiles for better distribution analysis
+            q1_index = len(sorted_values) // 4
+            q3_index = 3 * len(sorted_values) // 4
+            q1 = sorted_values[q1_index]
+            q3 = sorted_values[q3_index]
+            iqr = q3 - q1
+            
             # Add more comprehensive trends
             trends.append(f"Average assessed property value is ${avg_assessed:,.2f} with a standard deviation of ${std_dev:,.2f}")
             trends.append(f"Median property assessment is ${median_assessed:,.2f}, showing the central tendency of values")
@@ -1019,6 +1031,21 @@ def generate_enhanced_fallback_insights(tax_codes):
             # Property value distribution analysis
             if range_assessed > avg_assessed * 3:
                 trends.append(f"Wide range in property values (${range_assessed:,.2f}), indicating diverse property types")
+            
+            # Add property value distribution card
+            property_value_card = {
+                "title": "Property Value Distribution",
+                "icon": "bi bi-bar-chart-line",
+                "description": "Statistical analysis of property value distribution across tax codes",
+                "data": [
+                    {"label": "Average Value", "value": f"${avg_assessed:,.2f}", "trend": True, "trend_value": 100, "color": "bg-primary"},
+                    {"label": "Median Value", "value": f"${median_assessed:,.2f}", "trend": True, "trend_value": median_assessed/avg_assessed*100, "color": "bg-info"},
+                    {"label": "Standard Deviation", "value": f"${std_dev:,.2f}"},
+                    {"label": "Interquartile Range", "value": f"${iqr:,.2f}"},
+                    {"label": "Total Properties", "value": f"{len(total_assessed_values)}"}
+                ]
+            }
+            statistics_cards.append(property_value_card)
             
             # Outlier detection using statistical methods (values > 2 std devs from mean)
             high_outliers = [val for val in total_assessed_values if val > avg_assessed + (2 * std_dev)]
@@ -1030,6 +1057,21 @@ def generate_enhanced_fallback_insights(tax_codes):
             if low_outliers:
                 anomalies.append(f"Found {len(low_outliers)} properties with unusually low assessments (statistical outliers)")
             
+            # Add outlier analysis card
+            if high_outliers or low_outliers:
+                outlier_card = {
+                    "title": "Assessment Outlier Analysis",
+                    "icon": "bi bi-exclamation-triangle",
+                    "description": "Statistical detection of unusual property assessments",
+                    "data": [
+                        {"label": "High Value Outliers", "value": f"{len(high_outliers)}", "trend": True, "trend_value": min(len(high_outliers)/len(total_assessed_values)*300, 100), "color": "bg-warning"},
+                        {"label": "Low Value Outliers", "value": f"{len(low_outliers)}", "trend": True, "trend_value": min(len(low_outliers)/len(total_assessed_values)*300, 100), "color": "bg-info"},
+                        {"label": "Outlier Threshold", "value": f"${avg_assessed + 2*std_dev:,.2f}"},
+                        {"label": "Lower Threshold", "value": f"${max(0, avg_assessed - 2*std_dev):,.2f}"}
+                    ]
+                }
+                statistics_cards.append(outlier_card)
+            
             # Tax rate analysis
             if tax_rates:
                 avg_rate = sum(tax_rates) / len(tax_rates)
@@ -1040,8 +1082,24 @@ def generate_enhanced_fallback_insights(tax_codes):
                 trends.append(f"Average effective tax rate is {avg_rate:.4f} with a variation of ±{rate_std_dev:.4f}")
                 
                 # Tax rate consistency analysis
+                coefficient_of_variation = rate_std_dev/avg_rate if avg_rate else 0
                 if rate_std_dev > avg_rate * 0.25:
-                    anomalies.append(f"High variation in tax rates (Coefficient of Variation: {(rate_std_dev/avg_rate):.2f}), suggesting potential inconsistency")
+                    anomalies.append(f"High variation in tax rates (Coefficient of Variation: {coefficient_of_variation:.2f}), suggesting potential inconsistency")
+                
+                # Add tax rate analysis card
+                tax_rate_card = {
+                    "title": "Tax Rate Analysis",
+                    "icon": "bi bi-percent",
+                    "description": "Statistical analysis of effective tax rates across districts",
+                    "data": [
+                        {"label": "Average Rate", "value": f"{avg_rate:.4f}", "trend": True, "trend_value": 100, "color": "bg-primary"},
+                        {"label": "Highest Rate", "value": f"{max_rate:.4f}", "trend": True, "trend_value": min(max_rate/avg_rate*100, 150), "color": "bg-danger"},
+                        {"label": "Lowest Rate", "value": f"{min_rate:.4f}", "trend": True, "trend_value": min_rate/avg_rate*100, "color": "bg-success"},
+                        {"label": "Rate Variation", "value": f"±{rate_std_dev:.4f}"},
+                        {"label": "Consistency", "value": f"{100 - min(coefficient_of_variation*100, 100):.1f}%"}
+                    ]
+                }
+                statistics_cards.append(tax_rate_card)
                 
                 # Correlation between property values and tax rates
                 if len(total_assessed_values) == len(tax_rates):
@@ -1057,6 +1115,19 @@ def generate_enhanced_fallback_insights(tax_codes):
                             trends.append(f"Strong positive correlation ({correlation:.2f}) between property values and tax rates")
                         elif correlation < -0.7:
                             anomalies.append(f"Inverse relationship ({correlation:.2f}) between property values and tax rates - higher valued properties have lower rates")
+                        
+                        # Add correlation analysis card
+                        correlation_card = {
+                            "title": "Value-Rate Correlation",
+                            "icon": "bi bi-graph-up",
+                            "description": "Relationship between property values and tax rates",
+                            "data": [
+                                {"label": "Correlation Coefficient", "value": f"{correlation:.2f}", "trend": True, "trend_value": min((correlation + 1) * 50, 100), "color": "bg-info"},
+                                {"label": "Relationship", "value": "Positive" if correlation > 0 else "Negative"},
+                                {"label": "Strength", "value": f"{abs(correlation) * 100:.1f}%"}
+                            ]
+                        }
+                        statistics_cards.append(correlation_card)
             
             # Levy amount impact analysis
             if levy_amounts:
@@ -1069,10 +1140,40 @@ def generate_enhanced_fallback_insights(tax_codes):
                 # Impact distribution
                 if max_levy > avg_levy * 5:
                     impacts.append(f"Highest levy amount (${max_levy:,.2f}) is significantly higher than average, indicating concentrated tax burden")
+                
+                # Add revenue impact card
+                revenue_impact_card = {
+                    "title": "Revenue Impact Analysis",
+                    "icon": "bi bi-cash-coin",
+                    "description": "Analysis of levy amounts and revenue distribution",
+                    "data": [
+                        {"label": "Total Revenue", "value": f"${total_levy:,.2f}"},
+                        {"label": "Average per Tax Code", "value": f"${avg_levy:,.2f}", "trend": True, "trend_value": 100, "color": "bg-success"},
+                        {"label": "Highest Levy", "value": f"${max_levy:,.2f}", "trend": True, "trend_value": min(max_levy/avg_levy*20, 100), "color": "bg-warning"},
+                        {"label": "Revenue Concentration", "value": f"{max_levy/total_levy*100:.1f}%"}
+                    ]
+                }
+                statistics_cards.append(revenue_impact_card)
         
         # Generate tailored recommendations based on the statistical analysis
         district_count = len(district_ids)
         tax_code_count = len(tax_code_identifiers)
+        years_count = len(years)
+        
+        # Data overview card
+        data_overview_card = {
+            "title": "Data Overview",
+            "icon": "bi bi-clipboard-data",
+            "description": "Summary of the property tax data used for analysis",
+            "data": [
+                {"label": "Tax Districts", "value": f"{district_count}"},
+                {"label": "Tax Codes", "value": f"{tax_code_count}"},
+                {"label": "Years of Data", "value": f"{years_count}"},
+                {"label": "Properties Analyzed", "value": f"{len(total_assessed_values)}"},
+                {"label": "Data Completeness", "value": f"{min(len(total_assessed_values) / max(1, len(tax_codes)) * 100, 100):.1f}%"}
+            ]
+        }
+        statistics_cards.append(data_overview_card)
         
         recommendations = {
             "Data Distribution Analysis": "Review the statistical distribution of property values to identify potential assessment inequities and outliers",
@@ -1105,21 +1206,28 @@ def generate_enhanced_fallback_insights(tax_codes):
             
             # Add section on data quality if applicable
             if len(total_assessed_values) < len(tax_codes) * 0.8:
-                narrative += "<p>Data quality notice: Some tax codes are missing assessment values, which may affect analysis accuracy.</p>"
+                narrative += "<p class='mt-3 text-warning'><i class='bi bi-exclamation-triangle me-2'></i>Data quality notice: Some tax codes are missing assessment values, which may affect analysis accuracy.</p>"
+            
+            # Add recommendations section
+            narrative += "<p class='mt-3'><strong>Recommended Actions:</strong></p><ul>"
+            for key, value in list(recommendations.items())[:2]:  # Limit to top 2 recommendations
+                narrative += f"<li><strong>{key}:</strong> {value}</li>"
+            narrative += "</ul>"
             
             # Add call to action with better wording
-            narrative += "<p><em>Note: These insights are generated using statistical models based on your data. " + \
+            narrative += "<div class='alert alert-info mt-3'><p><i class='bi bi-info-circle me-2'></i><em>Note: These insights are generated using statistical models based on your data. " + \
                         "For AI-powered analysis with deeper contextual understanding, please configure an Anthropic API key.</em></p>"
             
             # Add specific guidance
-            narrative += "<p>To configure an API key, visit the <a href='/mcp/api-status'>API Status</a> page.</p>"
+            narrative += "<p class='mb-0'>To configure an API key, click the <a href='#' data-bs-toggle='modal' data-bs-target='#apiKeyModal'>Configure API Key</a> button above or visit the <a href='/mcp/api-status'>API Status</a> page.</p></div>"
         
         return {
             'recommendations': recommendations,
             'trends': trends,
             'anomalies': anomalies,
             'impacts': impacts,
-            'narrative': narrative
+            'narrative': narrative,
+            'statistics': statistics_cards
         }
     
     except Exception as e:
@@ -1134,17 +1242,23 @@ def api_statistics():
     
     This endpoint returns JSON with statistics about API calls, including
     success rates, error rates, and performance metrics.
+    
+    Query Parameters:
+    - historical: Whether to include historical data from the database (true/false)
+    - timeframe: Time period for historical data (day, week, month, all)
     """
     try:
         # Check if we should include historical data (from database)
         include_historical = request.args.get('historical', 'false').lower() == 'true'
         timeframe = request.args.get('timeframe', 'session')  # session, day, week, month, all
         
-        # Get current session API statistics from the in-memory tracker
-        current_stats = get_api_statistics()
+        # Get API statistics with enhanced metrics
+        statistics = get_api_statistics(
+            include_db_stats=include_historical,
+            timeframe=timeframe if timeframe != 'session' else None
+        )
         
         # Add timestamp to the response
-        statistics = current_stats.copy()
         statistics['timestamp'] = datetime.utcnow().isoformat()
         
         # If historical data is requested, query the database
