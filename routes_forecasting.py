@@ -9,12 +9,12 @@ import logging
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, current_app
 from sqlalchemy import func
 import numpy as np
 
-from app2 import db
 from models import TaxCode, TaxCodeHistoricalRate
+from app import db
 from utils.forecasting_utils import (
     generate_forecast_for_tax_code,
     create_forecast_chart_data,
@@ -30,6 +30,7 @@ try:
         ai_forecast_model_selector,
         detect_anomalies_with_ai
     )
+    from utils.advanced_ai_agent import get_advanced_analysis_agent
     AI_FORECASTING_AVAILABLE = True
 except ImportError:
     AI_FORECASTING_AVAILABLE = False
@@ -486,6 +487,55 @@ def generate_ai_explanation():
     
     except Exception as e:
         logger.exception(f"Error generating AI explanation: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@forecasting_bp.route('/ai/analyze', methods=['POST'])
+def execute_ai_comprehensive_analysis():
+    """Execute a comprehensive AI analysis on a tax district."""
+    if not AI_FORECASTING_AVAILABLE:
+        return jsonify({'error': 'AI-enhanced analysis is not available.'}), 400
+    
+    try:
+        # Get form parameters
+        district_id = request.form.get('district_id')
+        analysis_type = request.form.get('analysis_type', default='comprehensive')
+        years = request.form.get('years', type=int, default=3)
+        
+        # Validate parameters
+        if not district_id:
+            return jsonify({'error': 'Please select a tax district.'}), 400
+        
+        if years < 1 or years > 10:
+            return jsonify({'error': 'Years must be between 1 and 10.'}), 400
+        
+        if analysis_type not in ['comprehensive', 'trend', 'compliance']:
+            return jsonify({'error': 'Invalid analysis type.'}), 400
+        
+        # Get advanced analysis agent
+        try:
+            advanced_agent = get_advanced_analysis_agent()
+        except Exception as e:
+            logger.error(f"Error initializing advanced analysis agent: {str(e)}")
+            return jsonify({'error': 'Could not initialize AI analysis agent.'}), 500
+        
+        # Execute multi-step analysis
+        analysis_result = advanced_agent.perform_multistep_analysis(
+            tax_district_id=district_id,
+            analysis_type=analysis_type,
+            years=years
+        )
+        
+        # Check for errors
+        if 'error' in analysis_result:
+            return jsonify({
+                'error': analysis_result['error'],
+                'partial_results': analysis_result
+            }), 400
+        
+        return jsonify(analysis_result)
+    
+    except Exception as e:
+        logger.exception(f"Error in AI comprehensive analysis: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @forecasting_bp.route('/api/tax_codes', methods=['GET'])
