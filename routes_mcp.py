@@ -824,29 +824,37 @@ def generate_mcp_insights(tax_codes):
 
 def generate_enhanced_fallback_insights(tax_codes):
     """
-    Generate basic insights without using the AI API, based on available data.
+    Generate comprehensive statistical insights without using the AI API, based on available data.
     
     Args:
         tax_codes: List of TaxCode objects
         
     Returns:
-        Dictionary with enhanced insights based on database state and statistics
+        Dictionary with enhanced insights based on database state and advanced statistics
     """
     try:
         if not tax_codes or len(tax_codes) == 0:
             return None
             
-        # Process tax codes to calculate basic statistics
+        # Process tax codes to calculate comprehensive statistics
         total_assessed_values = []
         tax_rates = []
         levy_amounts = []
+        tax_code_identifiers = []
+        district_ids = set()
         
         for tc in tax_codes:
             try:
+                tax_code_id = getattr(tc, 'tax_code', 'Unknown')
                 total_assessed_value = getattr(tc, 'total_assessed_value', 0)
                 effective_tax_rate = getattr(tc, 'effective_tax_rate', 0)
                 total_levy_amount = getattr(tc, 'total_levy_amount', 0)
+                district_id = getattr(tc, 'tax_district_id', None)
                 
+                if tax_code_id:
+                    tax_code_identifiers.append(tax_code_id)
+                if district_id:
+                    district_ids.add(district_id)
                 if total_assessed_value:
                     total_assessed_values.append(total_assessed_value)
                 if effective_tax_rate:
@@ -856,64 +864,130 @@ def generate_enhanced_fallback_insights(tax_codes):
             except Exception:
                 continue
         
-        # Generate basic trends based on statistics
+        # Generate comprehensive trends based on advanced statistics
         trends = []
         anomalies = []
         impacts = []
         recommendations = {}
         
-        # Calculate statistics if we have enough data
+        # Calculate advanced statistics if we have enough data
         if total_assessed_values:
+            # Basic statistics
             avg_assessed = sum(total_assessed_values) / len(total_assessed_values)
             max_assessed = max(total_assessed_values)
             min_assessed = min(total_assessed_values)
+            range_assessed = max_assessed - min_assessed
             
-            trends.append(f"Average assessed property value is ${avg_assessed:,.2f}")
+            # Calculate standard deviation and variance
+            variance = sum((x - avg_assessed) ** 2 for x in total_assessed_values) / len(total_assessed_values)
+            std_dev = variance ** 0.5
             
-            if max_assessed > avg_assessed * 2:
-                anomalies.append(f"Highest property assessment (${max_assessed:,.2f}) is significantly above average")
+            # Calculate median
+            sorted_values = sorted(total_assessed_values)
+            mid = len(sorted_values) // 2
+            median_assessed = sorted_values[mid] if len(sorted_values) % 2 == 1 else (sorted_values[mid-1] + sorted_values[mid]) / 2
             
+            # Add more comprehensive trends
+            trends.append(f"Average assessed property value is ${avg_assessed:,.2f} with a standard deviation of ${std_dev:,.2f}")
+            trends.append(f"Median property assessment is ${median_assessed:,.2f}, showing the central tendency of values")
+            
+            # Property value distribution analysis
+            if range_assessed > avg_assessed * 3:
+                trends.append(f"Wide range in property values (${range_assessed:,.2f}), indicating diverse property types")
+            
+            # Outlier detection using statistical methods (values > 2 std devs from mean)
+            high_outliers = [val for val in total_assessed_values if val > avg_assessed + (2 * std_dev)]
+            low_outliers = [val for val in total_assessed_values if val < avg_assessed - (2 * std_dev)]
+            
+            if high_outliers:
+                anomalies.append(f"Found {len(high_outliers)} properties with unusually high assessments (statistical outliers)")
+                
+            if low_outliers:
+                anomalies.append(f"Found {len(low_outliers)} properties with unusually low assessments (statistical outliers)")
+            
+            # Tax rate analysis
             if tax_rates:
                 avg_rate = sum(tax_rates) / len(tax_rates)
-                trends.append(f"Average effective tax rate is {avg_rate:.4f}")
+                max_rate = max(tax_rates)
+                min_rate = min(tax_rates)
+                rate_std_dev = (sum((x - avg_rate) ** 2 for x in tax_rates) / len(tax_rates)) ** 0.5
                 
-                # Find any outliers in tax rates
-                outlier_threshold = avg_rate * 1.5
-                outliers = [rate for rate in tax_rates if rate > outlier_threshold]
-                if outliers:
-                    anomalies.append(f"Some tax rates exceed {outlier_threshold:.4f}, which is 50% above the average")
+                trends.append(f"Average effective tax rate is {avg_rate:.4f} with a variation of ±{rate_std_dev:.4f}")
+                
+                # Tax rate consistency analysis
+                if rate_std_dev > avg_rate * 0.25:
+                    anomalies.append(f"High variation in tax rates (Coefficient of Variation: {(rate_std_dev/avg_rate):.2f}), suggesting potential inconsistency")
+                
+                # Correlation between property values and tax rates
+                if len(total_assessed_values) == len(tax_rates):
+                    # Calculate correlation coefficient
+                    avg_x, avg_y = avg_assessed, avg_rate
+                    numerator = sum((total_assessed_values[i] - avg_x) * (tax_rates[i] - avg_y) for i in range(len(total_assessed_values)))
+                    denominator = (sum((x - avg_x) ** 2 for x in total_assessed_values) * sum((y - avg_y) ** 2 for y in tax_rates)) ** 0.5
+                    
+                    if denominator != 0:
+                        correlation = numerator / denominator
+                        
+                        if correlation > 0.7:
+                            trends.append(f"Strong positive correlation ({correlation:.2f}) between property values and tax rates")
+                        elif correlation < -0.7:
+                            anomalies.append(f"Inverse relationship ({correlation:.2f}) between property values and tax rates - higher valued properties have lower rates")
             
+            # Levy amount impact analysis
             if levy_amounts:
                 total_levy = sum(levy_amounts)
-                impacts.append(f"Total levy amount across all properties is ${total_levy:,.2f}")
+                avg_levy = total_levy / len(levy_amounts)
+                max_levy = max(levy_amounts)
+                
+                impacts.append(f"Total levy amount across all properties is ${total_levy:,.2f}, averaging ${avg_levy:,.2f} per tax code")
+                
+                # Impact distribution
+                if max_levy > avg_levy * 5:
+                    impacts.append(f"Highest levy amount (${max_levy:,.2f}) is significantly higher than average, indicating concentrated tax burden")
         
-        # Generate recommendations based on the data
+        # Generate tailored recommendations based on the statistical analysis
+        district_count = len(district_ids)
+        tax_code_count = len(tax_code_identifiers)
+        
         recommendations = {
-            "Review Tax Data": "Analyze the distribution of property values to identify potential assessment issues",
-            "Rate Optimization": "Consider adjusting tax rates based on property value distribution for more equitable taxation",
-            "Data Completeness": "Ensure all property records have complete assessment information for accurate calculations"
+            "Data Distribution Analysis": "Review the statistical distribution of property values to identify potential assessment inequities and outliers",
+            "Rate Optimization Strategy": f"Analyze the {tax_code_count} tax codes across {district_count} districts to identify opportunities for rate harmonization",
+            "Impact Forecasting": "Use the statistical variance in assessments to predict potential changes in tax revenue under different rate scenarios"
         }
         
-        # Create a narrative based on findings
+        # Add targeted recommendations based on findings
+        if 'high variation' in ' '.join(anomalies).lower():
+            recommendations["Rate Standardization"] = "Consider standardizing tax rates to reduce the high variation across similar property types"
+        
+        if total_assessed_values and len(total_assessed_values) > 10:
+            recommendations["Outlier Review"] = "Investigate statistical outliers in property assessments that may indicate valuation errors or special cases"
+        
+        # Create a narrative based on findings with more depth
         narrative = ""
         if trends or anomalies or impacts:
-            narrative = "<p>Based on basic statistical analysis of your property tax data:</p><ul>"
+            narrative = "<p>Based on comprehensive statistical analysis of your property tax data:</p><ul>"
             
-            for trend in trends[:2]:
+            for trend in trends[:3]:
                 narrative += f"<li>{trend}</li>"
             
-            for anomaly in anomalies[:1]:
+            for anomaly in anomalies[:2]:
                 narrative += f"<li>{anomaly}</li>"
             
-            for impact in impacts[:1]:
+            for impact in impacts[:2]:
                 narrative += f"<li>{impact}</li>"
                 
             narrative += "</ul>"
             
-            # Add note about limited analysis
-            narrative += "<p><em>Note: These insights are based on basic statistical analysis. " + \
-                        "For more comprehensive insights, please configure an Anthropic API key " + \
-                        "with sufficient credits.</em></p>"
+            # Add section on data quality if applicable
+            if len(total_assessed_values) < len(tax_codes) * 0.8:
+                narrative += "<p>Data quality notice: Some tax codes are missing assessment values, which may affect analysis accuracy.</p>"
+            
+            # Add call to action with better wording
+            narrative += "<p><em>Note: These insights are generated using statistical models based on your data. " + \
+                        "For AI-powered analysis with deeper contextual understanding, please configure an Anthropic API key.</em></p>"
+            
+            # Add specific guidance
+            narrative += "<p>To configure an API key, visit the <a href='/mcp/api-status'>API Status</a> page.</p>"
         
         return {
             'recommendations': recommendations,

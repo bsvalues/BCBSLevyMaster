@@ -247,17 +247,16 @@ init_historical_analysis_routes(app)
 # Initialize MCP routes
 init_mcp_routes(app)
 
-# Initialize MCP API endpoints
-try:
-    from utils.mcp_integration import init_mcp_api_routes, init_mcp
-    init_mcp()
-    init_mcp_api_routes(app)
-    app.logger.info("MCP framework initialized")
-except Exception as e:
-    app.logger.error(f"Error initializing MCP framework: {str(e)}")
-
 # Import models after db is defined to avoid circular imports
 with app.app_context():
+    # Initialize MCP API endpoints within application context
+    try:
+        from utils.mcp_integration import init_mcp_api_routes, init_mcp
+        init_mcp()
+        init_mcp_api_routes(app)
+        app.logger.info("MCP framework initialized")
+    except Exception as e:
+        app.logger.error(f"Error initializing MCP framework: {str(e)}")
     # Create tables if they don't exist
     try:
         from models import User, TaxDistrict, TaxCode, Property, ImportLog, ExportLog
