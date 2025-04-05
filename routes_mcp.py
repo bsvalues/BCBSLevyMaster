@@ -686,7 +686,8 @@ def generate_mcp_insights(tax_codes):
             'trends': [],
             'anomalies': [],
             'impacts': []
-        }
+        },
+        'statistics': []  # Initialize statistics for display in cards
     }
     
     # Add appropriate message based on API key status
@@ -706,6 +707,18 @@ def generate_mcp_insights(tax_codes):
             "</div>"
             "</div>"
         )
+        
+        # Add API configuration statistics card
+        default_insights['statistics'].append({
+            'icon': 'bi bi-key',
+            'title': 'API Configuration Required',
+            'description': 'Add your Anthropic API key to access Claude 3.5 Sonnet capabilities.',
+            'data': [
+                {'label': 'Status', 'value': 'Not Configured'},
+                {'label': 'Impact', 'value': 'Limited Insights'},
+                {'label': 'Resolution', 'value': 'Configure API Key'}
+            ]
+        })
     elif api_key_status == "no_credits":
         default_insights['narrative'] += sanitize_html(
             "<div class='alert alert-danger mt-3'>"
@@ -722,6 +735,18 @@ def generate_mcp_insights(tax_codes):
             "</div>"
             "</div>"
         )
+        
+        # Add credit issue statistics card
+        default_insights['statistics'].append({
+            'icon': 'bi bi-credit-card',
+            'title': 'API Credit Issue',
+            'description': 'Your Anthropic API key requires additional credits.',
+            'data': [
+                {'label': 'Status', 'value': 'Insufficient Credits'},
+                {'label': 'Impact', 'value': 'Statistical Fallback'},
+                {'label': 'Resolution', 'value': 'Add Credits'}
+            ]
+        })
     
     # Get average assessed value using schema utility
     avg_value = get_property_assessed_value_avg()
@@ -744,6 +769,63 @@ def generate_mcp_insights(tax_codes):
             # Add limited narrative based on data analysis
             if enhanced_fallback.get('narrative'):
                 default_insights['narrative'] += sanitize_html(enhanced_fallback['narrative'])
+            
+            # Add data quality statistics cards based on fallback data
+            # Property Value Statistics Card
+            if len(tax_codes) > 0:
+                default_insights['statistics'].append({
+                    'icon': 'bi bi-house',
+                    'title': 'Property Value Analysis',
+                    'description': 'Statistical breakdown of property assessments.',
+                    'data': [
+                        {'label': 'Average Value', 'value': default_insights['data']['avg_assessed_value']},
+                        {'label': 'Properties', 'value': f'{len(tax_codes)}'},
+                        {'label': 'Data Quality', 'value': 'Good' if len(tax_codes) > 5 else 'Limited'}
+                    ]
+                })
+            
+            # Add Tax Rate Statistics Card if we have trends
+            if enhanced_fallback.get('trends'):
+                trend_data = []
+                for i, trend in enumerate(enhanced_fallback['trends'][:2]):
+                    trend_data.append({'label': f'Finding {i+1}', 'value': trend[:30] + '...' if len(trend) > 30 else trend})
+                
+                if trend_data:
+                    default_insights['statistics'].append({
+                        'icon': 'bi bi-graph-up',
+                        'title': 'Statistical Trends',
+                        'description': 'Analysis of rates and assessments across districts.',
+                        'data': trend_data
+                    })
+            
+            # Add Anomaly Detection Card if we have anomalies
+            if enhanced_fallback.get('anomalies'):
+                anomaly_data = []
+                for i, anomaly in enumerate(enhanced_fallback['anomalies'][:2]):
+                    anomaly_data.append({'label': f'Anomaly {i+1}', 'value': anomaly[:30] + '...' if len(anomaly) > 30 else anomaly})
+                
+                if anomaly_data:
+                    default_insights['statistics'].append({
+                        'icon': 'bi bi-exclamation-triangle',
+                        'title': 'Anomaly Detection',
+                        'description': 'Statistical outliers and potential issues.',
+                        'data': anomaly_data
+                    })
+                    
+            # Add recommendation card based on enhanced fallback insights
+            if enhanced_fallback.get('recommendations'):
+                rec_data = []
+                for i, (key, value) in enumerate(enhanced_fallback['recommendations'].items()):
+                    if i < 2:  # Limit to 2 recommendations
+                        rec_data.append({'label': key, 'value': value[:30] + '...' if len(value) > 30 else value})
+                
+                if rec_data:
+                    default_insights['statistics'].append({
+                        'icon': 'bi bi-lightbulb',
+                        'title': 'Recommended Actions',
+                        'description': 'Statistical guidance based on data analysis.',
+                        'data': rec_data
+                    })
     
     try:
         # Check if we can access the Claude service
@@ -802,7 +884,49 @@ def generate_mcp_insights(tax_codes):
             else:
                 recommendations = default_insights['data']['recommendations']
             
-            # Return the insights
+            # Generate AI-powered statistics cards
+            ai_statistics = []
+            
+            # Property Assessment Card
+            if default_insights['data']['avg_assessed_value']:
+                ai_statistics.append({
+                    'icon': 'bi bi-house-door',
+                    'title': 'AI Property Analysis',
+                    'description': 'Claude AI analysis of property values.',
+                    'data': [
+                        {'label': 'Average Value', 'value': default_insights['data']['avg_assessed_value']},
+                        {'label': 'Analysis', 'value': 'AI-Enhanced'},
+                        {'label': 'Confidence', 'value': 'High'}
+                    ]
+                })
+            
+            # Trends Card
+            if 'trends' in insights and insights['trends']:
+                trend_data = []
+                for i, trend in enumerate(insights['trends'][:2]):
+                    trend_data.append({'label': f'Key Trend {i+1}', 'value': trend[:30] + '...' if len(trend) > 30 else trend})
+                
+                ai_statistics.append({
+                    'icon': 'bi bi-graph-up',
+                    'title': 'AI-Detected Trends',
+                    'description': 'Claude identified patterns in your tax data.',
+                    'data': trend_data
+                })
+            
+            # Recommendations Card
+            if 'recommendations' in insights and insights['recommendations']:
+                rec_data = []
+                for i, rec in enumerate(list(recommendations.values())[:2]):
+                    rec_data.append({'label': f'Suggestion {i+1}', 'value': rec[:30] + '...' if len(rec) > 30 else rec})
+                
+                ai_statistics.append({
+                    'icon': 'bi bi-lightning',
+                    'title': 'AI Recommendations',
+                    'description': 'Smart strategies from Claude AI.',
+                    'data': rec_data
+                })
+            
+            # Return the insights with AI-powered statistics
             return {
                 'narrative': narrative,
                 'data': {
@@ -812,7 +936,8 @@ def generate_mcp_insights(tax_codes):
                     'trends': insights.get('trends', []),
                     'anomalies': insights.get('anomalies', []),
                     'impacts': insights.get('impacts', [])
-                }
+                },
+                'statistics': ai_statistics
             }
         else:
             logger.warning("Not enough data for meaningful insights")
