@@ -31,6 +31,17 @@ try:
         detect_anomalies_with_ai
     )
     from utils.advanced_ai_agent import get_advanced_analysis_agent
+    
+    # Import district analysis utilities
+    from utils.district_analysis import (
+        get_district_details,
+        get_district_tax_codes,
+        get_district_historical_rates,
+        calculate_comprehensive_statistics,
+        calculate_trend_statistics,
+        calculate_compliance_statistics
+    )
+    
     AI_FORECASTING_AVAILABLE = True
 except ImportError:
     AI_FORECASTING_AVAILABLE = False
@@ -319,7 +330,7 @@ def ai_dashboard():
         tax_codes.append({
             'id': tax_code.id,
             'code': tax_code.tax_code,
-            'description': tax_code.description or f"District: {tax_code.district.name if hasattr(tax_code, 'district') and tax_code.district else 'Unknown'}",
+            'description': tax_code.description or f"District: {tax_code.district.district_name if hasattr(tax_code, 'district') and tax_code.district else 'Unknown'}",
             'history_count': history_count
         })
     
@@ -497,7 +508,7 @@ def ai_enhanced():
         return redirect(url_for('forecasting.index'))
     
     # Get all tax districts
-    districts = TaxDistrict.query.order_by(TaxDistrict.name).all()
+    districts = TaxDistrict.query.order_by(TaxDistrict.district_name).all()
     
     return render_template(
         'forecasting/ai_enhanced.html',
@@ -554,6 +565,47 @@ def execute_ai_comprehensive_analysis():
     except Exception as e:
         logger.exception(f"Error in AI comprehensive analysis: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@forecasting_bp.route('/district/<int:district_id>/analysis', methods=['GET'])
+def district_analysis(district_id: int):
+    """Render the AI district analysis page for a specific tax district."""
+    if not AI_FORECASTING_AVAILABLE:
+        flash('AI-enhanced district analysis is not available.', 'warning')
+        return redirect(url_for('forecasting.index'))
+    
+    # Get the district
+    district = TaxDistrict.query.get_or_404(district_id)
+    
+    # Get the district details
+    district_details = get_district_details(str(district_id))
+    
+    # Get all tax codes associated with this district
+    tax_codes = get_district_tax_codes(str(district_id))
+    
+    # Get historical rates for this district
+    historical_rates = get_district_historical_rates(str(district_id), years=3)
+    
+    # Calculate comprehensive statistics
+    comprehensive_stats = calculate_comprehensive_statistics(tax_codes, historical_rates)
+    
+    # Calculate trend statistics
+    trend_stats = calculate_trend_statistics(tax_codes, historical_rates)
+    
+    # Calculate compliance statistics
+    compliance_stats = calculate_compliance_statistics(tax_codes, historical_rates)
+    
+    return render_template(
+        'forecasting/district_analysis.html',
+        page_title=f'District Analysis: {district.district_name}',
+        district=district,
+        district_details=district_details,
+        tax_codes=tax_codes,
+        historical_rates=historical_rates,
+        comprehensive_stats=comprehensive_stats,
+        trend_stats=trend_stats,
+        compliance_stats=compliance_stats,
+        ai_available=AI_FORECASTING_AVAILABLE
+    )
 
 @forecasting_bp.route('/api/tax_codes', methods=['GET'])
 def api_get_tax_codes():
