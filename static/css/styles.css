@@ -1,15 +1,19 @@
 /* 
    Main Stylesheet for Levy Calculation System
    This file contains custom styles beyond the Bootstrap framework
+   
+   Benton County, Washington Color Scheme (https://www.co.benton.wa.us/)
 */
 
 /* General styles */
 :root {
-    --primary-color: #3498db;
-    --secondary-color: #2ecc71;
-    --accent-color: #e74c3c;
-    --bg-dark: #2c3e50;
-    --text-light: #ecf0f1;
+    /* Benton County Colors */
+    --primary-color: #1a7b92;   /* Teal Blue - Primary Brand Color */
+    --secondary-color: #4d7c2d; /* Green - Secondary Brand Color */
+    --accent-color: #5da2b3;    /* Light Teal - Accent Color */
+    --bg-dark: #193046;         /* Dark Navy - Background Color */
+    --text-light: #f7f9fc;      /* Off-White - Text on dark backgrounds */
+    --benton-yellow: #e3b23c;   /* Yellow accent for special highlights */
     --border-radius: 0.5rem;
     --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }

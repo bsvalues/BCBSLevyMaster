@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Property Tax Public Portal - A public interface for property tax information.">
+    <meta name="description" content="Benton County Property Tax Portal - A public interface for property tax information.">
     <meta name="author" content="Benton County Assessor's Office">
-    <title>{% block title %}Property Tax Portal{% endblock %}</title>
+    <title>{% block title %}Benton County Property Tax Portal{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
@@ -24,6 +24,60 @@
     
     <!-- Additional styles for specific pages -->
     {% block extra_css %}{% endblock %}
+    
+    <!-- Benton County Styles -->
+    <style>
+        :root {
+            --primary-color: #1a7b92;   /* Teal Blue - Primary Brand Color */
+            --secondary-color: #4d7c2d; /* Green - Secondary Brand Color */
+            --accent-color: #5da2b3;    /* Light Teal - Accent Color */
+            --bg-dark: #193046;         /* Dark Navy - Background Color */
+            --text-light: #f7f9fc;      /* Off-White - Text on dark backgrounds */
+            --benton-yellow: #e3b23c;   /* Yellow accent for special highlights */
+        }
+        
+        .bg-primary {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #156a80 !important;
+            border-color: #156a80 !important;
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color) !important;
+            color: white !important;
+        }
+        
+        /* Hero section with Benton County gradient */
+        .hero-section {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0a1722 100%) !important;
+        }
+        
+        /* Custom header with Benton County vineyard image */
+        .app-header-bg {
+            background-image: linear-gradient(rgba(25, 48, 70, 0.8), rgba(25, 48, 70, 0.8)), 
+                             url('{{ url_for('static', filename='images/benton-county-header.png') }}');
+            background-size: cover;
+            background-position: center;
+            color: white;
+        }
+    </style>
 </head>
 <body>
     <!-- Skip navigation for accessibility -->
@@ -34,8 +88,8 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center" href="{{ url_for('public.index') }}">
-                    <img src="{{ url_for('static', filename='images/logo-light.svg') }}" alt="Property Tax Portal Logo" height="40" class="me-2">
-                    <span>Property Tax Portal</span>
+                    <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="40" class="me-2">
+                    <span>Benton County Tax Portal</span>
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#publicNavbar" aria-controls="publicNavbar" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -118,12 +172,18 @@
     </main>
     
     <!-- Footer -->
-    <footer class="bg-dark text-light py-4 mt-auto">
+    <footer class="bg-dark text-light py-4 mt-auto" style="border-top: 4px solid var(--primary-color);">
         <div class="container">
             <div class="row">
-                <div class="col-md-6">
-                    <h5 class="mb-3">Property Tax Portal</h5>
-                    <p class="mb-1">A public interface for accessing property tax information in Washington state.</p>
+                <div class="col-md-5">
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="40" class="me-2">
+                        <div>
+                            <h5 class="mb-0">Benton County</h5>
+                            <small>Washington | Est. 1905</small>
+                        </div>
+                    </div>
+                    <p class="mb-1">A public interface for accessing property tax information in Benton County, Washington.</p>
                     <p class="small text-muted mb-0">© {{ current_year|default(2025) }} Benton County Assessor's Office. All rights reserved.</p>
                 </div>
                 <div class="col-md-3">
@@ -134,13 +194,11 @@
                         <li class="mb-2"><a href="{{ url_for('public.compare_properties') }}" class="text-decoration-none link-light">Compare Properties</a></li>
                     </ul>
                 </div>
-                <div class="col-md-3">
-                    <h6 class="mb-3">Resources</h6>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><a href="#" class="text-decoration-none link-light">FAQ</a></li>
-                        <li class="mb-2"><a href="{{ url_for('public.glossary') }}" class="text-decoration-none link-light">Tax Glossary</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none link-light">Contact Us</a></li>
-                    </ul>
+                <div class="col-md-4">
+                    <h6 class="mb-3">Contact Information</h6>
+                    <p class="mb-1"><i class="bi bi-geo-alt-fill me-2"></i>5600 W. Canal Drive, Kennewick, WA</p>
+                    <p class="mb-1"><i class="bi bi-telephone-fill me-2"></i>(509) 736-3080</p>
+                    <p class="mb-1"><i class="bi bi-globe me-2"></i><a href="https://www.co.benton.wa.us/" class="text-decoration-none link-light" target="_blank">www.co.benton.wa.us</a></p>
                 </div>
             </div>
         </div>
