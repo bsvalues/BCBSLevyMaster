@@ -358,7 +358,7 @@ def district_detail(district_id):
     
     # Get tax codes that include this district
     tax_codes = TaxCode.query.filter(
-        TaxCode.district_codes.contains(district.district_code),
+        TaxCode.tax_district_id == district.id,
         TaxCode.year == district.year
     ).all()
     
@@ -366,7 +366,7 @@ def district_detail(district_id):
     property_count = Property.query.join(
         TaxCode, Property.tax_code == TaxCode.tax_code
     ).filter(
-        TaxCode.district_codes.contains(district.district_code),
+        TaxCode.tax_district_id == district.id,
         Property.year == district.year,
         TaxCode.year == district.year
     ).count()
