@@ -250,14 +250,14 @@ function fetchApiAnalytics(period) {
             fetchRecentCalls(period, 1, 10);
         })
         .catch(error => {
-            console.error('Error fetching API analytics:', error);
+            console.error("Error fetching API analytics:", error);
+            console.log("Error details:", JSON.stringify(error));
             // Show error state
-            document.getElementById('total-calls').innerText = 'Error';
-            document.getElementById('success-rate').innerText = 'Error';
-            document.getElementById('avg-response-time').innerText = 'Error';
-            document.getElementById('api-status-text').innerText = 'Error';
+            document.getElementById("total-calls").innerText = "Error";
+            document.getElementById("success-rate").innerText = "Error";
+            document.getElementById("avg-response-time").innerText = "Error";
+            document.getElementById("api-status-text").innerText = "Error";
         });
-}
 
 /**
  * Function to update dashboard metrics with new data
