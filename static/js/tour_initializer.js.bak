@@ -486,12 +486,6 @@ function startTour(tourName) {
         return;
     }
     
-    // Check if introJs is available
-    if (typeof introJs === 'undefined') {
-        console.error('IntroJS library not loaded');
-        return;
-    }
-    
     // Initialize introjs with the tour configuration
     const intro = introJs();
     
@@ -522,32 +516,17 @@ function startTour(tourName) {
     intro.start();
 }
 
-/**
- * Safe event listener addition with element existence check
- * @param {string} selector - The CSS selector for the elements
- * @param {string} event - The event to listen for
- * @param {Function} callback - The callback function
- */
-function safeAddEventListener(selector, event, callback) {
-    const elements = document.querySelectorAll(selector);
-    if (elements && elements.length > 0) {
-        elements.forEach(element => {
-            element.addEventListener(event, callback);
-        });
-    }
-}
-
 // Initialize when the DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Levy Calculation System JS initialized successfully');
-    
     // Check if we need to automatically start a tour
     checkForAutomaticTour();
     
-    // Add event listeners to tour trigger buttons (safely)
-    safeAddEventListener('[data-tour]', 'click', function() {
-        const tourName = this.getAttribute('data-tour');
-        startTour(tourName);
+    // Add event listeners to tour trigger buttons
+    document.querySelectorAll('[data-tour]').forEach(button => {
+        button.addEventListener('click', function() {
+            const tourName = this.getAttribute('data-tour');
+            startTour(tourName);
+        });
     });
 });
 

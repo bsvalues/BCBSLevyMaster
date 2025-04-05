@@ -8,8 +8,13 @@
 // Tour navigation helper
 class TourNavigator {
     constructor() {
-        this.initUI();
-        this.initEventListeners();
+        try {
+            this.initUI();
+            this.initEventListeners();
+            console.log("Guided Tour System initialized");
+        } catch (error) {
+            console.error("Error initializing Guided Tour System:", error);
+        }
     }
     
     // Initialize tour UI elements
@@ -60,45 +65,71 @@ class TourNavigator {
     // Initialize event listeners
     initEventListeners() {
         // Event listener for closing the tour navigation
-        document.getElementById('closeTourNav')?.addEventListener('click', () => {
-            document.getElementById('tourNavigation').style.display = 'none';
-        });
-        
-        // Event listener for disabling tours
-        document.getElementById('disableTours')?.addEventListener('click', () => {
-            localStorage.setItem('enable_auto_tours', 'false');
-            document.getElementById('tourNavigation').style.display = 'none';
-            
-            // Show confirmation toast
-            this.showToast('Automatic tours have been disabled. You can re-enable them in Tour Settings.');
-            
-            // Update server preferences if possible
-            this.updateServerPreferences();
-        });
-        
-        // Event listeners for tour buttons
-        document.querySelectorAll('[data-tour]').forEach(button => {
-            button.addEventListener('click', function() {
-                const tourName = this.getAttribute('data-tour');
-                if (window.tourInitializer) {
-                    window.tourInitializer.startTour(tourName);
-                } else {
-                    console.error('Tour initializer not found');
+        const closeNavButton = document.getElementById('closeTourNav');
+        if (closeNavButton) {
+            closeNavButton.addEventListener('click', () => {
+                const tourNav = document.getElementById('tourNavigation');
+                if (tourNav) {
+                    tourNav.style.display = 'none';
                 }
             });
+        }
+        
+        // Event listener for disabling tours
+        const disableToursButton = document.getElementById('disableTours');
+        if (disableToursButton) {
+            disableToursButton.addEventListener('click', () => {
+                localStorage.setItem('enable_auto_tours', 'false');
+                const tourNav = document.getElementById('tourNavigation');
+                if (tourNav) {
+                    tourNav.style.display = 'none';
+                }
+                
+                // Show confirmation toast
+                this.showToast('Automatic tours have been disabled. You can re-enable them in Tour Settings.');
+                
+                // Update server preferences if possible
+                this.updateServerPreferences();
+            });
+        }
+        
+        // Event listeners for tour buttons - using safe method
+        this.safeAddEventListener('[data-tour]', 'click', function() {
+            const tourName = this.getAttribute('data-tour');
+            if (window.tourInitializer) {
+                window.tourInitializer.startTour(tourName);
+            } else {
+                console.error('Tour initializer not found');
+            }
         });
+    }
+    
+    /**
+     * Safe event listener addition with element existence check
+     * @param {string} selector - The CSS selector for the elements
+     * @param {string} event - The event to listen for
+     * @param {Function} callback - The callback function
+     */
+    safeAddEventListener(selector, event, callback) {
+        const elements = document.querySelectorAll(selector);
+        if (elements && elements.length > 0) {
+            elements.forEach(element => {
+                element.addEventListener(event, callback);
+            });
+        }
     }
     
     // Show a toast notification
     showToast(message, type = 'info') {
-        const toastContainer = document.getElementById('toastContainer');
+        // Get or create toast container
+        let toastContainer = document.getElementById('toastContainer');
         if (!toastContainer) {
             // Create toast container if it doesn't exist
-            const container = document.createElement('div');
-            container.id = 'toastContainer';
-            container.className = 'toast-container position-fixed top-0 end-0 p-3';
-            container.style.zIndex = '1060';
-            document.body.appendChild(container);
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '1060';
+            document.body.appendChild(toastContainer);
         }
         
         // Create toast element
@@ -117,19 +148,28 @@ class TourNavigator {
             </div>
         `;
         
-        document.getElementById('toastContainer').appendChild(toastEl);
+        toastContainer.appendChild(toastEl);
         
-        // Initialize and show the toast
-        const toast = new bootstrap.Toast(toastEl, {
-            autohide: true,
-            delay: 5000
-        });
-        toast.show();
-        
-        // Remove the toast after it's hidden
-        toastEl.addEventListener('hidden.bs.toast', function() {
-            toastEl.remove();
-        });
+        // Check if Bootstrap is available
+        if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+            // Initialize and show the toast
+            const toast = new bootstrap.Toast(toastEl, {
+                autohide: true,
+                delay: 5000
+            });
+            toast.show();
+            
+            // Remove the toast after it's hidden
+            toastEl.addEventListener('hidden.bs.toast', function() {
+                toastEl.remove();
+            });
+        } else {
+            // Fallback if Bootstrap isn't available
+            toastEl.style.display = 'block';
+            setTimeout(() => {
+                toastEl.remove();
+            }, 5000);
+        }
     }
     
     // Update server preferences
@@ -175,29 +215,34 @@ class TourNavigator {
 
 // Initialize tour navigator when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if auto tours are enabled
-    const enableAutoTours = localStorage.getItem('enable_auto_tours') !== 'false';
-    
-    // Only show the tour helper if auto tours are enabled and user is on dashboard or main pages
-    if (enableAutoTours && (
-        window.location.pathname === '/dashboard' || 
-        window.location.pathname === '/' ||
-        window.location.pathname === '/levy-calculator'
-    )) {
-        window.tourNavigator = new TourNavigator();
-    }
-    
-    // Add help button to navbar if it doesn't exist
-    const navbar = document.querySelector('.navbar-nav');
-    if (navbar && !document.getElementById('tourHelpButton')) {
-        const helpButton = document.createElement('li');
-        helpButton.className = 'nav-item';
-        helpButton.innerHTML = `
-            <a class="nav-link" href="/tours" id="tourHelpButton">
-                <i class="bi bi-question-circle-fill"></i>
-                <span class="ms-1 d-none d-lg-inline">Help & Tours</span>
-            </a>
-        `;
-        navbar.appendChild(helpButton);
+    try {
+        // Check if auto tours are enabled
+        const enableAutoTours = localStorage.getItem('enable_auto_tours') !== 'false';
+        
+        // Only show the tour helper if auto tours are enabled and user is on dashboard or main pages
+        if (enableAutoTours && (
+            window.location.pathname === '/dashboard' || 
+            window.location.pathname === '/' ||
+            window.location.pathname === '/levy-calculator'
+        )) {
+            window.tourNavigator = new TourNavigator();
+        }
+        
+        // Add help button to navbar if it doesn't exist
+        const navbar = document.querySelector('.navbar-nav');
+        if (navbar && !document.getElementById('tourHelpButton')) {
+            const helpButton = document.createElement('li');
+            helpButton.className = 'nav-item';
+            helpButton.innerHTML = `
+                <a class="nav-link" href="/tours" id="tourHelpButton">
+                    <i class="bi bi-question-circle-fill"></i>
+                    <span class="ms-1 d-none d-lg-inline">Help & Tours</span>
+                </a>
+            `;
+            navbar.appendChild(helpButton);
+            console.log("Help Menu System initialized");
+        }
+    } catch (error) {
+        console.error("Error initializing tour system:", error);
     }
 });
