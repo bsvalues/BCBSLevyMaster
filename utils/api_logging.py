@@ -277,10 +277,16 @@ def save_api_call_to_database(call_record: APICallRecord, user_id: Optional[int]
         call_record: The API call record to save
         user_id: Optional user ID associated with the call
     """
-    from models import APICallLog, db
+    # Use the logger even before imports to catch any import errors
+    logger.debug(f"Attempting to save API call {call_record.service}.{call_record.endpoint} to database")
     
     try:
-        # Create database record
+        # Import needed modules
+        from models import APICallLog
+        from app import db
+        from flask import has_app_context, current_app
+        
+        # Create database record but don't commit yet
         db_record = APICallLog(
             service=call_record.service,
             endpoint=call_record.endpoint,
@@ -296,14 +302,36 @@ def save_api_call_to_database(call_record: APICallRecord, user_id: Optional[int]
             user_id=user_id
         )
         
-        # Save to database
-        with current_app.app_context():
-            db.session.add(db_record)
-            db.session.commit()
-            logger.debug(f"Saved API call {call_record.service}.{call_record.endpoint} to database (ID: {db_record.id})")
+        # Check if we're in an application context
+        if has_app_context():
+            # We're already in an app context, just save directly
+            try:
+                db.session.add(db_record)
+                db.session.commit()
+                logger.debug(f"Saved API call {call_record.service}.{call_record.endpoint} to database (ID: {db_record.id})")
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Failed to save API call to database within existing context: {str(e)}")
+        else:
+            # Not in an app context, need to create one
+            try:
+                # Import the app module
+                from app import create_app
+                app = create_app()
+                with app.app_context():
+                    # Need to import db inside the context to ensure it's properly bound
+                    from app import db
+                    db.session.add(db_record)
+                    db.session.commit()
+                    logger.debug(f"Saved API call {call_record.service}.{call_record.endpoint} to database with new context (ID: {db_record.id})")
+            except ImportError as ie:
+                # If we can't import the app, log an error
+                logger.error(f"Could not import Flask app to create app context: {str(ie)}")
+            except Exception as e:
+                logger.error(f"Failed to save API call to database with new context: {str(e)}")
     except Exception as e:
         # Log error but don't propagate exception to avoid disrupting application flow
-        logger.error(f"Failed to save API call to database: {str(e)}")
+        logger.error(f"Failed to save API call to database (outer try/except): {str(e)}")
 
 
 class APICallTracker:

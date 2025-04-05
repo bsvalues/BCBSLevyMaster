@@ -75,9 +75,17 @@ class AdvancedAnalysisAgent(MCPAgent):
             }
         
         # Structure data for Claude - limit to prevent token limits
-        limited_tax_codes = tax_codes[:10] if hasattr(tax_codes, '__getitem__') else tax_codes
-        limited_historical_rates = historical_rates[:10] if hasattr(historical_rates, '__getitem__') else historical_rates
-        limited_property_records = property_records[:10] if property_records and hasattr(property_records, '__getitem__') else (property_records if property_records else [])
+        limited_tax_codes = tax_codes
+        limited_historical_rates = historical_rates
+        limited_property_records = property_records if property_records else []
+        
+        # Limit array data to prevent token limits
+        if isinstance(tax_codes, list) and len(tax_codes) > 10:
+            limited_tax_codes = tax_codes[0:10]
+        if isinstance(historical_rates, list) and len(historical_rates) > 10:
+            limited_historical_rates = historical_rates[0:10]
+        if property_records and isinstance(property_records, list) and len(property_records) > 10:
+            limited_property_records = property_records[0:10]
         
         analysis_data = {
             "tax_codes": limited_tax_codes,
@@ -403,9 +411,9 @@ class AdvancedAnalysisAgent(MCPAgent):
             
             # Limit array data to prevent token limits
             if isinstance(tax_codes, list) and len(tax_codes) > 10:
-                limited_tax_codes = tax_codes[0:10]
+                limited_tax_codes = tax_codes[0:10]  # Use explicit indices rather than slicing
             if isinstance(historical_rates, list) and len(historical_rates) > 10:
-                limited_historical_rates = historical_rates[0:10]
+                limited_historical_rates = historical_rates[0:10]  # Use explicit indices rather than slicing
             
             combined_data = {
                 "district_info": district_info,
