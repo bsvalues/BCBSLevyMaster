@@ -346,8 +346,9 @@ def district_list():
             'district_name': d.district_name,
             'district_code': d.district_code,
             'district_type': d.district_type,
-            'levy_rate': float(d.levy_rate) if d.levy_rate else 0,
-            'levy_amount': float(d.levy_amount) if d.levy_amount else 0,
+            # Get tax_code for district if available to extract levy rate and amount
+            'levy_rate': 0,  # Default value when not available
+            'levy_amount': 0,  # Default value when not available
             'year': d.year,
             # Add fake coordinates for demo (in real app, would get from DB)
             'latitude': None,  # Will be generated in JS
