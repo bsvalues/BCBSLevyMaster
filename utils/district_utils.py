@@ -1,4 +1,5 @@
 import os
+import json
 import pandas as pd
 import xml.etree.ElementTree as ET
 import openpyxl
@@ -593,3 +594,189 @@ def get_linked_levy_codes(levy_code, year=None):
             linked_codes.add(district.levy_code)
     
     return sorted(list(linked_codes))
+def extract_districts_from_file(file_path, file_type=None, year_override=None):
+    """
+    Extract district data from various file formats for preview or import.
+    
+    Args:
+        file_path: Path to the file containing district data
+        file_type: Optional file type hint (e.g., 'csv', 'excel', 'xml', 'txt')
+        year_override: Optional year to use for all districts (overrides file data)
+        
+    Returns:
+        Dict containing the extracted districts and metadata
+    """
+    try:
+        # Determine file type if not provided
+        if not file_type:
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext in ['.csv']:
+                file_type = 'csv'
+            elif ext in ['.xls', '.xlsx']:
+                file_type = 'excel'
+            elif ext in ['.xml']:
+                file_type = 'xml'
+            elif ext in ['.txt']:
+                file_type = 'txt'
+            else:
+                file_type = 'unknown'
+        
+        # Extract data based on file type
+        districts = []
+        metadata = {'file_type': file_type}
+        
+        if file_type == 'csv':
+            # Read CSV file
+            df = pd.read_csv(file_path, encoding='utf-8')
+            districts = parse_district_data(df, year_override)
+        
+        elif file_type == 'txt':
+            # Read tab-delimited file
+            df = pd.read_csv(file_path, sep='\t', encoding='utf-8')
+            districts = parse_district_data(df, year_override)
+        
+        elif file_type == 'excel':
+            # Read Excel file
+            df = pd.read_excel(file_path)
+            districts = parse_district_data(df, year_override)
+        
+        elif file_type == 'xml':
+            # Parse XML file
+            try:
+                tree = ET.parse(file_path)
+                root = tree.getroot()
+                
+                # Extract the namespace if it exists
+                namespace = ''
+                if root.tag.startswith('{'):
+                    namespace = root.tag.split('}')[0] + '}'
+                
+                # Check if this is an Excel XML format
+                workbook_namespace = '{urn:schemas-microsoft-com:office:spreadsheet}'
+                if 'Workbook' in root.tag or root.find(f'.//{workbook_namespace}Worksheet') is not None:
+                    # This is an Excel XML file
+                    # Process and extract data from Excel XML format
+                    # This would be a more complex implementation
+                    districts = []  # Placeholder
+                else:
+                    # Regular XML structure
+                    district_elements = root.findall(f'.//{namespace}TaxDistrict') or root.findall('.//*[contains(local-name(), "District")]')
+                    
+                    for district_elem in district_elements:
+                        district_data = {}
+                        
+                        # Extract common attributes
+                        for attr in ['district_id', 'name', 'code', 'district_type', 'levy_rate', 'levy_amount']:
+                            elem = district_elem.find(f'.//{namespace}{attr.capitalize()}') or district_elem.find(f'.//*[contains(local-name(), "{attr.capitalize()}")]')
+                            if elem is not None and elem.text:
+                                district_data[attr] = elem.text.strip()
+                        
+                        # Add year from override or default to current year
+                        if year_override:
+                            district_data['year'] = year_override
+                        else:
+                            year_elem = district_elem.find(f'.//{namespace}Year') or district_elem.find('.//*[contains(local-name(), "Year")]')
+                            district_data['year'] = year_elem.text.strip() if year_elem is not None and year_elem.text else datetime.now().year
+                        
+                        districts.append(district_data)
+            except Exception as e:
+                metadata['error'] = f"Error parsing XML: {str(e)}"
+                districts = []
+        
+        # Convert data types and clean up district objects
+        for district in districts:
+            # Ensure numeric fields are properly typed
+            try:
+                if 'district_id' in district:
+                    district['district_id'] = int(district['district_id'])
+                if 'year' in district:
+                    district['year'] = int(district['year'])
+                if 'levy_rate' in district and district['levy_rate']:
+                    district['levy_rate'] = float(district['levy_rate'])
+                if 'levy_amount' in district and district['levy_amount']:
+                    if isinstance(district['levy_amount'], str):
+                        # Remove currency symbols and commas
+                        amount_str = district['levy_amount'].replace('$', '').replace(',', '')
+                        district['levy_amount'] = float(amount_str)
+                    else:
+                        district['levy_amount'] = float(district['levy_amount'])
+            except (ValueError, TypeError):
+                # Keep as string if conversion fails
+                pass
+            
+            # Ensure all districts have standard fields (even if empty)
+            for field in ['district_id', 'name', 'code', 'district_type', 'county', 'state', 'levy_rate', 'levy_amount', 'year']:
+                if field not in district:
+                    district[field] = None
+        
+        return {
+            'success': True,
+            'districts': districts,
+            'count': len(districts),
+            'metadata': metadata
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'districts': [],
+            'count': 0,
+            'error': str(e),
+            'metadata': {'file_type': file_type}
+        }
+
+def parse_district_data(df, year_override=None):
+    """
+    Parse district data from a DataFrame.
+    
+    Args:
+        df: Pandas DataFrame containing district data
+        year_override: Optional year to use for all districts
+        
+    Returns:
+        List of district dictionaries
+    """
+    # Try to map column names to our expected format
+    column_mappings = {
+        'district_id': ['district_id', 'tax_district_id', 'id', 'district #', 'district no', 'district number'],
+        'name': ['name', 'district_name', 'districtname', 'district', 'description'],
+        'code': ['code', 'district_code', 'districtcode'],
+        'district_type': ['district_type', 'type', 'dist_type'],
+        'county': ['county', 'county_name'],
+        'state': ['state', 'state_name', 'st'],
+        'levy_rate': ['levy_rate', 'rate', 'tax_rate', 'taxrate', 'levy'],
+        'levy_amount': ['levy_amount', 'amount', 'total', 'levy_total', 'total_levy']
+    }
+    
+    # First, identify which columns in the DataFrame match our expected fields
+    field_mapping = {}
+    for our_field, possible_names in column_mappings.items():
+        for col_name in df.columns:
+            if col_name.lower() in possible_names:
+                field_mapping[our_field] = col_name
+                break
+    
+    # Extract districts from DataFrame
+    districts = []
+    for _, row in df.iterrows():
+        district = {}
+        
+        # Map DataFrame columns to our standardized field names
+        for our_field, df_field in field_mapping.items():
+            # Only include non-NA values
+            if df_field in row and not pd.isna(row[df_field]):
+                district[our_field] = row[df_field]
+        
+        # Add year from override or try to find it in the data
+        if year_override:
+            district['year'] = year_override
+        elif 'year' in row and not pd.isna(row['year']):
+            district['year'] = row['year']
+        else:
+            district['year'] = datetime.now().year
+        
+        # Only include rows that have at least some identifying information
+        if 'district_id' in district or 'name' in district or 'code' in district:
+            districts.append(district)
+    
+    return districts

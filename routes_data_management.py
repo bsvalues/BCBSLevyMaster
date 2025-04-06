@@ -26,7 +26,8 @@ from models import (
 )
 from utils.import_utils import detect_file_type, read_data_from_file, process_import
 from utils.district_utils import (
-    import_district_text_file, import_district_xml_file, import_excel_xml_file
+    import_district_text_file, import_district_xml_file, import_excel_xml_file,
+    extract_districts_from_file, parse_district_data
 )
 
 
@@ -439,7 +440,7 @@ def view_tax_code(tax_code_id):
 def import_district():
     """Handle import of tax district data."""
     if request.method == "GET":
-        # Render the district import form
+        # Render the district import form with preview functionality
         current_year = datetime.now().year
         years = list(range(current_year - 5, current_year + 2))
         
@@ -622,3 +623,73 @@ def export_history():
         "data_management/export_history.html",
         exports=exports
     )
+@data_management_bp.route("/api/preview-district-import", methods=["POST"])
+def preview_district_import():
+    """
+    API endpoint to preview district data import without committing to the database.
+    Returns JSON response with preview data.
+    """
+    if "file" not in request.files:
+        return jsonify({
+            "success": False,
+            "message": "No file provided"
+        })
+    
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({
+            "success": False,
+            "message": "No file selected"
+        })
+    
+    try:
+        # Save the uploaded file to a temporary location
+        filename = secure_filename(file.filename)
+        with tempfile.NamedTemporaryFile(delete=False) as temp:
+            temp_path = temp.name
+            file.save(temp_path)
+        
+        # Extract year override if provided
+        year_override = request.form.get("year")
+        if year_override:
+            try:
+                year_override = int(year_override)
+            except ValueError:
+                year_override = None
+        
+        # Detect file type
+        file_type = detect_file_type(filename)
+        if not file_type:
+            file_type = "unknown"
+        
+        # Extract districts from the file for preview
+        result = extract_districts_from_file(temp_path, file_type, year_override)
+        
+        # Clean up temporary file
+        os.unlink(temp_path)
+        
+        # Get a sample of districts for preview (limit to 15 for performance)
+        sample_size = min(15, len(result.get('districts', [])))
+        sample_districts = result.get('districts', [])[:sample_size]
+        
+        # Return JSON response
+        response = {
+            "success": result.get('success', False),
+            "message": "District data preview generated successfully",
+            "districts": sample_districts,
+            "total_count": result.get('count', 0),
+            "sample_count": sample_size,
+            "file_type": file_type
+        }
+        
+        if not result.get('success', False):
+            response["message"] = result.get('error', "Failed to preview district data")
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error generating preview: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": f"Error generating preview: {str(e)}"
+        })
