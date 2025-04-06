@@ -176,12 +176,12 @@
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="dataDropdown">
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('data_management.districts') }}">
+                                <a class="dropdown-item" href="{{ url_for('data_management.list_tax_districts') }}">
                                     <i class="bi bi-geo-alt me-2"></i>Tax Districts
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('data_management.property_lookup') }}">
+                                <a class="dropdown-item" href="{{ url_for('data_management.list_tax_codes') }}">
                                     <i class="bi bi-house me-2"></i>Property Lookup
                                 </a>
                             </li>
@@ -435,8 +435,8 @@
                         <h6 class="fw-bold mb-3 text-primary">Quick Links</h6>
                         <ul class="list-unstyled mb-0">
                             <li class="mb-2"><a href="{{ url_for('dashboard.index') }}" class="text-decoration-none text-muted">Dashboard</a></li>
-                            <li class="mb-2"><a href="{{ url_for('data_management.districts') }}" class="text-decoration-none text-muted">Tax Districts</a></li>
-                            <li class="mb-2"><a href="{{ url_for('data_management.property_lookup') }}" class="text-decoration-none text-muted">Property Lookup</a></li>
+                            <li class="mb-2"><a href="{{ url_for('data_management.list_tax_districts') }}" class="text-decoration-none text-muted">Tax Districts</a></li>
+                            <li class="mb-2"><a href="{{ url_for('data_management.list_tax_codes') }}" class="text-decoration-none text-muted">Tax Codes</a></li>
                             <li class="mb-2"><a href="{{ url_for('historical_analysis.historical_analysis') }}" class="text-decoration-none text-muted">Historical Analysis</a></li>
                         </ul>
                     </div>
