@@ -15,6 +15,7 @@
     <!-- Map Header -->
     <div class="map-header">
         <h1 class="h3 mb-0">Benton County Tax Districts</h1>
+        <p class="text-white-50 mb-0">Interactive map with district boundaries for {{ year }}</p>
         <p class="text-white-50 mb-0">Interactive map of tax districts for {{ year }}</p>
     </div>
 </div>
@@ -104,8 +105,9 @@
 <button id="carouselToggle" class="carousel-toggle">Expand Cards</button>
 
 <!-- Map Legend -->
-<div class="map-legend">
-    <h6 class="mb-2">District Types</h6>
+<div class="map-legend card-3d">
+    <h6 class="mb-2">District Boundaries</h6>
+    <p class="small text-muted mb-3">Colors represent different district types. Click on any boundary to view details.</p>
     <div class="d-flex align-items-center mb-1">
         <div class="marker-SCHOOL me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
         <small>School Districts</small>

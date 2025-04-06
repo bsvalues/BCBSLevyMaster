@@ -405,3 +405,14 @@
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
+
+/* Polygon animation */
+@keyframes pulseBorder {
+  0% { stroke-width: 2px; stroke-opacity: 0.8; }
+  50% { stroke-width: 4px; stroke-opacity: 1; }
+  100% { stroke-width: 2px; stroke-opacity: 0.8; }
+}
+
+.polygon-active {
+  animation: pulseBorder 1.5s infinite ease-in-out;
+}

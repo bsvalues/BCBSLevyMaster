@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize map variable
     let map;
     let markers = [];
+    let polygons = [];
     let activeInfoWindow = null;
     let activeDistrictId = null;
     let currentFilters = [];
@@ -108,6 +109,31 @@ document.addEventListener('DOMContentLoaded', function() {
         return { lat, lng };
     }
     
+    // Generate polygon coordinates for a district
+    // This is a demo function - in a real app, you would get actual boundary coordinates from database
+    function generateDistrictPolygon(centerLat, centerLng, districtType) {
+        const points = [];
+        const sides = 5 + Math.floor(Math.random() * 6); // 5-10 sides
+        const radius = 0.03 + (Math.random() * 0.07); // Random radius between 0.03-0.1 degrees
+        
+        // Adjust radius based on district type (for visual variety)
+        let adjustedRadius = radius;
+        if (districtType === 'SCHOOL') adjustedRadius = radius * 1.5;
+        if (districtType === 'CITY') adjustedRadius = radius * 1.3;
+        if (districtType === 'FIRE') adjustedRadius = radius * 1.2;
+        
+        // Create irregular polygon points
+        for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * 2 * Math.PI;
+            const jitter = 0.7 + (Math.random() * 0.6); // Random between 0.7-1.3
+            const lat = centerLat + (Math.sin(angle) * adjustedRadius * jitter);
+            const lng = centerLng + (Math.cos(angle) * adjustedRadius * jitter);
+            points.push({ lat, lng });
+        }
+        
+        return points;
+    }
+    
     // Add districts to the map
     function addDistrictsToMap() {
         if (!districtsData || districtsData.length === 0) {
@@ -115,16 +141,33 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Clear existing markers
+        // Clear existing markers and polygons
         markers.forEach(marker => marker.setMap(null));
         markers = [];
         
-        // Add markers for each district
+        polygons.forEach(polygon => polygon.setMap(null));
+        polygons = [];
+        
+        // Add districts with polygons and markers
         districtsData.forEach((district, index) => {
             // Generate random coordinates for demo purposes
             const position = generateRandomCoordinates(index);
             district.latitude = position.lat;
             district.longitude = position.lng;
+            
+            // Generate polygon for this district
+            const polygonCoords = generateDistrictPolygon(
+                district.latitude, 
+                district.longitude,
+                district.district_type
+            );
+            district.polygonCoords = polygonCoords;
+            
+            // Create polygon for this district
+            const polygon = createDistrictPolygon(district);
+            if (polygon) {
+                polygons.push(polygon);
+            }
             
             // Create marker with custom styling based on district type
             const marker = createDistrictMarker(district);
@@ -139,6 +182,68 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add district cards to carousel
         populateDistrictCarousel();
+    }
+    
+    // Create polygon for a district
+    function createDistrictPolygon(district) {
+        if (!district.polygonCoords || district.polygonCoords.length < 3) {
+            return null;
+        }
+        
+        const districtType = district.district_type || 'OTHER';
+        let fillColor = '#7E57C2'; // Default color
+        
+        // Set color based on district type
+        switch(districtType) {
+            case 'SCHOOL': fillColor = '#E57373'; break;
+            case 'CITY': fillColor = '#64B5F6'; break;
+            case 'FIRE': fillColor = '#FFB74D'; break;
+            case 'COUNTY': fillColor = '#81C784'; break;
+            case 'LIBRARY': fillColor = '#9575CD'; break;
+            case 'PORT': fillColor = '#4FC3F7'; break;
+            case 'HOSPITAL': fillColor = '#F06292'; break;
+            case 'CEMETERY': fillColor = '#90A4AE'; break;
+        }
+        
+        // Create the polygon
+        const polygon = new google.maps.Polygon({
+            paths: district.polygonCoords,
+            strokeColor: fillColor,
+            strokeOpacity: 0.9,
+            strokeWeight: 2,
+            fillColor: fillColor,
+            fillOpacity: 0.25,
+            map: map,
+            zIndex: 1
+        });
+        
+        // Add click event to polygon
+        polygon.addListener('click', function() {
+            // Pan to the center of the district
+            map.panTo({ lat: district.latitude, lng: district.longitude });
+            
+            // Show district info
+            showDistrictInfo(district);
+        });
+        
+        // Add hover effects
+        polygon.addListener('mouseover', function() {
+            this.setOptions({
+                fillOpacity: 0.5,
+                strokeWeight: 3,
+                zIndex: 100
+            });
+        });
+        
+        polygon.addListener('mouseout', function() {
+            this.setOptions({
+                fillOpacity: 0.25,
+                strokeWeight: 2,
+                zIndex: 1
+            });
+        });
+        
+        return polygon;
     }
     
     // Create custom marker for district
@@ -203,8 +308,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Apply filters to the map markers
     function applyFilters() {
         if (currentFilters.length === 0) {
-            // Show all markers if no filters
+            // Show all markers and polygons if no filters
             markers.forEach(marker => marker.setVisible(true));
+            polygons.forEach(polygon => polygon.setVisible(true));
             
             // Show all district cards
             document.querySelectorAll('.district-card').forEach(card => {
@@ -214,11 +320,19 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Filter markers
-        markers.forEach((marker, index) => {
-            const district = districtsData[index];
+        // Filter markers and polygons
+        districtsData.forEach((district, index) => {
             const isVisible = currentFilters.includes(district.district_type);
-            marker.setVisible(isVisible);
+            
+            // Update marker visibility
+            if (index < markers.length) {
+                markers[index].setVisible(isVisible);
+            }
+            
+            // Update polygon visibility
+            if (index < polygons.length) {
+                polygons[index].setVisible(isVisible);
+            }
         });
         
         // Filter district cards
