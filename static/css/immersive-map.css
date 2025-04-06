@@ -396,6 +396,46 @@
 .marker-CEMETERY { background-color: #90A4AE; }
 .marker-OTHER { background-color: #7E57C2; }
 
+/* District polygon styles */
+.district-polygon {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.district-polygon:hover {
+  stroke-opacity: 1;
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.3));
+}
+
+.district-polygon-SCHOOL { fill: rgba(229, 115, 115, 0.15); stroke: #D32F2F; }
+.district-polygon-CITY { fill: rgba(100, 181, 246, 0.15); stroke: #1976D2; }
+.district-polygon-FIRE { fill: rgba(255, 183, 77, 0.15); stroke: #EF6C00; }
+.district-polygon-COUNTY { fill: rgba(129, 199, 132, 0.15); stroke: #388E3C; }
+.district-polygon-LIBRARY { fill: rgba(149, 117, 205, 0.15); stroke: #5E35B1; }
+.district-polygon-PORT { fill: rgba(79, 195, 247, 0.15); stroke: #0288D1; }
+.district-polygon-HOSPITAL { fill: rgba(240, 98, 146, 0.15); stroke: #C2185B; }
+.district-polygon-CEMETERY { fill: rgba(144, 164, 174, 0.15); stroke: #455A64; }
+.district-polygon-OTHER { fill: rgba(126, 87, 194, 0.15); stroke: #4527A0; }
+
+/* Active polygon styles */
+.district-polygon.active {
+  stroke-width: 3px;
+  fill-opacity: 0.4;
+  filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.4));
+}
+
+/* Polygon animation */
+@keyframes pulseBorder {
+  0% { stroke-width: 2px; stroke-opacity: 0.8; }
+  50% { stroke-width: 4px; stroke-opacity: 1; }
+  100% { stroke-width: 2px; stroke-opacity: 0.8; }
+}
+
+.polygon-active {
+  animation: pulseBorder 1.5s infinite ease-in-out;
+}
+
 /* 3D-styled modern UI elements */
 .card-3d {
     background: white;
@@ -493,17 +533,6 @@
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* Polygon animation */
-@keyframes pulseBorder {
-  0% { stroke-width: 2px; stroke-opacity: 0.8; }
-  50% { stroke-width: 4px; stroke-opacity: 1; }
-  100% { stroke-width: 2px; stroke-opacity: 0.8; }
-}
-
-.polygon-active {
-  animation: pulseBorder 1.5s infinite ease-in-out;
-}
-
 /* Ripple animation for map marker clicks */
 @keyframes ripple {
   0% {
@@ -518,29 +547,4 @@
 
 .ripple-animation {
   animation: ripple 1s linear;
-}
-
-@keyframes ripple {
-    0% {
-        transform: scale(0.8);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(2.5);
-        opacity: 0;
-    }
-}
-
-.ripple-animation::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    z-index: -1;
-    animation: ripple 1s ease-out forwards;
 }

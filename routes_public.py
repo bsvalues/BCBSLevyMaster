@@ -341,29 +341,29 @@ def district_list():
     
     # If immersive view requested, use the immersive template
     if view_mode == 'immersive':
-        # Convert districts to JSON for the map
-        import json
-        districts_json = json.dumps([{
+        # Convert districts to a JSON-serializable format
+        districts_data = [{
             'id': d.id,
             'district_name': d.district_name,
             'district_code': d.district_code,
             'district_type': d.district_type,
             # Get tax_code for district if available to extract levy rate and amount
-            'levy_rate': d.tax_codes[0].effective_tax_rate if d.tax_codes and len(d.tax_codes) > 0 else 0,
-            'levy_amount': d.tax_codes[0].total_levy_amount if d.tax_codes and len(d.tax_codes) > 0 else 0,
-            'year': d.year,
-            # Add fake coordinates for demo (in real app, would get from DB)
-            'latitude': None,  # Will be generated in JS
-            'longitude': None  # Will be generated in JS
-        } for d in districts])
+            'tax_codes': [{
+                'id': tc.id,
+                'tax_code': tc.tax_code,
+                'levy_rate': tc.effective_tax_rate or 0,
+                'levy_amount': tc.total_levy_amount or 0,
+                'total_assessed_value': tc.total_assessed_value or 0
+            } for tc in d.tax_codes] if d.tax_codes else [],
+            'year': d.year
+        } for d in districts]
         
         # Get Google Maps API key from environment
         google_maps_api_key = os.environ.get('GOOGLE_MAPS_API_KEY', '')
         
         return render_template(
             'public/immersive/district_map.html',
-            districts=districts,
-            districts_json=districts_json,
+            districts=districts_data,
             available_years=available_years,
             year=year,
             google_maps_api_key=google_maps_api_key
@@ -459,3 +459,76 @@ def glossary():
         frequently_used_terms=frequently_used_terms,
         tax_terminology=TAX_TERMINOLOGY
     )
+@public_bp.route('/api/districts')
+def api_districts():
+    """
+    API endpoint to get district data for the map view.
+    
+    Returns:
+        JSON response with district data
+    """
+    # Get available years
+    available_years = db.session.query(TaxDistrict.year).distinct().order_by(desc(TaxDistrict.year)).all()
+    available_years = [year[0] for year in available_years] or [datetime.now().year]
+    
+    # Get selected year (default to most recent)
+    year = request.args.get('year', available_years[0], type=int)
+    
+    # Get districts for the selected year with eager loading of tax codes
+    districts = TaxDistrict.query.filter(TaxDistrict.year == year).options(
+        db.joinedload(TaxDistrict.tax_codes)
+    ).order_by(TaxDistrict.district_name).all()
+    
+    # Convert to JSON-serializable format
+    districts_data = [{
+        'id': d.id,
+        'district_name': d.district_name,
+        'district_code': d.district_code,
+        'district_type': d.district_type,
+        # Get tax code info if available
+        'tax_codes': [{
+            'id': tc.id,
+            'tax_code': tc.tax_code,
+            'levy_rate': tc.effective_tax_rate or 0,
+            'levy_amount': tc.total_levy_amount or 0,
+            'total_assessed_value': tc.total_assessed_value or 0
+        } for tc in d.tax_codes] if d.tax_codes else [],
+        'year': d.year
+    } for d in districts]
+    
+    return jsonify(districts_data)
+
+
+@public_bp.route('/api/district/<int:district_id>')
+def api_district_detail(district_id):
+    """
+    API endpoint to get detailed information for a specific district.
+    
+    Args:
+        district_id: The unique district identifier
+        
+    Returns:
+        JSON response with district details
+    """
+    # Get district
+    district = TaxDistrict.query.options(
+        db.joinedload(TaxDistrict.tax_codes)
+    ).get_or_404(district_id)
+    
+    # Convert to JSON-serializable format
+    district_data = {
+        'id': district.id,
+        'district_name': district.district_name,
+        'district_code': district.district_code,
+        'district_type': district.district_type,
+        'tax_codes': [{
+            'id': tc.id,
+            'tax_code': tc.tax_code,
+            'levy_rate': tc.effective_tax_rate or 0,
+            'levy_amount': tc.total_levy_amount or 0,
+            'total_assessed_value': tc.total_assessed_value or 0
+        } for tc in district.tax_codes] if district.tax_codes else [],
+        'year': district.year
+    }
+    
+    return jsonify(district_data)

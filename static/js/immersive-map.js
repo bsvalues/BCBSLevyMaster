@@ -1,364 +1,145 @@
-// Immersive Map Interactive Visualization
-// This file is part of the Levy Calculation System
-//
-// Enhanced, immersive map interface for visualizing tax districts
-// with interactive elements and animations.
+/**
+ * Immersive Map View
+ * 
+ * An interactive Google Maps-based visualization of tax districts with
+ * custom markers, district boundary polygons, and interactive features.
+ */
 
 // Global variables
-let map;
-let districtMarkers = [];
-let districtPolygons = [];
-let activeInfoWindow = null;
-let districtData = [];
-let filterSettings = {
-    districtTypes: []
+let map;                      // Google Map instance
+let districtData = [];        // District data from the server
+let districtMarkers = [];     // Array to track district markers
+let districtPolygons = [];    // Array to track district polygons
+let activeInfoWindow = null;  // Currently active info window
+let mapInitialized = false;   // Flag to track map initialization
+
+// Filter settings
+const filterSettings = {
+    districtTypes: []         // Active district type filters
 };
 
-// Initialize map when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    const mapContainer = document.getElementById('map-container');
-    const districtsJson = document.getElementById('districts-data');
-    
-    if (mapContainer && districtsJson) {
-        // Parse district data
-        try {
-            districtData = JSON.parse(districtsJson.textContent);
-            initMap();
-        } catch (e) {
-            console.error('Error parsing district data:', e);
-            displayErrorMessage('Could not load district data. Please try again later.');
-        }
-    }
-    
-    // Initialize filter listeners
-    setupFilterListeners();
-});
-
-// Initialize Google Map with district data
+// Main initialization function called when the page loads
 function initMap() {
-    // Check if Google Maps API is loaded
-    if (!window.google || !window.google.maps) {
-        console.error('Google Maps API not loaded');
-        displayErrorMessage('Map service is currently unavailable. Please try again later.');
-        return;
-    }
-    
-    // Create the map centered on Benton County
-    map = new google.maps.Map(document.getElementById('map-container'), {
-        center: { lat: 46.25, lng: -119.3}, // Benton County
+    // Initialize the map
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 46.25, lng: -119.3 }, // Benton County, WA
         zoom: 10,
-        styles: getMapStyles(),
+        mapTypeId: 'terrain',
         mapTypeControl: true,
         mapTypeControlOptions: {
             style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
             position: google.maps.ControlPosition.TOP_RIGHT
         },
-        zoomControl: true,
-        zoomControlOptions: {
-            position: google.maps.ControlPosition.RIGHT_CENTER
-        },
         streetViewControl: false,
         fullscreenControl: true,
         fullscreenControlOptions: {
-            position: google.maps.ControlPosition.RIGHT_TOP
-        }
-    });
-    
-    // Create custom controls
-    addCustomControls();
-    
-    // Load district markers and polygons
-    loadDistricts();
-    
-    // Set up UI interactions (filters, buttons, etc.)
-    setupUIInteractions();
-    
-    // Start animation cycling
-    cycleMarkerAnimations();
-}
-
-// Generate random coordinates within Benton County area
-// This is a demo function - in a real app, you would get actual coordinates from database
-function generateRandomCoordinates(index) {
-    // Benton County approximate bounds
-    const minLat = 46.0;
-    const maxLat = 46.5;
-    const minLng = -119.6;
-    const maxLng = -119.0;
-    
-    // Use the index to distribute points more evenly
-    const lat = minLat + (maxLat - minLat) * (0.2 + 0.6 * Math.sin(index * 0.5));
-    const lng = minLng + (maxLng - minLng) * (0.2 + 0.6 * Math.cos(index * 0.5));
-    
-    return { lat, lng };
-}
-
-// Generate polygon coordinates for a district
-function generateDistrictPolygon(center, districtType) {
-    const points = [];
-    const radius = 0.03 + Math.random() * 0.05; // Random radius between 0.03 and 0.08 degrees
-    const edges = districtType === 'CITY' ? 6 : 
-                  districtType === 'SCHOOL' ? 5 :
-                  districtType === 'FIRE' ? 4 : 
-                  Math.floor(Math.random() * 4) + 4; // 4-7 edges for other types
-    
-    for (let i = 0; i < edges; i++) {
-        const angle = (i / edges) * (2 * Math.PI);
-        // Add some randomness to make the shape irregular
-        const randomRadius = radius * (0.8 + Math.random() * 0.4);
-        const point = {
-            lat: center.lat + Math.sin(angle) * randomRadius,
-            lng: center.lng + Math.cos(angle) * randomRadius
-        };
-        points.push(point);
-    }
-    
-    return points;
-}
-
-// Load and display districts on the map
-function loadDistricts() {
-    // Clear existing markers and polygons
-    clearMapFeatures();
-    
-    if (!districtData || districtData.length === 0) {
-        displayErrorMessage('No district data available to display');
-        return;
-    }
-    
-    // Create markers and polygons for each district
-    districtData.forEach((district, index) => {
-        // Generate coordinates since we don't have real ones in the demo
-        const coordinates = generateRandomCoordinates(index);
-        district.latitude = coordinates.lat;
-        district.longitude = coordinates.lng;
-        
-        // Apply filters before creating map features
-        if (shouldDisplayDistrict(district)) {
-            // Create marker
-            createDistrictMarker(district, coordinates);
-            
-            // Create district boundary polygon
-            const polygonCoords = generateDistrictPolygon(coordinates, district.district_type);
-            createDistrictPolygon(district, polygonCoords);
-        }
-    });
-    
-    // Update the displayed count
-    updateDistrictCount();
-}
-
-// Create a marker for a district
-function createDistrictMarker(district, position) {
-    const districtType = district.district_type || 'OTHER';
-    
-    // Create marker
-    const marker = new google.maps.Marker({
-        position: position,
-        map: map,
-        title: district.district_name,
-        icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 0,
-            fillColor: 'transparent',
-            fillOpacity: 0,
-            strokeWeight: 0
+            position: google.maps.ControlPosition.RIGHT_BOTTOM
         },
-        optimized: false,
-        zIndex: 10
-    });
-    
-    // Add custom HTML overlay for marker
-    const markerOverlay = new google.maps.OverlayView();
-    markerOverlay.draw = function() {
-        if (!this.div_) {
-            this.div_ = document.createElement("div");
-            
-            // Decide on animation effect based on district type or random selection
-            let animationEffect = "";
-            const effectTypes = ["pulse-effect", "glow-effect", "bounce-effect", "spin-effect"];
-            
-            // Assign animation effect based on district type for a consistent experience
-            switch(districtType) {
-                case "SCHOOL": animationEffect = "pulse-effect"; break;
-                case "CITY": animationEffect = "glow-effect"; break;
-                case "FIRE": animationEffect = "bounce-effect"; break;
-                case "COUNTY": animationEffect = "spin-effect"; break;
-                default: 
-                    // Random effect for other district types
-                    animationEffect = effectTypes[Math.floor(Math.random() * effectTypes.length)];
+        zoomControl: false,  // We'll use our custom zoom controls
+        styles: [
+            {
+                "featureType": "administrative.locality",
+                "elementType": "labels",
+                "stylers": [{ "visibility": "on" }]
+            },
+            {
+                "featureType": "administrative.neighborhood",
+                "stylers": [{ "visibility": "off" }]
+            },
+            {
+                "featureType": "poi",
+                "elementType": "labels",
+                "stylers": [{ "visibility": "off" }]
+            },
+            {
+                "featureType": "road",
+                "elementType": "labels.icon",
+                "stylers": [{ "visibility": "off" }]
+            },
+            {
+                "featureType": "transit",
+                "stylers": [{ "visibility": "off" }]
+            },
+            {
+                "featureType": "water",
+                "elementType": "labels",
+                "stylers": [{ "visibility": "off" }]
             }
+        ]
+    });
+    
+    // Flag map as initialized
+    mapInitialized = true;
+    
+    // Load district data and set up event handlers
+    fetchDistrictData()
+        .then(() => {
+            // Setup UI interactions
+            setupUIInteractions();
+            setupFilterListeners();
             
-            // Apply classes including the animation effect
-            this.div_.className = `district-marker marker-${districtType} ${animationEffect}`;
-            this.div_.innerHTML = district.district_code || districtType.charAt(0);
-            this.div_.title = district.district_name;
-            this.div_.setAttribute("data-district-id", district.id);
-            this.div_.setAttribute("data-animation-type", animationEffect);
+            // Start cycling animations
+            cycleMarkerAnimations();
             
-            // Append to the overlay's panes
-            const panes = this.getPanes();
-            panes.overlayImage.appendChild(this.div_);
+            // Check for district ID in URL for direct linking
+            const urlParams = new URLSearchParams(window.location.search);
+            const districtId = urlParams.get('district_id');
+            
+            if (districtId) {
+                // Attempt to find and highlight the district
+                highlightDistrictById(districtId);
+            }
+        })
+        .catch(error => {
+            console.error('Error initializing map:', error);
+            displayErrorMessage('Failed to load district data. Please try refreshing the page.');
+        });
+}
+
+// Fetch district data from the server
+function fetchDistrictData() {
+    return new Promise((resolve, reject) => {
+        // First check if data is already in the page
+        const dataElement = document.getElementById('district-data');
+        if (dataElement) {
+            try {
+                districtData = JSON.parse(dataElement.textContent);
+                loadDistricts();
+                resolve();
+                return;
+            } catch (e) {
+                console.warn('Failed to parse embedded district data:', e);
+                // Fall back to API call
+            }
         }
         
-        // Position the div on the marker
-        const point = this.getProjection().fromLatLngToDivPixel(marker.getPosition());
-        if (point) {
-            this.div_.style.left = (point.x - 20) + "px";
-            this.div_.style.top = (point.y - 20) + "px";
-        }
-    };
-    
-    // Add to map and store in array
-    markerOverlay.setMap(map);
-    districtMarkers.push({ marker, overlay: markerOverlay, district });
-    
-    // Add click event to marker
-    marker.addListener("click", function() {
-        // Add ripple animation to marker on click
-        if (markerOverlay.div_) {
-            markerOverlay.div_.classList.add("ripple-animation");
-            
-            // Remove animation class after it completes
-            setTimeout(() => {
-                if (markerOverlay.div_) {
-                    markerOverlay.div_.classList.remove("ripple-animation");
+        // If we don't have embedded data, fetch from API
+        fetch('/api/districts')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
-            }, 1000);
-        }
-        
-        showDistrictInfo(district);
+                return response.json();
+            })
+            .then(data => {
+                districtData = data;
+                loadDistricts();
+                resolve();
+            })
+            .catch(error => {
+                console.error('Error fetching district data:', error);
+                reject(error);
+            });
     });
 }
 
-// Create a polygon for a district boundary
-function createDistrictPolygon(district, coordinates) {
-    const districtType = district.district_type || 'OTHER';
-    
-    // Determine color based on district type
-    let fillColor, strokeColor;
-    switch(districtType) {
-        case 'SCHOOL':
-            fillColor = '#E57373';
-            strokeColor = '#D32F2F';
-            break;
-        case 'CITY':
-            fillColor = '#64B5F6';
-            strokeColor = '#1976D2';
-            break;
-        case 'FIRE':
-            fillColor = '#FFB74D';
-            strokeColor = '#EF6C00';
-            break;
-        case 'COUNTY':
-            fillColor = '#81C784';
-            strokeColor = '#388E3C';
-            break;
-        default:
-            fillColor = '#9575CD';
-            strokeColor = '#5E35B1';
-    }
-    
-    // Create polygon
-    const polygon = new google.maps.Polygon({
-        paths: coordinates,
-        strokeColor: strokeColor,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: fillColor,
-        fillOpacity: 0.15,
-        map: map,
-        zIndex: 5
-    });
-    
-    // Store polygon reference
-    districtPolygons.push({ polygon, district });
-    
-    // Add hover effect
-    polygon.addListener('mouseover', function() {
-        this.setOptions({
-            fillOpacity: 0.4,
-            strokeWeight: 3
-        });
-    });
-    
-    polygon.addListener('mouseout', function() {
-        this.setOptions({
-            fillOpacity: 0.15,
-            strokeWeight: 2
-        });
-    });
-    
-    // Add click handler
-    polygon.addListener('click', function() {
-        showDistrictInfo(district);
-    });
-}
-
-// Show district information in the sidebar
-function showDistrictInfo(district) {
-    const infoPanel = document.getElementById('district-info-panel');
-    
-    if (!infoPanel) {
-        console.error('District info panel not found');
-        return;
-    }
-    
-    // Update panel with district info
-    infoPanel.innerHTML = `
-        <div class="district-info-card">
-            <h3>${district.district_name}</h3>
-            <div class="district-type-badge badge-${district.district_type || 'OTHER'}">${district.district_type || 'Unknown Type'}</div>
-            <div class="district-details">
-                <p><strong>District Code:</strong> ${district.district_code || 'N/A'}</p>
-                <p><strong>Levy Rate:</strong> ${district.levy_rate ? district.levy_rate.toFixed(3) : 'N/A'}</p>
-                <p><strong>Levy Amount:</strong> ${district.levy_amount ? '$' + district.levy_amount.toLocaleString() : 'N/A'}</p>
-                <p><strong>Year:</strong> ${district.year || 'N/A'}</p>
-            </div>
-            <div class="district-action-buttons">
-                <a href="/public/district/${district.id}" class="btn btn-sm btn-primary">View Details</a>
-                <button class="btn btn-sm btn-outline-secondary zoom-to-district" data-district-id="${district.id}">Zoom To</button>
-            </div>
-        </div>
-    `;
-    
-    // Show the panel
-    infoPanel.classList.add('active');
-    
-    // Add event listener to zoom button
-    const zoomBtn = infoPanel.querySelector('.zoom-to-district');
-    if (zoomBtn) {
-        zoomBtn.addEventListener('click', function() {
-            zoomToDistrict(district.id);
-        });
-    }
-    
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'close-info-panel btn btn-sm btn-link';
-    closeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
-    closeBtn.addEventListener('click', function() {
-        infoPanel.classList.remove('active');
-    });
-    infoPanel.appendChild(closeBtn);
-}
-
-// Zoom to a specific district
-function zoomToDistrict(districtId) {
-    const marker = districtMarkers.find(m => m.district.id === districtId);
-    
-    if (marker && marker.marker) {
-        map.setZoom(13);
-        map.setCenter(marker.marker.getPosition());
-    }
-}
-
-// Clear all markers and polygons from the map
+// Clear all map features (markers and polygons)
 function clearMapFeatures() {
     // Clear markers
     districtMarkers.forEach(marker => {
-        marker.marker.setMap(null);
-        marker.overlay.setMap(null);
+        if (marker.overlay) {
+            marker.overlay.setMap(null);
+        }
     });
     districtMarkers = [];
     
@@ -369,249 +150,321 @@ function clearMapFeatures() {
     districtPolygons = [];
 }
 
-// Add custom controls to the map
-function addCustomControls() {
-    // Filter control
-    const filterControl = document.createElement('div');
-    filterControl.className = 'map-control filter-control card-3d';
-    filterControl.innerHTML = `
-        <button id="toggle-filter-panel" class="btn btn-sm btn-light">
-            <i class="bi bi-funnel-fill"></i> Filters
-        </button>
-    `;
-    map.controls[google.maps.ControlPosition.TOP_LEFT].push(filterControl);
+// Create a custom marker for a district
+function createDistrictMarker(district, coordinates) {
+    // Determine the right animation type based on district type
+    let animationType;
+    switch (district.district_type) {
+        case 'SCHOOL':
+            animationType = 'pulse-effect';
+            break;
+        case 'CITY':
+            animationType = 'glow-effect';
+            break;
+        case 'FIRE':
+            animationType = 'bounce-effect';
+            break;
+        case 'COUNTY':
+            animationType = 'spin-effect';
+            break;
+        default:
+            animationType = 'pulse-effect';
+    }
     
-    // Legend control
-    const legendControl = document.createElement('div');
-    legendControl.className = 'map-control legend-control card-3d';
-    legendControl.innerHTML = `
-        <div class="legend-header">
-            <i class="bi bi-list-ul"></i> District Types
-        </div>
-        <div class="legend-content">
-            <div class="legend-item"><span class="legend-color" style="background-color: #E57373;"></span> School Districts</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #64B5F6;"></span> Cities</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #FFB74D;"></span> Fire Districts</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #81C784;"></span> County</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #9575CD;"></span> Other Districts</div>
+    // Create the marker HTML with animations
+    const markerContent = `
+        <div class="district-marker marker-${district.district_type || 'OTHER'} ${animationType}" 
+             data-animation-type="${animationType}"
+             title="${district.district_name}">
+            ${district.district_name ? district.district_name.substring(0, 2) : '?'}
         </div>
     `;
-    map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(legendControl);
     
-    // Back to list view button
-    const backButton = document.createElement('div');
-    backButton.className = 'map-control back-control card-3d';
-    backButton.innerHTML = `
-        <a href="/public/districts" class="btn btn-sm btn-light">
-            <i class="bi bi-arrow-left"></i> Back to List View
-        </a>
-    `;
-    map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(backButton);
-}
-
-// Setup UI interactions for the map
-function setupUIInteractions() {
-    // Toggle filter panel
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'toggle-filter-panel' || e.target.closest('#toggle-filter-panel')) {
-            document.getElementById('filter-panel').classList.toggle('show');
-        }
+    // Create a custom overlay
+    const overlay = new CustomMarker(
+        new google.maps.LatLng(coordinates.lat, coordinates.lng),
+        map,
+        markerContent,
+        district
+    );
+    
+    // Add it to our collection
+    districtMarkers.push({
+        overlay,
+        district,
+        position: coordinates
     });
     
-    // Close district info panel when clicking outside
-    document.addEventListener('click', function(e) {
-        const infoPanel = document.getElementById('district-info-panel');
-        const clickedInsidePanel = e.target.closest('#district-info-panel');
-        const clickedMarker = e.target.closest('.district-marker');
+    return overlay;
+}
+
+// Handle marker click to show district info
+function showDistrictInfo(district) {
+    // Get existing or create info panel
+    let infoPanel = document.getElementById('districtInfoPanel');
+    
+    if (!infoPanel) {
+        infoPanel = document.createElement('div');
+        infoPanel.id = 'districtInfoPanel';
+        infoPanel.className = 'district-info-panel';
+        document.querySelector('.map-overlay').appendChild(infoPanel);
+    }
+    
+    // Get tax code details if available
+    const taxCodes = district.tax_codes || [];
+    const latestTaxCode = taxCodes.length > 0 ? taxCodes[0] : null;
+    
+    // Format tax information
+    let taxRateInfo = 'No tax information available';
+    let levyAmountInfo = '';
+    let assessedValueInfo = '';
+    
+    if (latestTaxCode) {
+        taxRateInfo = `${parseFloat(latestTaxCode.levy_rate || 0).toFixed(6)}`;
+        levyAmountInfo = `$${parseFloat(latestTaxCode.levy_amount || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+        assessedValueInfo = `$${parseFloat(latestTaxCode.total_assessed_value || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    }
+    
+    // Build the info panel content
+    infoPanel.innerHTML = `
+        <div class="info-panel-header">
+            <h4>${district.district_name || 'Unknown District'}</h4>
+            <button class="info-close-btn">×</button>
+        </div>
+        <div class="info-panel-content">
+            <div class="row mb-3">
+                <div class="col">
+                    <strong>District Type:</strong>
+                    <span class="badge filter-${district.district_type}">${district.district_type || 'OTHER'}</span>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="card mb-2">
+                        <div class="card-body p-2 text-center">
+                            <small class="text-muted">Levy Rate</small>
+                            <h5 class="mb-0">${taxRateInfo}</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-2">
+                        <div class="card-body p-2 text-center">
+                            <small class="text-muted">Levy Amount</small>
+                            <h5 class="mb-0">${levyAmountInfo}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body p-2 text-center">
+                    <small class="text-muted">Total Assessed Value</small>
+                    <h5 class="mb-0">${assessedValueInfo}</h5>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <a href="/districts/${district.id}/detail" class="btn btn-primary">
+                    <i class="fas fa-chart-bar me-1"></i> View District Details
+                </a>
+            </div>
+        </div>
+    `;
+    
+    // Show the panel
+    infoPanel.classList.add('visible');
+    
+    // Add close button event listener
+    infoPanel.querySelector('.info-close-btn').addEventListener('click', function() {
+        infoPanel.classList.remove('visible');
         
-        if (infoPanel && infoPanel.classList.contains('active') && !clickedInsidePanel && !clickedMarker) {
-            infoPanel.classList.remove('active');
+        // Deactivate all polygons
+        districtPolygons.forEach(poly => {
+            removeClassFromPolygon(poly.polygon, 'district-polygon-active');
+            poly.isActive = false;
+        });
+    });
+}
+
+// Find and highlight a district by ID
+function highlightDistrictById(districtId) {
+    // Parse the ID to ensure it's an integer
+    const id = parseInt(districtId, 10);
+    
+    // Find the district in our data
+    const district = districtData.find(d => d.id === id);
+    
+    if (district) {
+        // Try to highlight the polygon first
+        const highlighted = highlightDistrictPolygon(id);
+        
+        if (highlighted) {
+            // Show the district info
+            showDistrictInfo(district);
+            return true;
+        } else {
+            console.warn(`District found but polygon could not be highlighted for ID: ${id}`);
+            return false;
         }
-    });
-    
-    // Handle filter form submission
-    const filterForm = document.getElementById('district-filter-form');
-    if (filterForm) {
-        filterForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            applyFilters();
-        });
-    }
-}
-
-// Initialize filter listeners
-function setupFilterListeners() {
-    // District type checkboxes
-    document.querySelectorAll('.district-type-filter').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            applyFilters();
-        });
-    });
-    
-    // Reset filter button
-    const resetBtn = document.getElementById('reset-filters');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            document.querySelectorAll('.district-type-filter').forEach(cb => {
-                cb.checked = true;
-            });
-            applyFilters();
-        });
-    }
-}
-
-// Apply map filters
-function applyFilters() {
-    // Get selected district types
-    const selectedTypes = [];
-    document.querySelectorAll('.district-type-filter:checked').forEach(checkbox => {
-        selectedTypes.push(checkbox.value);
-    });
-    
-    // Update filter settings
-    filterSettings.districtTypes = selectedTypes;
-    
-    // Reload districts with new filters
-    loadDistricts();
-    
-    // Optional: close the filter panel on small screens
-    if (window.innerWidth < 768) {
-        document.getElementById('filter-panel').classList.remove('show');
-    }
-}
-
-// Check if a district should be displayed based on filter settings
-function shouldDisplayDistrict(district) {
-    // If no district types selected, show none
-    if (filterSettings.districtTypes.length === 0) {
+    } else {
+        console.warn(`District not found for ID: ${id}`);
         return false;
     }
-    
-    // Check district type filter
-    if (filterSettings.districtTypes.length > 0) {
-        return filterSettings.districtTypes.includes(district.district_type || 'OTHER');
-    }
-    
-    // Default to showing the district
-    return true;
 }
 
-// Update the displayed district count
-function updateDistrictCount() {
-    const countElement = document.getElementById('district-count');
-    if (countElement) {
-        const visibleCount = districtMarkers.length;
-        countElement.textContent = visibleCount;
-    }
-}
-
-// Display error message
+// Display error message on the map
 function displayErrorMessage(message) {
-    const errorPanel = document.getElementById('error-message');
-    if (errorPanel) {
-        errorPanel.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="bi bi-exclamation-triangle"></i> ${message}
-            </div>
-        `;
-        errorPanel.style.display = 'block';
-    } else {
-        console.error(message);
-    }
-}
-
-// Map styles for a modern, clean look
-function getMapStyles() {
-    return [
-        {
-            "featureType": "water",
-            "elementType": "geometry",
-            "stylers": [{"color": "#e9e9e9"}, {"lightness": 17}]
-        },
-        {
-            "featureType": "landscape",
-            "elementType": "geometry",
-            "stylers": [{"color": "#f5f5f5"}, {"lightness": 20}]
-        },
-        {
-            "featureType": "road.highway",
-            "elementType": "geometry.fill",
-            "stylers": [{"color": "#ffffff"}, {"lightness": 17}]
-        },
-        {
-            "featureType": "road.highway",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#ffffff"}, {"lightness": 29}, {"weight": 0.2}]
-        },
-        {
-            "featureType": "road.arterial",
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffffff"}, {"lightness": 18}]
-        },
-        {
-            "featureType": "road.local",
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffffff"}, {"lightness": 16}]
-        },
-        {
-            "featureType": "poi",
-            "elementType": "geometry",
-            "stylers": [{"color": "#f5f5f5"}, {"lightness": 21}]
-        },
-        {
-            "featureType": "poi.park",
-            "elementType": "geometry",
-            "stylers": [{"color": "#dedede"}, {"lightness": 21}]
-        },
-        {
-            "elementType": "labels.text.stroke",
-            "stylers": [{"visibility": "on"}, {"color": "#ffffff"}, {"lightness": 16}]
-        },
-        {
-            "elementType": "labels.text.fill",
-            "stylers": [{"saturation": 36}, {"color": "#333333"}, {"lightness": 40}]
-        },
-        {
-            "elementType": "labels.icon",
-            "stylers": [{"visibility": "off"}]
-        },
-        {
-            "featureType": "transit",
-            "elementType": "geometry",
-            "stylers": [{"color": "#f2f2f2"}, {"lightness": 19}]
-        },
-        {
-            "featureType": "administrative",
-            "elementType": "geometry.fill",
-            "stylers": [{"color": "#fefefe"}, {"lightness": 20}]
-        },
-        {
-            "featureType": "administrative",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#fefefe"}, {"lightness": 17}, {"weight": 1.2}]
-        }
-    ];
-}
-
-// Periodically cycle through animation effects for each marker
-function cycleMarkerAnimations() {
-    const animationCycleInterval = 60000; // Change animations every 60 seconds
-    const effectTypes = ["pulse-effect", "glow-effect", "bounce-effect", "spin-effect"];
+    const errorElement = document.createElement('div');
+    errorElement.className = 'alert alert-danger map-error';
+    errorElement.style.position = 'absolute';
+    errorElement.style.top = '50%';
+    errorElement.style.left = '50%';
+    errorElement.style.transform = 'translate(-50%, -50%)';
+    errorElement.style.zIndex = '1000';
+    errorElement.style.padding = '15px 20px';
+    errorElement.style.borderRadius = '5px';
+    errorElement.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
+    errorElement.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${message}
+    `;
     
-    setInterval(() => {
-        // Get all marker elements
-        const markerElements = document.querySelectorAll(".district-marker");
-        
-        markerElements.forEach(marker => {
-            // Remove all existing animation classes
-            effectTypes.forEach(effect => {
-                marker.classList.remove(effect);
+    // Add to the map container
+    document.querySelector('.map-container').appendChild(errorElement);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        errorElement.remove();
+    }, 5000);
+}
+
+// Custom marker overlay class for Google Maps
+class CustomMarker extends google.maps.OverlayView {
+    constructor(position, map, content, district) {
+        super();
+        this.position = position;
+        this.content = content;
+        this.district = district;
+        this.div_ = null;
+        this.setMap(map);
+    }
+    
+    draw() {
+        if (!this.div_) {
+            this.div_ = document.createElement('div');
+            this.div_.className = 'district-marker-container';
+            this.div_.innerHTML = this.content;
+            this.div_.style.position = 'absolute';
+            this.div_.style.cursor = 'pointer';
+            
+            // Add click listener
+            this.div_.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Add ripple effect
+                this.div_.querySelector('.district-marker').classList.add('ripple-animation');
+                
+                // Remove ripple class after animation completes
+                setTimeout(() => {
+                    const markerElement = this.div_.querySelector('.district-marker');
+                    if (markerElement) {
+                        markerElement.classList.remove('ripple-animation');
+                    }
+                }, 1000);
+                
+                // Show district info
+                showDistrictInfo(this.district);
+                
+                // Highlight the corresponding polygon
+                if (this.district.id) {
+                    highlightDistrictPolygon(this.district.id);
+                }
             });
             
-            // Add a new random animation class
-            const newEffect = effectTypes[Math.floor(Math.random() * effectTypes.length)];
-            marker.classList.add(newEffect);
-            marker.setAttribute("data-animation-type", newEffect);
-        });
-    }, animationCycleInterval);
+            // Add to the overlay
+            const panes = this.getPanes();
+            panes.overlayMouseTarget.appendChild(this.div_);
+        }
+        
+        // Position the element
+        const point = this.getProjection().fromLatLngToDivPixel(this.position);
+        if (point) {
+            this.div_.style.left = (point.x - 20) + 'px';  // Half the width of the marker
+            this.div_.style.top = (point.y - 20) + 'px';   // Half the height of the marker
+        }
+    }
+    
+    onRemove() {
+        if (this.div_) {
+            this.div_.parentNode.removeChild(this.div_);
+            this.div_ = null;
+        }
+    }
 }
+
+// Add district carousel items
+function addDistrictToCarousel(district) {
+    const carousel = document.getElementById('districtCarousel');
+    if (!carousel) return;
+    
+    // Get tax code details if available
+    const taxCodes = district.tax_codes || [];
+    const latestTaxCode = taxCodes.length > 0 ? taxCodes[0] : null;
+    
+    // Format tax information
+    let taxRateInfo = 'No tax rate';
+    let levyAmountInfo = 'No levy amount';
+    
+    if (latestTaxCode) {
+        taxRateInfo = `${parseFloat(latestTaxCode.levy_rate || 0).toFixed(6)}`;
+        levyAmountInfo = `$${parseFloat(latestTaxCode.levy_amount || 0).toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    }
+    
+    // Create card element
+    const card = document.createElement('div');
+    card.className = `district-card district-card-${district.district_type || 'other'}`;
+    card.innerHTML = `
+        <div class="card-body p-3">
+            <h6 class="mb-1">${district.district_name || 'Unknown District'}</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge filter-${district.district_type}">${district.district_type || 'OTHER'}</span>
+                <small class="text-muted">Rate: ${taxRateInfo}</small>
+            </div>
+            <div class="text-end">
+                <small>${levyAmountInfo}</small>
+            </div>
+        </div>
+    `;
+    
+    // Add click handler to show district info
+    card.addEventListener('click', function() {
+        showDistrictInfo(district);
+        
+        if (district.id) {
+            // Highlight the district polygon
+            highlightDistrictPolygon(district.id);
+            
+            // Pan to the district
+            const districtMarker = districtMarkers.find(m => m.district.id === district.id);
+            if (districtMarker && districtMarker.position) {
+                map.panTo(districtMarker.position);
+            }
+        }
+    });
+    
+    // Add to carousel
+    carousel.appendChild(card);
+}
+
+// loadDistricts function has been moved to immersive-map-load-districts.js file
+
+// Document ready event
+document.addEventListener('DOMContentLoaded', function() {
+    // If Google Maps API is already loaded, initialize the map
+    if (window.google && window.google.maps) {
+        initMap();
+    }
+    // Otherwise, the callback in the Google Maps script tag will initialize the map
+});
