@@ -279,6 +279,54 @@
     }
 }
 
+/* District Marker Animations */
+@keyframes markerPulse {
+    0% { transform: scale(1); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+    50% { transform: scale(1.15); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
+    100% { transform: scale(1); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+}
+
+@keyframes markerGlow {
+    0% { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+    50% { box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.6), 0 2px 10px rgba(0, 0, 0, 0.3); }
+    100% { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); }
+}
+
+@keyframes markerBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes markerSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+.ripple-animation::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: ripple 1s ease-out forwards;
+}
+
 .district-marker {
     border-radius: 50%;
     width: 40px;
@@ -290,13 +338,52 @@
     font-weight: bold;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     border: 2px solid white;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     cursor: pointer;
+    position: relative;
+    z-index: 5;
 }
 
 .district-marker:hover {
-    transform: scale(1.15);
+    transform: scale(1.25);
     z-index: 100;
+    border-width: 3px;
+}
+
+.district-marker.pulse-effect:hover {
+    animation: markerPulse 1.5s infinite ease-in-out;
+}
+
+.district-marker.glow-effect:hover {
+    animation: markerGlow 1.5s infinite ease-in-out;
+}
+
+.district-marker.bounce-effect:hover {
+    animation: markerBounce 0.8s infinite ease-in-out;
+}
+
+.district-marker.spin-effect:hover {
+    animation: markerSpin 1.5s infinite linear;
+    transform: scale(1.15);
+}
+
+.district-marker::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    transition: all 0.3s ease;
+}
+
+.district-marker:hover::after {
+    width: 60px;
+    height: 60px;
 }
 
 .marker-SCHOOL { background-color: #E57373; }
@@ -415,4 +502,45 @@
 
 .polygon-active {
   animation: pulseBorder 1.5s infinite ease-in-out;
+}
+
+/* Ripple animation for map marker clicks */
+@keyframes ripple {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.3),
+                0 0 0 0 rgba(255, 255, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(255, 255, 255, 0),
+                0 0 0 40px rgba(255, 255, 255, 0);
+  }
+}
+
+.ripple-animation {
+  animation: ripple 1s linear;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+.ripple-animation::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: ripple 1s ease-out forwards;
 }
