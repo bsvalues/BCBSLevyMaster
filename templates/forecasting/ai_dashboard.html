@@ -85,10 +85,18 @@
                     <h5 class="mb-0">Configure Forecast</h5>
                 </div>
                 <div class="card-body">
-                    <form id="forecastForm">
+                    <form id="forecastForm" class="needs-validation" novalidate>
                         <div class="mb-3">
                             <label for="taxCodeSelect" class="form-label">Tax Code</label>
-                            <select class="form-select" id="taxCodeSelect" name="tax_code" required>
+                            <select class="form-select" id="taxCodeSelect" name="tax_code" required aria-describedby="taxCodeFeedback">
+                                <option value="">Select a tax code</option>
+                                {% for tax_code in tax_codes %}
+                                <option value="{{ tax_code.code }}">{{ tax_code.code }} - {{ tax_code.description }} ({{ tax_code.history_count }} years)</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback" id="taxCodeFeedback">
+                                Please select a tax code to analyze
+                            </div>
                                 <option value="">Select a tax code</option>
                                 {% for tax_code in tax_codes %}
                                 <option value="{{ tax_code.code }}">{{ tax_code.code }} - {{ tax_code.description }} ({{ tax_code.history_count }} years)</option>
@@ -98,7 +106,10 @@
 
                         <div class="mb-3">
                             <label for="yearsAhead" class="form-label">Years to Forecast</label>
-                            <input type="range" class="form-range" id="yearsAhead" name="years_ahead" min="1" max="10" value="3">
+                            <input type="range" class="form-range" id="yearsAhead" name="years_ahead" min="1" max="10" value="3" data-value-suffix=" years">
+                            <div class="text-center mt-1">
+                                <span id="yearsAhead-value" class="badge bg-primary">3 years</span>
+                            </div>
                             <div class="d-flex justify-content-between">
                                 <small>1 year</small>
                                 <small id="yearsValue">3 years</small>
@@ -269,6 +280,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/forecasting-forms.js') }}"></script>
 {{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>

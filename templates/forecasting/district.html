@@ -27,7 +27,15 @@
                     <form id="district-forecast-form">
                         <div class="mb-3">
                             <label for="district-id" class="form-label">Tax District</label>
-                            <select class="form-select" id="district-id" name="district_id" required>
+                            <select class="form-select" id="district-id" name="district_id" required aria-describedby="districtIdFeedback">
+                                <option value="">Select a district</option>
+                                {% for district in districts %}
+                                <option value="{{ district.tax_district_id }}">District {{ district.tax_district_id }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback" id="districtIdFeedback">
+                                Please select a tax district
+                            </div>
                                 <option value="">Select a district</option>
                                 {% for district in districts %}
                                 <option value="{{ district.tax_district_id }}">District {{ district.tax_district_id }}</option>
@@ -46,7 +54,13 @@
                         
                         <div class="mb-3">
                             <label for="years-ahead" class="form-label">Forecast Years</label>
-                            <input type="number" class="form-control" id="years-ahead" name="years_ahead" min="1" max="10" value="3">
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="years-ahead" name="years_ahead" min="1" max="10" value="3" required aria-describedby="yearsAheadFeedback">
+                                <span class="input-group-text">years</span>
+                            </div>
+                            <div class="invalid-feedback" id="yearsAheadFeedback">
+                                Please enter a number between 1 and 10
+                            </div>
                             <div class="form-text">Number of future years to forecast (1-10).</div>
                         </div>
                         
@@ -120,6 +134,7 @@
 
 {% block scripts %}
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="{{ url_for('static', filename='js/forecasting-forms.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const districtForecastForm = document.getElementById('district-forecast-form');
