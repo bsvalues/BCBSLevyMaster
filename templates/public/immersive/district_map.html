@@ -1,0 +1,144 @@
+{% extends 'minimal_base.html' %}
+
+{% block title %}Immersive District Map - Benton County Property Tax Portal{% endblock %}
+
+{% block extra_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/immersive-map.css') }}">
+{% endblock %}
+
+{% block body %}
+<!-- Map Container (Full Screen) -->
+<div id="map" class="map-container"></div>
+
+<!-- Map Overlay (for non-interactive elements) -->
+<div class="map-overlay">
+    <!-- Map Header -->
+    <div class="map-header">
+        <h1 class="h3 mb-0">Benton County Tax Districts</h1>
+        <p class="text-white-50 mb-0">Interactive map of tax districts for {{ year }}</p>
+    </div>
+</div>
+
+<!-- Back to List Button -->
+<a href="{{ url_for('public.district_list', year=year) }}" class="back-to-list">
+    <i class="bi bi-arrow-left"></i> Back to List View
+</a>
+
+<!-- Filter Controls -->
+<div class="filter-controls card-3d">
+    <h5 class="mb-3">Filter by District Type</h5>
+    <div class="mb-3">
+        <span class="filter-badge filter-SCHOOL" data-type="SCHOOL">School Districts</span>
+        <span class="filter-badge filter-CITY" data-type="CITY">Cities</span>
+        <span class="filter-badge filter-FIRE" data-type="FIRE">Fire Districts</span>
+        <span class="filter-badge filter-COUNTY" data-type="COUNTY">County</span>
+        <span class="filter-badge filter-LIBRARY" data-type="LIBRARY">Library</span>
+        <span class="filter-badge filter-PORT" data-type="PORT">Port</span>
+        <span class="filter-badge filter-HOSPITAL" data-type="HOSPITAL">Hospital</span>
+        <span class="filter-badge filter-CEMETERY" data-type="CEMETERY">Cemetery</span>
+        <span class="filter-badge filter-OTHER" data-type="OTHER">Other</span>
+    </div>
+    <button id="resetFilters" class="btn btn-sm btn-outline-primary w-100">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters
+    </button>
+</div>
+
+<!-- Map Controls -->
+<div class="map-controls">
+    <button id="zoomInBtn" class="map-control-btn" title="Zoom In">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+    <button id="zoomOutBtn" class="map-control-btn" title="Zoom Out">
+        <i class="bi bi-dash-lg"></i>
+    </button>
+    <button id="resetMapBtn" class="map-control-btn" title="Reset Map">
+        <i class="bi bi-arrows-fullscreen"></i>
+    </button>
+</div>
+
+<!-- District Info Panel -->
+<div id="districtInfoPanel" class="district-info-panel card-3d">
+    <div class="info-panel-header">
+        <h4 id="districtName" class="h5 mb-1">District Name</h4>
+        <p class="mb-0 small fw-light">Tax District Information</p>
+        <button id="closeInfoPanel" class="info-close-btn">
+            <i class="bi bi-x"></i>
+        </button>
+    </div>
+    
+    <div class="px-1 py-2">
+        <div class="row mb-3">
+            <div class="col-5">
+                <p class="text-muted mb-1 small">District Code</p>
+                <p id="districtCode" class="fw-bold mb-0">--</p>
+            </div>
+            <div class="col-7">
+                <p class="text-muted mb-1 small">District Type</p>
+                <p id="districtType" class="fw-bold mb-0">--</p>
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-5">
+                <p class="text-muted mb-1 small">Levy Rate</p>
+                <p id="districtLevyRate" class="fw-bold mb-0">--</p>
+            </div>
+            <div class="col-7">
+                <p class="text-muted mb-1 small">Levy Amount</p>
+                <p id="districtLevyAmount" class="fw-bold mb-0">--</p>
+            </div>
+        </div>
+        
+        <div class="mb-0">
+            <a id="districtDetailLink" href="#" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-info-circle me-1"></i> View Full Details
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- District Carousel -->
+<div id="districtCarousel" class="district-carousel"></div>
+
+<!-- Carousel Toggle Button -->
+<button id="carouselToggle" class="carousel-toggle">Expand Cards</button>
+
+<!-- Map Legend -->
+<div class="map-legend">
+    <h6 class="mb-2">District Types</h6>
+    <div class="d-flex align-items-center mb-1">
+        <div class="marker-SCHOOL me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
+        <small>School Districts</small>
+    </div>
+    <div class="d-flex align-items-center mb-1">
+        <div class="marker-CITY me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
+        <small>Cities</small>
+    </div>
+    <div class="d-flex align-items-center mb-1">
+        <div class="marker-FIRE me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
+        <small>Fire Districts</small>
+    </div>
+    <div class="d-flex align-items-center mb-1">
+        <div class="marker-COUNTY me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
+        <small>County</small>
+    </div>
+    <div class="d-flex align-items-center">
+        <div class="marker-OTHER me-2" style="width: 15px; height: 15px; border-radius: 50%;"></div>
+        <small>Other Districts</small>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Google Maps API -->
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places"></script>
+
+<!-- District Data -->
+<script>
+    // District data from the server
+    const districtsData = {{ districts_json|safe }};
+</script>
+
+<!-- Immersive Map Script -->
+<script src="{{ url_for('static', filename='js/immersive-map.js') }}"></script>
+{% endblock %}

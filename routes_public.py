@@ -331,9 +331,42 @@ def district_list():
     # Get selected year (default to most recent)
     year = request.args.get('year', available_years[0], type=int)
     
+    # Check view mode
+    view_mode = request.args.get('view', 'standard')
+    
     # Get districts for the selected year
     districts = TaxDistrict.query.filter(TaxDistrict.year == year).order_by(TaxDistrict.district_name).all()
     
+    # If immersive view requested, use the immersive template
+    if view_mode == 'immersive':
+        # Convert districts to JSON for the map
+        import json
+        districts_json = json.dumps([{
+            'id': d.id,
+            'district_name': d.district_name,
+            'district_code': d.district_code,
+            'district_type': d.district_type,
+            'levy_rate': float(d.levy_rate) if d.levy_rate else 0,
+            'levy_amount': float(d.levy_amount) if d.levy_amount else 0,
+            'year': d.year,
+            # Add fake coordinates for demo (in real app, would get from DB)
+            'latitude': None,  # Will be generated in JS
+            'longitude': None  # Will be generated in JS
+        } for d in districts])
+        
+        # Get Google Maps API key from environment
+        google_maps_api_key = os.environ.get('GOOGLE_MAPS_API_KEY', '')
+        
+        return render_template(
+            'public/immersive/district_map.html',
+            districts=districts,
+            districts_json=districts_json,
+            available_years=available_years,
+            year=year,
+            google_maps_api_key=google_maps_api_key
+        )
+    
+    # Otherwise use the standard list template
     return render_template(
         'public/district_list.html',
         districts=districts,

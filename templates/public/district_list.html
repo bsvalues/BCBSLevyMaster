@@ -15,15 +15,22 @@
             </nav>
             <div class="d-flex justify-content-between align-items-center flex-wrap">
                 <h1 class="h2 mb-3">Tax Districts</h1>
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="yearDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        View {{ year }} <span class="d-none d-md-inline">Data</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="yearDropdown">
-                        {% for available_year in available_years %}
-                            <li><a class="dropdown-item {% if available_year == year %}active{% endif %}" href="{{ url_for('public.district_list', year=available_year) }}">{{ available_year }}</a></li>
-                        {% endfor %}
-                    </ul>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('public.district_list', year=year, view='immersive') }}" class="btn btn-primary me-2">
+                        <i class="bi bi-map-fill me-1"></i> Immersive Map View
+                    </a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="yearDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            View {{ year }} <span class="d-none d-md-inline">Data</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="yearDropdown">
+                            {% for available_year in available_years %}
+                                <li><a class="dropdown-item {% if available_year == year %}active{% endif %}" href="{{ url_for('public.district_list', year=available_year) }}">{{ available_year }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
                 </div>
             </div>
             <p class="lead">View tax district information for Benton County. Tax districts are governmental entities that have the power to levy taxes on properties within their boundaries.</p>
