@@ -59,6 +59,31 @@ main {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Modern gradient header styling for interior pages */
+.app-header-bg {
+    background: linear-gradient(135deg, var(--primary-color), var(--bg-dark));
+    color: var(--text-light);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.app-header-bg::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    bottom: -50%;
+    left: -50%;
+    background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.08) 0%, transparent 50%, transparent 100%);
+    transform: rotate(25deg);
+    pointer-events: none;
+}
+
+.app-header-bg .text-light.opacity-90 {
+    opacity: 0.9 !important;
+}
+
 /* Card customizations */
 .card {
     border-radius: var(--border-radius);
@@ -246,4 +271,72 @@ main {
         border: 1px solid #ddd;
         box-shadow: none;
     }
+}
+/* Modern gradient header styling for interior pages */
+.app-header-bg {
+    background: linear-gradient(135deg, var(--primary-color), var(--bg-dark));
+    color: var(--text-light);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.app-header-bg::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    bottom: -50%;
+    left: -50%;
+    background: linear-gradient(to bottom right, rgba(255, 255, 255, 0.08) 0%, transparent 50%, transparent 100%);
+    transform: rotate(25deg);
+    pointer-events: none;
+}
+
+.app-header-bg .text-light.opacity-90 {
+    opacity: 0.9 !important;
+}
+
+/* Modern card styling */
+.hover-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Feature icon circles */
+.feature-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.5rem;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+/* Card with top borders */
+.card-top-border-primary {
+    position: relative;
+}
+.card-top-border-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+}
+
+.card-top-border-secondary::before {
+    background: linear-gradient(90deg, var(--secondary-color), #66A355);
+}
+
+.card-top-border-yellow::before {
+    background: linear-gradient(90deg, var(--benton-yellow), #F0C75C);
 }

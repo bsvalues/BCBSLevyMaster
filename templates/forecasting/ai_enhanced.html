@@ -5,6 +5,73 @@
 {% block head %}
 {{ super() }}
 <style>
+
+<style>
+    .card-top-border-primary:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #3DA5BD, #7CBFCC);
+    }
+    
+    .card-top-border-success:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #66A355, #78c265);
+    }
+    
+    .card-top-border-yellow:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #F0C75C, #f5d78a);
+    }
+    
+    .card-top-border-secondary:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #6c757d, #adb5bd);
+    }
+    
+    .card-top-border-danger:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #e74a3b, #f08a81);
+    }
+    
+    .hover-card {
+        position: relative;
+        transition: transform 0.3s, box-shadow 0.3s;
+        border-radius: 16px; 
+        overflow: hidden;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    
+    .insight-card {
+        transition: transform 0.2s;
+    }
     .insight-card {
         transition: transform 0.2s;
         border-left: 4px solid #4e73df;
@@ -77,15 +144,24 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>AI-Enhanced Comprehensive Analysis</h1>
-        <div>
-            <a href="{{ url_for('forecasting.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Back to Forecasting
-            </a>
+<!-- Header Section with Gradient Background -->
+<div class="app-header-bg py-4 mb-4 rounded-4 mx-3">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold text-white mb-3">AI-Enhanced Analysis</h1>
+                <p class="lead text-light opacity-90 mb-0">Deep insights into tax districts powered by advanced AI</p>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                <a href="{{ url_for('forecasting.index') }}" class="btn btn-light rounded-pill px-4">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Forecasting
+                </a>
+            </div>
         </div>
     </div>
+</div>
+
+<div class="container">
 
     <div class="row">
         <div class="col-md-3">
