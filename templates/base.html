@@ -19,6 +19,9 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     
+    <!-- Micro-interactions CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/micro-interactions.css') }}">
+    
     <!-- Additional CSS for specific pages -->
     {% block extra_css %}{% endblock %}
     
@@ -498,6 +501,8 @@
     <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
     
     <!-- Help Menu System -->
+    <!-- Form Micro-Interactions -->
+    <script src="{{ url_for('static', filename='js/form-micro-interactions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     
     {% block extra_js %}{% endblock %}

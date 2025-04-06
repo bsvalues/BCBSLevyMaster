@@ -220,6 +220,7 @@ from routes_tours import tours_bp, register_routes as register_tour_routes
 from routes_historical_analysis import historical_analysis_bp, init_historical_analysis_routes
 from routes_mcp import mcp_bp, init_mcp_routes
 from routes_advanced_mcp import advanced_mcp_bp
+from routes_examples import examples_bp
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -233,6 +234,7 @@ app.register_blueprint(tours_bp)
 # Note: historical_analysis_bp is registered via init_historical_analysis_routes
 # Note: mcp_bp is registered via init_mcp_routes
 app.register_blueprint(advanced_mcp_bp)
+app.register_blueprint(examples_bp)
 
 # Initialize authentication routes
 init_auth_routes(app)

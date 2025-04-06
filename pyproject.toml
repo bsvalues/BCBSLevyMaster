@@ -25,4 +25,13 @@ dependencies = [
     "flask-login>=0.6.3",
     "flask-wtf>=1.2.2",
     "trafilatura>=2.0.0",
+    "polars-distance==0.5.1",
+    "polars-business==0.3.22",
+    "polars==1.16.0",
+    "polars-xdt==0.16.0",
+    "polarion==1.4.0",
+    "polars-coord-transforms==0.10.0",
+    "polars-ols==0.3.5",
+    "polaris==0.1",
+    "polartransform>=2.0.0",
 ]
