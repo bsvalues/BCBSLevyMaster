@@ -334,8 +334,10 @@ def district_list():
     # Check view mode
     view_mode = request.args.get('view', 'standard')
     
-    # Get districts for the selected year
-    districts = TaxDistrict.query.filter(TaxDistrict.year == year).order_by(TaxDistrict.district_name).all()
+    # Get districts for the selected year with eager loading of tax codes to prevent N+1 queries
+    districts = TaxDistrict.query.filter(TaxDistrict.year == year).options(
+        db.joinedload(TaxDistrict.tax_codes)
+    ).order_by(TaxDistrict.district_name).all()
     
     # If immersive view requested, use the immersive template
     if view_mode == 'immersive':
@@ -347,8 +349,8 @@ def district_list():
             'district_code': d.district_code,
             'district_type': d.district_type,
             # Get tax_code for district if available to extract levy rate and amount
-            'levy_rate': 0,  # Default value when not available
-            'levy_amount': 0,  # Default value when not available
+            'levy_rate': d.tax_codes[0].effective_tax_rate if d.tax_codes and len(d.tax_codes) > 0 else 0,
+            'levy_amount': d.tax_codes[0].total_levy_amount if d.tax_codes and len(d.tax_codes) > 0 else 0,
             'year': d.year,
             # Add fake coordinates for demo (in real app, would get from DB)
             'latitude': None,  # Will be generated in JS
