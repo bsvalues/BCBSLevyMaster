@@ -32,9 +32,9 @@
             --primary-color: #3DA5BD;   /* Lighter Teal Blue - Primary Brand Color */
             --secondary-color: #66A355; /* Lighter Green - Secondary Brand Color */
             --accent-color: #7CBFCC;    /* Light Teal - Accent Color */
-            --bg-dark: #ffffff;         /* White - For background */
+            --bg-dark: #1D3A54;         /* Slightly Lighter Navy - Background Color */
             --bg-light: #f8fafc;        /* Very Light Gray - Light Background */
-            --text-light: #333333;      /* Dark Gray - Text on light backgrounds */
+            --text-light: #ffffff;      /* Pure White - Text on dark backgrounds */
             --text-dark: #334155;       /* Dark Slate - Text on light backgrounds */
             --benton-yellow: #F0C75C;   /* Brighter Yellow accent */
             --border-color: #e5e7eb;    /* Light Border Color */
@@ -194,7 +194,7 @@
     
     <!-- Header and navigation -->
     <header>
-        <nav class="navbar navbar-expand-lg navbar-dark py-3" style="background: linear-gradient(90deg, #2D5F8B 0%, #3DA5BD 100%);">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center" href="{{ url_for('public.index') }}">
                     <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="40" class="me-2">
@@ -244,12 +244,12 @@
         
         <!-- Page header section -->
         {% block page_header %}
-        <div class="bg-light py-4">
+        <div class="bg-dark py-4">
             <div class="container">
                 <div class="row align-items-center">
                     <div class="col-lg-8">
                         <h1 class="display-6 mb-2">{% block page_title %}Property Tax Portal{% endblock %}</h1>
-                        <p class="lead text-secondary mb-0">{% block page_subtitle %}Public access to property tax information{% endblock %}</p>
+                        <p class="lead text-muted mb-0">{% block page_subtitle %}Public access to property tax information{% endblock %}</p>
                     </div>
                     <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
                         {% block header_actions %}{% endblock %}
@@ -281,7 +281,7 @@
     </main>
     
     <!-- Footer -->
-    <footer class="bg-light text-dark py-4 mt-auto" style="border-top: 4px solid var(--primary-color);">
+    <footer class="bg-dark text-light py-4 mt-auto" style="border-top: 4px solid var(--primary-color);">
         <div class="container">
             <div class="row">
                 <div class="col-md-5">
@@ -293,21 +293,21 @@
                         </div>
                     </div>
                     <p class="mb-1">A public interface for accessing property tax information in Benton County, Washington.</p>
-                    <p class="small text-secondary mb-0">© {{ current_year|default(2025) }} Benton County Assessor's Office. All rights reserved.</p>
+                    <p class="small text-muted mb-0">© {{ current_year|default(2025) }} Benton County Assessor's Office. All rights reserved.</p>
                 </div>
                 <div class="col-md-3">
                     <h6 class="mb-3">Quick Links</h6>
                     <ul class="list-unstyled">
-                        <li class="mb-2"><a href="{{ url_for('public.search') }}" class="text-decoration-none link-dark">Property Search</a></li>
-                        <li class="mb-2"><a href="{{ url_for('public.district_list') }}" class="text-decoration-none link-dark">Tax Districts</a></li>
-                        <li class="mb-2"><a href="{{ url_for('public.compare_properties') }}" class="text-decoration-none link-dark">Compare Properties</a></li>
+                        <li class="mb-2"><a href="{{ url_for('public.search') }}" class="text-decoration-none link-light">Property Search</a></li>
+                        <li class="mb-2"><a href="{{ url_for('public.district_list') }}" class="text-decoration-none link-light">Tax Districts</a></li>
+                        <li class="mb-2"><a href="{{ url_for('public.compare_properties') }}" class="text-decoration-none link-light">Compare Properties</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
                     <h6 class="mb-3">Contact Information</h6>
                     <p class="mb-1"><i class="bi bi-geo-alt-fill me-2"></i>5600 W. Canal Drive, Kennewick, WA</p>
                     <p class="mb-1"><i class="bi bi-telephone-fill me-2"></i>(509) 736-3080</p>
-                    <p class="mb-1"><i class="bi bi-globe me-2"></i><a href="https://www.co.benton.wa.us/" class="text-decoration-none link-dark" target="_blank">www.co.benton.wa.us</a></p>
+                    <p class="mb-1"><i class="bi bi-globe me-2"></i><a href="https://www.co.benton.wa.us/" class="text-decoration-none link-light" target="_blank">www.co.benton.wa.us</a></p>
                 </div>
             </div>
         </div>
