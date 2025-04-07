@@ -223,6 +223,7 @@ from routes_advanced_mcp import advanced_mcp_bp
 from routes_examples import examples_bp
 from routes_budget_impact import budget_impact_bp
 from routes_reports_new import init_report_routes
+from routes_levy_audit import levy_audit_bp, register_levy_audit_routes
 
 app.register_blueprint(data_management_bp)
 app.register_blueprint(forecasting_bp)
@@ -256,6 +257,9 @@ init_mcp_routes(app)
 
 # Initialize report routes
 init_report_routes(app)
+
+# Initialize levy audit routes
+register_levy_audit_routes(app)
 
 # Import models after db is defined to avoid circular imports
 with app.app_context():

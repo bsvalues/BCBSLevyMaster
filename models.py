@@ -629,3 +629,43 @@ class APICallLog(db.Model):
     
     def __repr__(self):
         return f'<APICallLog {self.id} {self.service}.{self.endpoint} success={self.success}>'
+
+
+class LevyAuditRecord(db.Model):
+    """
+    Model for storing levy audit records from the Levy Audit AI Agent.
+    
+    This table tracks all interactions with the Levy Audit Agent,
+    including compliance audits, recommendations, and calculation verifications.
+    """
+    __tablename__ = 'levy_audit_record'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    tax_district_id = db.Column(db.Integer, db.ForeignKey('tax_district.id'), nullable=True, index=True)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_code.id'), nullable=True, index=True)
+    year = db.Column(db.Integer, nullable=True, index=True)
+    audit_type = db.Column(db.String(32), nullable=False, index=True)  # COMPLIANCE, RECOMMENDATION, VERIFICATION, QUERY
+    full_audit = db.Column(db.Boolean, default=False)
+    compliance_score = db.Column(db.Float, nullable=True)
+    query = db.Column(db.Text, nullable=True)
+    results = db.Column(db.JSON, nullable=True)
+    status = db.Column(db.String(32), default='PENDING', nullable=False)  # PENDING, COMPLETED, FAILED
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    error_details = db.Column(db.Text, nullable=True)
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('levy_audit_records', lazy='dynamic'))
+    tax_district = db.relationship('TaxDistrict', backref=db.backref('levy_audit_records', lazy='dynamic'))
+    tax_code = db.relationship('TaxCode', backref=db.backref('levy_audit_records', lazy='dynamic'))
+    
+    # Add indexes for common queries
+    __table_args__ = (
+        db.Index('idx_audit_district_year', 'tax_district_id', 'year'),
+        db.Index('idx_audit_type_status', 'audit_type', 'status'),
+        db.Index('idx_audit_user_district', 'user_id', 'tax_district_id'),
+    )
+    
+    def __repr__(self):
+        return f'<LevyAuditRecord {self.id} type={self.audit_type} status={self.status}>'
