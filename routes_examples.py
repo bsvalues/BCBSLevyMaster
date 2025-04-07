@@ -9,6 +9,11 @@ from flask import Blueprint, render_template
 
 examples_bp = Blueprint('examples', __name__, url_prefix='/examples')
 
+@examples_bp.route('/')
+def index():
+    """Main examples page showcasing available component demos."""
+    return render_template('examples/index.html')
+
 @examples_bp.route('/forms')
 def forms_demo():
     """Demo page for interactive form elements."""
