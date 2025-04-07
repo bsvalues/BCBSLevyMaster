@@ -669,3 +669,98 @@ class LevyAuditRecord(db.Model):
     
     def __repr__(self):
         return f'<LevyAuditRecord {self.id} type={self.audit_type} status={self.status}>'
+
+
+class UserActionLog(db.Model):
+    """
+    Model for tracking detailed user interactions with the system.
+    
+    This table provides comprehensive logging of user activities including:
+    - Page views and navigation
+    - Feature usage
+    - Form submissions
+    - Data exports
+    - System settings changes
+    
+    It complements the existing AuditLog table which focuses on data changes,
+    while this focuses on user behaviors and interactions.
+    """
+    __tablename__ = 'user_action_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    action_type = db.Column(db.String(64), nullable=False, index=True)  # VIEW, SEARCH, EXPORT, CALCULATE, etc.
+    module = db.Column(db.String(64), nullable=False, index=True)  # levy_calculator, reports, admin, etc.
+    submodule = db.Column(db.String(64), nullable=True)  # Specific feature within module
+    action_details = db.Column(db.JSON, nullable=True)  # Details specific to the action
+    entity_type = db.Column(db.String(64), nullable=True)  # Type of entity being acted upon (tax_district, property, etc.)
+    entity_id = db.Column(db.Integer, nullable=True)  # ID of the entity being acted upon
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(256), nullable=True)
+    session_id = db.Column(db.String(128), nullable=True, index=True)
+    success = db.Column(db.Boolean, default=True, nullable=False, index=True)  # Did the action succeed?
+    error_message = db.Column(db.Text, nullable=True)  # Error message if action failed
+    duration_ms = db.Column(db.Float, nullable=True)  # How long the action took
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('user_actions', lazy='dynamic'))
+    
+    __table_args__ = (
+        db.Index('idx_user_action_type_module', 'action_type', 'module'),
+        db.Index('idx_user_timestamp_action', 'timestamp', 'action_type'),
+        db.Index('idx_user_entity_action', 'entity_type', 'entity_id', 'action_type'),
+    )
+    
+    def __repr__(self):
+        return f'<UserActionLog {self.id} {self.action_type} {self.module}>'
+
+
+class LevyOverrideLog(db.Model):
+    """
+    Model for tracking levy calculation overrides.
+    
+    This table specifically tracks instances where users override
+    calculated levy values, providing an audit trail for compliance
+    and training purposes.
+    """
+    __tablename__ = 'levy_override_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    tax_district_id = db.Column(db.Integer, db.ForeignKey('tax_district.id'), nullable=True, index=True)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_code.id'), nullable=True, index=True) 
+    year = db.Column(db.Integer, nullable=False, index=True)
+    
+    # Fields that can be overridden
+    field_name = db.Column(db.String(64), nullable=False)  # The field that was overridden
+    original_value = db.Column(db.Float, nullable=False)  # The calculated value
+    override_value = db.Column(db.Float, nullable=False)  # The user-provided value
+    percent_change = db.Column(db.Float, nullable=True)  # Percentage difference
+    
+    # Approval information
+    justification = db.Column(db.Text, nullable=True)  # User's reason for override
+    requires_approval = db.Column(db.Boolean, default=False)  # Whether override requires approval
+    approved = db.Column(db.Boolean, nullable=True)  # NULL=pending, True=approved, False=rejected
+    approver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    approval_timestamp = db.Column(db.DateTime, nullable=True)
+    approval_notes = db.Column(db.Text, nullable=True)
+    
+    # Related data
+    calculation_params = db.Column(db.JSON, nullable=True)  # Parameters used in original calculation
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('levy_overrides', lazy='dynamic'))
+    approver = db.relationship('User', foreign_keys=[approver_id], backref=db.backref('approved_overrides', lazy='dynamic'))
+    tax_district = db.relationship('TaxDistrict', backref=db.backref('levy_overrides', lazy='dynamic'))
+    tax_code = db.relationship('TaxCode', backref=db.backref('levy_overrides', lazy='dynamic'))
+    
+    __table_args__ = (
+        db.Index('idx_override_district_year', 'tax_district_id', 'year'),
+        db.Index('idx_override_approval_status', 'requires_approval', 'approved'),
+        db.Index('idx_override_user_field', 'user_id', 'field_name'),
+    )
+    
+    def __repr__(self):
+        return f'<LevyOverrideLog {self.id} field={self.field_name} approved={self.approved}>'
