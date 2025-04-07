@@ -37,6 +37,102 @@
 
 {% block content %}
 <div data-auto-tour="dashboard">
+    <!-- Tools Showcase Carousel Section -->
+    <section class="py-5 tools-carousel-section" style="background-color: #f8fafc;">
+        <div class="container">
+            <div class="text-center mb-4">
+                <h2 class="display-5 fw-bold">Explore Our Tools</h2>
+                <p class="lead text-muted">See what LevyMaster can do for you</p>
+                <div class="separator mx-auto my-4" style="width: 80px; height: 4px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
+            </div>
+
+            <!-- Carousel with Tool Spotlights -->
+            <div id="toolsCarousel" class="carousel slide mb-5" data-bs-ride="carousel" data-bs-interval="5000">
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#toolsCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Levy Audit"></button>
+                    <button type="button" data-bs-target="#toolsCarousel" data-bs-slide-to="1" aria-label="Budget Impact Analysis"></button>
+                    <button type="button" data-bs-target="#toolsCarousel" data-bs-slide-to="2" aria-label="Historical Trends"></button>
+                </div>
+                <div class="carousel-inner rounded-4 overflow-hidden" style="box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);">
+                    <!-- Slide 1: Levy Audit Tool -->
+                    <div class="carousel-item active">
+                        <div class="position-relative" style="height: 400px;">
+                            <img src="{{ url_for('static', filename='images/carousel/rsmtn+sunset-composit.jpg') }}" class="d-block w-100 h-100" style="object-fit: cover; object-position: center;" alt="Levy Audit">
+                            <div class="carousel-caption d-none d-md-block text-start position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, rgba(29, 58, 84, 0.8), rgba(29, 58, 84, 0.6), rgba(29, 58, 84, 0.2)); padding: 2rem;">
+                                <div class="row h-100 align-items-center">
+                                    <div class="col-md-6">
+                                        <h3 class="display-6 fw-bold mb-3">Levy Audit Assistant</h3>
+                                        <p class="lead mb-4">Intelligent compliance verification with AI-powered insights and recommendations.</p>
+                                        <div class="d-flex gap-3">
+                                            <a href="{{ url_for('levy_audit.index') }}" class="btn btn-primary rounded-pill px-4">
+                                                <i class="bi bi-shield-check me-2"></i>Try It Now
+                                            </a>
+                                            <a href="{{ url_for('levy_audit.compliance_audit') }}" class="btn btn-outline-light rounded-pill px-4">
+                                                <i class="bi bi-info-circle me-2"></i>Learn More
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Slide 2: Budget Impact Calculator -->
+                    <div class="carousel-item">
+                        <div class="position-relative" style="height: 400px;">
+                            <img src="{{ url_for('static', filename='images/carousel/3629742582_a3a12b5359_b.jpg') }}" class="d-block w-100 h-100" style="object-fit: cover; object-position: center;" alt="Budget Impact Analysis">
+                            <div class="carousel-caption d-none d-md-block text-start position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, rgba(102, 163, 85, 0.8), rgba(102, 163, 85, 0.6), rgba(102, 163, 85, 0.2)); padding: 2rem;">
+                                <div class="row h-100 align-items-center">
+                                    <div class="col-md-6">
+                                        <h3 class="display-6 fw-bold mb-3">Budget Impact Calculator</h3>
+                                        <p class="lead mb-4">Analyze how property tax changes impact district budgets and taxpayers.</p>
+                                        <div class="d-flex gap-3">
+                                            <a href="{{ url_for('budget_impact.index') }}" class="btn btn-dark rounded-pill px-4">
+                                                <i class="bi bi-calculator me-2"></i>Calculate Impact
+                                            </a>
+                                            <a href="{{ url_for('budget_impact.index') }}" class="btn btn-outline-dark rounded-pill px-4">
+                                                <i class="bi bi-bar-chart me-2"></i>View Budget Analysis
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Slide 3: Historical Trends Analysis -->
+                    <div class="carousel-item">
+                        <div class="position-relative" style="height: 400px;">
+                            <img src="{{ url_for('static', filename='images/carousel/Arizona-sunset.jpg') }}" class="d-block w-100 h-100" style="object-fit: cover; object-position: center;" alt="Historical Trends">
+                            <div class="carousel-caption d-none d-md-block text-start position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, rgba(61, 165, 189, 0.8), rgba(61, 165, 189, 0.6), rgba(61, 165, 189, 0.2)); padding: 2rem;">
+                                <div class="row h-100 align-items-center">
+                                    <div class="col-md-6">
+                                        <h3 class="display-6 fw-bold mb-3">Historical Trends Analysis</h3>
+                                        <p class="lead mb-4">Visualize tax rate changes over time with predictive forecasting.</p>
+                                        <div class="d-flex gap-3">
+                                            <a href="{{ url_for('historical_analysis.historical_analysis') }}" class="btn btn-light rounded-pill px-4">
+                                                <i class="bi bi-graph-up-arrow me-2"></i>View Trends
+                                            </a>
+                                            <a href="{{ url_for('forecasting.forecast') }}" class="btn btn-outline-light rounded-pill px-4">
+                                                <i class="bi bi-binoculars me-2"></i>See Forecasts
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#toolsCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#toolsCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
     <!-- Features Section with Elegant Cards -->
     <section class="py-5 features-section">
         <div class="container">
@@ -119,321 +215,193 @@
                         <!-- Decorative dots pattern overlay -->
                         <div class="position-absolute top-0 end-0 p-3">
                             <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="10" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="30" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="50" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="70" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="90" cy="10" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="10" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="30" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="50" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="70" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="90" cy="30" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="10" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="30" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="50" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
-                                <circle cx="70" cy="50" r="3" fill="rgba(255,255,255,0.3)" />
+                                <circle cx="10" cy="10" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="25" cy="10" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="40" cy="10" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="10" cy="25" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="25" cy="25" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="40" cy="25" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="10" cy="40" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="25" cy="40" r="2" fill="#3DA5BD" opacity="0.5"/>
+                                <circle cx="40" cy="40" r="2" fill="#3DA5BD" opacity="0.5"/>
                             </svg>
                         </div>
-                        <img src="{{ url_for('static', filename='images/dashboard-preview.png') }}" alt="Dashboard Preview" class="card-img-top" onerror="this.src='https://via.placeholder.com/800x450?text=Interactive+Dashboard';this.onerror='';">
-                        <!-- Image shade overlay for better text visibility -->
-                        <div class="card-img-overlay d-flex align-items-end" style="background: linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.1), transparent);">
-                            <div class="text-white px-3 py-2">
-                                <h5 class="mb-0 fw-bold">Benton County Tax Dashboard</h5>
-                                <p class="small mb-0">Data visualization & forecasting</p>
-                            </div>
-                        </div>
+                        <img src="{{ url_for('static', filename='images/dashboard-preview.png') }}" alt="LevyMaster Dashboard" class="img-fluid">
                     </div>
                 </div>
             </div>
         </div>
     </section>
-    
-    <!-- AI Features Section -->
-    <section class="py-5 bg-light" style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;">
+
+    <!-- Reports & Export Features Section -->
+    <section class="py-5 reports-section" style="background-color: #f8fafc;">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="display-5 fw-bold">AI-Powered Intelligence</h2>
-                <p class="lead text-muted">Advanced analytics and insights powered by machine learning</p>
+                <h2 class="display-5 fw-bold">Reports & Data Exports</h2>
+                <p class="lead text-muted">Generate customized reports and export data for your specific needs</p>
                 <div class="separator mx-auto my-4" style="width: 80px; height: 4px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
             </div>
             
-            <div class="row g-4">
-                <!-- Feature Cards Row 1 -->
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
-                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #3DA5BD, #7CBFCC); height: 4px;"></div>
-                        <div class="card-body p-4 p-lg-5">
-                            <div class="d-flex align-items-center mb-4">
-                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(61, 165, 189, 0.1);">
-                                    <i class="bi bi-graph-up" style="color: #3DA5BD;"></i>
-                                </div>
-                                <h3 class="card-title h4 mb-0 fw-bold">Predictive Analytics</h3>
-                            </div>
-                            <p class="card-text text-muted">Leverage advanced machine learning algorithms to predict future tax trends, identify potential rate changes, and optimize planning decisions.</p>
-                            <hr class="my-4" style="opacity: 0.1;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-2" style="width: 40px; height: 40px;">
-                                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
-                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                                                fill="none" stroke="#e5e7eb" stroke-width="3" />
-                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                                                fill="none" stroke="#3DA5BD" stroke-width="3" stroke-dasharray="94.3, 100" />
-                                        </svg>
-                                    </div>
-                                    <span class="text-muted">Accuracy: <span class="fw-bold">94.3%</span></span>
-                                </div>
-                                <a href="{{ url_for('forecasting.forecast') }}" class="btn btn-outline-primary rounded-pill px-4">
-                                    <i class="bi bi-eye me-2"></i>View Forecasts
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+            <div class="row align-items-center">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <img src="{{ url_for('static', filename='images/reports-preview.png') }}" alt="Reports Preview" class="img-fluid rounded-4 shadow-lg">
                 </div>
-                
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
-                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #66A355, #78c265); height: 4px;"></div>
-                        <div class="card-body p-4 p-lg-5">
-                            <div class="d-flex align-items-center mb-4">
-                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(102, 163, 85, 0.1);">
-                                    <i class="bi bi-chat-left-dots" style="color: #66A355;"></i>
+                <div class="col-lg-6">
+                    <h3 class="h2 fw-bold mb-4">Flexible Reporting System</h3>
+                    <p class="lead mb-4">Generate comprehensive reports with customizable parameters to meet your specific needs.</p>
+                    
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="feature-icon me-3 p-3 rounded-circle" style="background-color: rgba(61, 165, 189, 0.1);">
+                                    <i class="bi bi-file-earmark-pdf" style="color: #3DA5BD;"></i>
                                 </div>
-                                <h3 class="card-title h4 mb-0 fw-bold">Natural Language Analysis</h3>
+                                <div>
+                                    <h4 class="h5 fw-bold">PDF Export</h4>
+                                    <p class="text-muted small">Professional-quality documents ready for printing or distribution</p>
+                                </div>
                             </div>
-                            <p class="card-text text-muted">Ask complex questions in plain English and receive detailed answers about property tax data, historical trends, and compliance requirements.</p>
-                            <hr class="my-4" style="opacity: 0.1;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <i class="bi bi-cpu me-2 text-primary"></i>
-                                    <span class="text-muted">Powered by <span class="fw-bold">Claude AI</span></span>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="feature-icon me-3 p-3 rounded-circle" style="background-color: rgba(102, 163, 85, 0.1);">
+                                    <i class="bi bi-file-earmark-excel" style="color: #66A355;"></i>
                                 </div>
-                                <a href="{{ url_for('mcp.insights') }}" class="btn btn-outline-success rounded-pill px-4" style="border-color: #66A355; color: #66A355;">
-                                    <i class="bi bi-chat-dots me-2"></i>Start Chat
-                                </a>
+                                <div>
+                                    <h4 class="h5 fw-bold">Excel Export</h4>
+                                    <p class="text-muted small">Detailed worksheets for further analysis and manipulation</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="feature-icon me-3 p-3 rounded-circle" style="background-color: rgba(240, 199, 92, 0.1);">
+                                    <i class="bi bi-globe" style="color: #F0C75C;"></i>
+                                </div>
+                                <div>
+                                    <h4 class="h5 fw-bold">GIS Integration</h4>
+                                    <p class="text-muted small">Export geospatial data compatible with mapping systems</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex">
+                                <div class="feature-icon me-3 p-3 rounded-circle" style="background-color: rgba(83, 123, 156, 0.1);">
+                                    <i class="bi bi-cloud-arrow-down" style="color: #537B9C;"></i>
+                                </div>
+                                <div>
+                                    <h4 class="h5 fw-bold">Batch Export</h4>
+                                    <p class="text-muted small">Schedule automated exports for multiple districts</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Feature Cards Row 2 -->
-            <div class="row mt-4 g-4">
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
-                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #F0C75C, #f5d78a); height: 4px;"></div>
-                        <div class="card-body p-4 p-lg-5">
-                            <div class="d-flex align-items-center mb-4">
-                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(240, 199, 92, 0.1);">
-                                    <i class="bi bi-lightbulb" style="color: #F0C75C;"></i>
-                                </div>
-                                <h3 class="card-title h4 mb-0 fw-bold">Intelligent Recommendations</h3>
-                            </div>
-                            <p class="card-text text-muted">Receive data-driven recommendations for optimizing levy rates, improving compliance, and enhancing operational efficiency.</p>
-                            <hr class="my-4" style="opacity: 0.1;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="d-flex me-2">
-                                        <div class="badge bg-light text-dark px-2 me-1" style="border: 1px solid #e5e7eb;">Data</div>
-                                        <div class="badge bg-light text-dark px-2 me-1" style="border: 1px solid #e5e7eb;">Trends</div>
-                                        <div class="badge bg-light text-dark px-2" style="border: 1px solid #e5e7eb;">Compliance</div>
-                                    </div>
-                                </div>
-                                <a href="{{ url_for('advanced_mcp.advanced_insights') }}" class="btn btn-outline-warning rounded-pill px-4" style="border-color: #F0C75C; color: #d6b04e;">
-                                    <i class="bi bi-lightning me-2"></i>View Insights
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6">
-                    <div class="card h-100 border-0 shadow-sm hover-card" style="border-radius: 16px; overflow: hidden;">
-                        <div class="position-absolute top-0 start-0 w-100" style="background: linear-gradient(90deg, #E57373, #ef9a9a); height: 4px;"></div>
-                        <div class="card-body p-4 p-lg-5">
-                            <div class="d-flex align-items-center mb-4">
-                                <div class="feature-icon me-3 d-inline-flex align-items-center justify-content-center fs-2 rounded-circle p-3" style="background-color: rgba(229, 115, 115, 0.1);">
-                                    <i class="bi bi-bar-chart" style="color: #E57373;"></i>
-                                </div>
-                                <h3 class="card-title h4 mb-0 fw-bold">Anomaly Detection</h3>
-                            </div>
-                            <p class="card-text text-muted">Automatically identify unusual patterns, outliers, and potential errors in tax data to ensure accuracy and compliance.</p>
-                            <hr class="my-4" style="opacity: 0.1;">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-2" style="width: 40px; height: 40px;">
-                                        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%;">
-                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                                                fill="none" stroke="#e5e7eb" stroke-width="3" />
-                                            <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
-                                                fill="none" stroke="#E57373" stroke-width="3" stroke-dasharray="99.7, 100" />
-                                        </svg>
-                                    </div>
-                                    <span class="text-muted">Detection rate: <span class="fw-bold">99.7%</span></span>
-                                </div>
-                                <a href="{{ url_for('advanced_mcp.advanced_insights') }}" class="btn btn-outline-danger rounded-pill px-4" style="border-color: #E57373; color: #E57373;">
-                                    <i class="bi bi-search me-2"></i>Find Anomalies
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+                    
+                    <a href="{{ url_for('reports.index') }}" class="btn btn-primary rounded-pill px-4">
+                        <i class="bi bi-file-earmark-text me-2"></i>Explore Reports
+                    </a>
                 </div>
             </div>
         </div>
     </section>
-    
-    <!-- Stats Section -->
-    <section class="py-5">
+
+    <!-- AI Features Showcase Section -->
+    <section class="py-5 ai-features-section">
         <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="display-6 fw-bold">System Capabilities</h2>
-                <p class="lead text-muted">Powerful tools for comprehensive property tax management</p>
-                <div class="separator mx-auto my-4" style="width: 60px; height: 3px; background: linear-gradient(90deg, #3DA5BD, #66A355);"></div>
-            </div>
-            
-            <div class="row g-4">
-                <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
-                        <h3 class="display-4 fw-bold mb-2 counter-value text-primary">100%</h3>
-                        <p class="text-muted mb-0">Statutory Compliance</p>
+            <div class="row align-items-center">
+                <div class="col-lg-5 order-lg-2 mb-4 mb-lg-0">
+                    <div class="p-3 rounded-4 position-relative" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+                        <img src="{{ url_for('static', filename='images/ai-features.png') }}" alt="AI Features" class="img-fluid rounded-4 shadow-sm">
+                        <!-- Decorative elements -->
+                        <div class="position-absolute top-0 start-100 translate-middle">
+                            <div class="rounded-circle" style="width: 60px; height: 60px; background: linear-gradient(135deg, #3DA5BD 0%, #66A355 100%); opacity: 0.7;"></div>
+                        </div>
+                        <div class="position-absolute bottom-0 start-0 translate-middle">
+                            <div class="rounded-circle" style="width: 40px; height: 40px; background: linear-gradient(135deg, #F0C75C 0%, #f5d78a 100%); opacity: 0.7;"></div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
-                        <h3 class="display-4 fw-bold mb-2 counter-value text-success">99.9%</h3>
-                        <p class="text-muted mb-0">Calculation Accuracy</p>
+                <div class="col-lg-7 order-lg-1">
+                    <h2 class="display-5 fw-bold mb-4">AI-Powered Insights</h2>
+                    <p class="lead mb-4">LevyMaster leverages advanced artificial intelligence to provide deeper understanding and proactive recommendations for your property tax management.</p>
+                    
+                    <div class="mb-4">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <span class="badge rounded-pill" style="background-color: #3DA5BD;">New</span>
+                                            <h4 class="h5 fw-bold mb-0 ms-2">Natural Language Interface</h4>
+                                        </div>
+                                        <p class="text-muted mb-0">Ask complex tax questions in plain English and receive instant, accurate answers.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <span class="badge rounded-pill" style="background-color: #66A355;">Advanced</span>
+                                            <h4 class="h5 fw-bold mb-0 ms-2">Predictive Analytics</h4>
+                                        </div>
+                                        <p class="text-muted mb-0">Forecast future levy rates with sophisticated statistical models and machine learning.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <span class="badge rounded-pill" style="background-color: #F0C75C;">Featured</span>
+                                            <h4 class="h5 fw-bold mb-0 ms-2">Levy Audit AI</h4>
+                                        </div>
+                                        <p class="text-muted mb-0">Automatic compliance verification that checks calculations against all applicable regulations.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <span class="badge rounded-pill" style="background-color: #537B9C;">Smart</span>
+                                            <h4 class="h5 fw-bold mb-0 ms-2">Anomaly Detection</h4>
+                                        </div>
+                                        <p class="text-muted mb-0">Identify unusual patterns in tax data that may indicate errors or optimization opportunities.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
-                        <h3 class="display-4 fw-bold mb-2 counter-value" style="color: #F0C75C;">5+</h3>
-                        <p class="text-muted mb-0">Forecasting Models</p>
-                    </div>
-                </div>
-                <div class="col-md-3 col-6">
-                    <div class="card h-100 border-0 shadow-sm text-center p-4 stat-card" style="border-radius: 12px;">
-                        <h3 class="display-4 fw-bold mb-2 counter-value" style="color: #E57373;">10+</h3>
-                        <p class="text-muted mb-0">Export Formats</p>
-                    </div>
+                    
+                    <a href="{{ url_for('mcp.index') }}" class="btn btn-gradient rounded-pill px-4">
+                        <i class="bi bi-cpu me-2"></i>Explore AI Features
+                    </a>
                 </div>
             </div>
         </div>
     </section>
-    
-    <!-- Call to Action -->
-    <section class="py-5 my-5 text-center cta-section" style="background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);">
-        <div class="container py-4">
-            <h2 class="display-5 fw-bold text-white mb-4">Ready to Transform Your Tax Calculations?</h2>
-            <p class="lead text-white mb-5">Start exploring the powerful features of LevyMaster today</p>
-            <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
-                <a href="{{ url_for('levy_calculator.calculator') }}" class="btn btn-light btn-lg px-4 rounded-pill fw-bold">
-                    <i class="bi bi-calculator me-2"></i>Start Calculating
-                </a>
-                <a href="{{ url_for('historical_analysis.advanced_historical_analysis') }}" class="btn btn-outline-light btn-lg px-4 rounded-pill">
-                    <i class="bi bi-graph-up me-2"></i>Analyze Trends
-                </a>
+
+    <!-- Call to Action Section -->
+    <section class="py-5 my-5 cta-section text-center">
+        <div class="container">
+            <div class="bg-gradient rounded-4 p-5 text-white" style="background: linear-gradient(135deg, #1D3A54 0%, #3DA5BD 100%);">
+                <h2 class="display-5 fw-bold mb-3">Ready to Transform Your Property Tax Management?</h2>
+                <p class="lead mb-4 col-lg-8 mx-auto">Join other municipalities that are using LevyMaster to streamline their property tax calculations and improve compliance.</p>
+                <div class="row justify-content-center">
+                    <div class="col-md-10 col-lg-8">
+                        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                            <a href="{{ url_for('examples.index') }}" class="btn btn-light btn-lg rounded-pill px-4 gap-3">
+                                <i class="bi bi-play-circle me-2"></i>Watch Demo
+                            </a>
+                            <a href="{{ url_for('public.contact') }}" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                                <i class="bi bi-envelope me-2"></i>Contact Us
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 </div>
-{% endblock %}
-
-{% block extra_css %}
-<style>
-    /* Hero section styles */
-    .hero-section {
-        position: relative;
-        min-height: 60vh;
-        display: flex;
-        align-items: center;
-        overflow: hidden;
-    }
-    
-    /* Feature cards hover effect */
-    .hover-card {
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .hover-card:hover {
-        transform: translateY(-10px);
-        box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3) !important;
-    }
-    
-    /* Stats card styles */
-    .stat-card {
-        transition: all 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        background-color: #111 !important;
-    }
-    
-    /* CTA section */
-    .cta-section {
-        position: relative;
-        overflow: hidden;
-        border-radius: 20px;
-        margin-left: 20px;
-        margin-right: 20px;
-    }
-    
-    /* Animated counter */
-    .counter-value {
-        display: inline-block;
-        position: relative;
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
-<!-- Particles.js for animated background -->
-<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize particles.js
-        if (typeof particlesJS !== 'undefined') {
-            particlesJS("particles-js", {
-                particles: {
-                    number: { value: 80, density: { enable: true, value_area: 800 } },
-                    color: { value: "#3498db" },
-                    shape: { type: "circle" },
-                    opacity: { value: 0.5, random: true },
-                    size: { value: 3, random: true },
-                    line_linked: {
-                        enable: true,
-                        distance: 150,
-                        color: "#3498db",
-                        opacity: 0.4,
-                        width: 1
-                    },
-                    move: {
-                        enable: true,
-                        speed: 2,
-                        direction: "none",
-                        random: true,
-                        straight: false,
-                        out_mode: "out",
-                        bounce: false
-                    }
-                },
-                interactivity: {
-                    detect_on: "canvas",
-                    events: {
-                        onhover: { enable: true, mode: "repulse" },
-                        onclick: { enable: true, mode: "push" },
-                        resize: true
-                    }
-                },
-                retina_detect: true
-            });
-        }
-        
-        // Initialize guided tour system
-        console.log("Guided Tour System initialized");
-        
-        // Log initialization
-        console.log("Levy Calculation System JS initialized successfully");
-    });
-</script>
 {% endblock %}
