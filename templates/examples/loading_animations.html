@@ -2,7 +2,7 @@
 
 {% block title %}Tax-Themed Loading Animations{% endblock %}
 
-{% block styles %}
+{% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/loading-animations.css') }}">
 <style>
   .demo-section {
@@ -267,7 +267,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script src="{{ url_for('static', filename='js/animations/loading-animations.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
