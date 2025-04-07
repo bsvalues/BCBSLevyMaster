@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">
+  <rect width="200" height="100" fill="#fff"/>
+  <path d="M20,20 h160 v60 h-160 z" fill="#0066CC" opacity="0.8"/>
+  <text x="100" y="47" font-family="Arial" font-size="14" text-anchor="middle" fill="#fff">WASHINGTON STATE</text>
+  <text x="100" y="67" font-family="Arial" font-weight="bold" font-size="16" text-anchor="middle" fill="#fff">DEPARTMENT OF REVENUE</text>
+  <path d="M50,85 h100 v2 h-100 z" fill="#0066CC"/>
+</svg>

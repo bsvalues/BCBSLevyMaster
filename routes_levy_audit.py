@@ -611,3 +611,84 @@ def register_levy_audit_routes(app):
     """Initialize levy audit routes with the Flask app."""
     app.register_blueprint(levy_audit_bp)
     app.logger.info('Levy audit routes initialized')
+@levy_audit_bp.route("/wa-dor-forms", methods=["GET"])
+@login_required
+def wa_dor_forms():
+    """
+    Render the Washington DOR levy forms page.
+    """
+    # Get all tax districts for dropdown
+    districts = TaxDistrict.query.order_by(TaxDistrict.name).all()
+    
+    # Get all available years from historical rates
+    years_query = db.session.query(
+        TaxCodeHistoricalRate.year
+    ).distinct().order_by(
+        TaxCodeHistoricalRate.year.desc()
+    ).all()
+    available_years = [year[0] for year in years_query]
+    
+    return render_template(
+        "levy_audit/wa_dor_forms.html",
+        districts=districts,
+        available_years=available_years
+    )
+
+@levy_audit_bp.route("/district-data/<int:district_id>/<int:year>", methods=["GET"])
+@login_required
+def get_district_data(district_id, year):
+    """
+    Get district data for populating Washington DOR forms.
+    """
+    try:
+        # Get district information
+        district = TaxDistrict.query.get_or_404(district_id)
+        
+        # Get historical rate information for this district
+        historical_rates = TaxCodeHistoricalRate.query.join(
+            TaxCode
+        ).filter(
+            TaxCode.tax_district_id == district_id,
+            TaxCodeHistoricalRate.year == year
+        ).all()
+        
+        # Calculate levy amount and other values
+        total_levy_amount = sum([rate.levy_amount or 0 for rate in historical_rates])
+        
+        # Get previous year information for levy limit calculation
+        prev_year_rates = TaxCodeHistoricalRate.query.join(
+            TaxCode
+        ).filter(
+            TaxCode.tax_district_id == district_id,
+            TaxCodeHistoricalRate.year == year - 1
+        ).all()
+        
+        prev_year_levy = sum([rate.levy_amount or 0 for rate in prev_year_rates])
+        
+        # Prepare response data
+        response_data = {
+            "status": "success",
+            "district": {
+                "id": district.id,
+                "name": district.name,
+                "county": "Benton",  # Default to Benton County
+                "type": district.district_type or "Taxing District"
+            },
+            "levy_amount": total_levy_amount,
+            "regular_levy": total_levy_amount,  # Default all to regular levy
+            "excess_levy": 0,  # Default to 0
+            "highest_lawful_levy": prev_year_levy,
+            "limit_factor": prev_year_levy * 1.01,  # 1% increase
+            "new_construction_levy": 0,  # Would need real data
+            "annexation_levy": 0,  # Would need real data
+            "refund_levy": 0  # Would need real data
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting district data: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error: {str(e)}"
+        }), 500
