@@ -27,7 +27,7 @@
     
     <!-- Loading Animations CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/loading-animations.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/light-theme.css') }}">
+    
     
     <!-- Additional CSS for specific pages -->
     {% block extra_css %}{% endblock %}
@@ -36,15 +36,15 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/benton-county-logo.png') }}">
     
     <style>
-        /* Benton County Modern Color Scheme */
+        /* Benton County Light Modern Color Scheme */
         :root {
             --primary-color: #3DA5BD;   /* Lighter Teal Blue - Primary Brand Color */
             --secondary-color: #66A355; /* Lighter Green - Secondary Brand Color */
             --accent-color: #7CBFCC;    /* Light Teal - Accent Color */
-            --bg-dark: #1D3A54;         /* Slightly Lighter Navy - Background Color */
+            --bg-dark: #ffffff;         /* White - For dark backgrounds that need to be lightened */
             --bg-light: #f8fafc;        /* Very Light Gray - Light Background */
-            --text-light: #ffffff;      /* Pure White - Text on dark backgrounds */
-            --text-dark: #334155;       /* Dark Slate - Text on light backgrounds */
+            --text-light: #333333;      /* Dark Gray - Text on light backgrounds */
+            --text-dark: #333333;       /* Dark Slate - Text on light backgrounds */
             --benton-yellow: #F0C75C;   /* Brighter Yellow accent */
             --border-color: #e5e7eb;    /* Light Border Color */
             --card-bg: #ffffff;         /* Card Background */
@@ -158,6 +158,28 @@
         /* Text colors */
         .text-primary {
             color: var(--primary-color) !important;
+        }
+
+        /* Override any dark mode styles */
+        .bg-dark {
+            background-color: #ffffff !important;
+            color: #333333 !important;
+        }
+
+        .text-light {
+            color: #333333 !important;
+        }
+
+        /* Tables */
+        .table {
+            color: var(--text-dark);
+        }
+
+        /* Help menu styling - lighter version */
+        .help-menu {
+            background-color: white;
+            color: var(--text-dark);
+            border-left: 1px solid var(--border-color);
         }
     </style>
 </head>
