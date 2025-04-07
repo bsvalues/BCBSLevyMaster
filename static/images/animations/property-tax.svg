@@ -1,0 +1,75 @@
+<svg width="130" height="130" viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .house {
+      animation: house-float 4s ease-in-out infinite;
+    }
+    .roof-pulse {
+      animation: pulse 2s ease-in-out infinite;
+      transform-origin: center;
+    }
+    .window {
+      animation: window-light 3s ease-in-out infinite alternate;
+    }
+    .window-1 { animation-delay: 0s; }
+    .window-2 { animation-delay: 0.5s; }
+    .dollar-sign {
+      animation: dollar-drop 2s ease-in-out infinite;
+      transform-origin: center;
+    }
+    
+    @keyframes house-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+    @keyframes window-light {
+      0% { fill: #BBDEFB; }
+      100% { fill: #FFECB3; }
+    }
+    @keyframes dollar-drop {
+      0% { transform: translateY(-10px); opacity: 0; }
+      20% { opacity: 1; }
+      60% { transform: translateY(20px); opacity: 1; }
+      100% { transform: translateY(40px); opacity: 0; }
+    }
+  </style>
+  
+  <!-- House -->
+  <g class="house">
+    <!-- House Body -->
+    <rect x="30" y="50" width="70" height="50" fill="#BBDEFB" stroke="#1976D2" stroke-width="2"/>
+    
+    <!-- Roof -->
+    <polygon points="30,50 65,20 100,50" fill="#1976D2" stroke="#1565C0" stroke-width="2" class="roof-pulse"/>
+    
+    <!-- Door -->
+    <rect x="57.5" y="75" width="15" height="25" fill="#1565C0" stroke="#0D47A1" stroke-width="1"/>
+    <circle cx="67" cy="85" r="2" fill="#FFC107"/>
+    
+    <!-- Windows -->
+    <rect x="40" y="60" width="15" height="15" fill="#BBDEFB" stroke="#1565C0" stroke-width="1" class="window window-1"/>
+    <rect x="75" y="60" width="15" height="15" fill="#BBDEFB" stroke="#1565C0" stroke-width="1" class="window window-2"/>
+    
+    <!-- Window Frames -->
+    <line x1="40" y1="67.5" x2="55" y2="67.5" stroke="#1565C0" stroke-width="1"/>
+    <line x1="47.5" y1="60" x2="47.5" y2="75" stroke="#1565C0" stroke-width="1"/>
+    
+    <line x1="75" y1="67.5" x2="90" y2="67.5" stroke="#1565C0" stroke-width="1"/>
+    <line x1="82.5" y1="60" x2="82.5" y2="75" stroke="#1565C0" stroke-width="1"/>
+  </g>
+  
+  <!-- Tax Document -->
+  <g transform="translate(100, 35)">
+    <rect x="0" y="0" width="20" height="25" fill="#FFFFFF" stroke="#4CAF50" stroke-width="1"/>
+    <line x1="3" y1="5" x2="17" y2="5" stroke="#4CAF50" stroke-width="1"/>
+    <line x1="3" y1="10" x2="17" y2="10" stroke="#4CAF50" stroke-width="1"/>
+    <line x1="3" y1="15" x2="17" y2="15" stroke="#4CAF50" stroke-width="1"/>
+    <line x1="3" y1="20" x2="17" y2="20" stroke="#4CAF50" stroke-width="1"/>
+    
+    <!-- Dollar Sign dropping from document to house -->
+    <text x="10" y="0" font-family="Arial" font-size="16" fill="#4CAF50" text-anchor="middle" class="dollar-sign">$</text>
+  </g>
+</svg>

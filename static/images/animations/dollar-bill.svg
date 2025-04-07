@@ -1,0 +1,50 @@
+<svg width="120" height="60" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .dollar-move {
+      animation: float 3s ease-in-out infinite;
+    }
+    .dollar-roll {
+      transform-origin: center;
+      animation: roll 4s linear infinite;
+    }
+    .dollar-pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes roll {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.95); }
+    }
+  </style>
+  
+  <!-- Dollar Bill -->
+  <g class="dollar-move">
+    <rect x="20" y="15" width="80" height="40" rx="2" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.5" />
+    <rect x="25" y="20" width="70" height="30" rx="1" fill="none" stroke="#2E7D32" stroke-width="0.5" stroke-dasharray="1,1" />
+    <circle cx="60" cy="35" r="15" fill="#F1F8E9" stroke="#2E7D32" stroke-width="0.5" />
+    
+    <!-- Dollar Sign -->
+    <text x="60" y="40" font-family="Arial" font-size="24" fill="#2E7D32" text-anchor="middle" class="dollar-pulse">$</text>
+    
+    <!-- Corners -->
+    <circle cx="30" cy="25" r="4" fill="#F1F8E9" stroke="#2E7D32" stroke-width="0.5" />
+    <text x="30" y="27" font-family="Arial" font-size="6" fill="#2E7D32" text-anchor="middle">$</text>
+    
+    <circle cx="90" cy="25" r="4" fill="#F1F8E9" stroke="#2E7D32" stroke-width="0.5" />
+    <text x="90" y="27" font-family="Arial" font-size="6" fill="#2E7D32" text-anchor="middle">$</text>
+    
+    <circle cx="30" cy="45" r="4" fill="#F1F8E9" stroke="#2E7D32" stroke-width="0.5" />
+    <text x="30" y="47" font-family="Arial" font-size="6" fill="#2E7D32" text-anchor="middle">$</text>
+    
+    <circle cx="90" cy="45" r="4" fill="#F1F8E9" stroke="#2E7D32" stroke-width="0.5" />
+    <text x="90" y="47" font-family="Arial" font-size="6" fill="#2E7D32" text-anchor="middle">$</text>
+  </g>
+</svg>

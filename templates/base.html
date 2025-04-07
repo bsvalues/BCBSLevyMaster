@@ -25,6 +25,9 @@
     <!-- Micro-interactions CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/micro-interactions.css') }}">
     
+    <!-- Loading Animations CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations/loading-animations.css') }}">
+    
     <!-- Additional CSS for specific pages -->
     {% block extra_css %}{% endblock %}
     
@@ -516,6 +519,8 @@
     
     <!-- Help Menu System -->
     <!-- Form Micro-Interactions -->
+    <!-- Loading Animations JS -->
+    <script src="{{ url_for('static', filename='js/animations/loading-animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/form-micro-interactions.js') }}"></script>
     <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     

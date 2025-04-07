@@ -1,0 +1,216 @@
+/**
+ * Tax-Themed Loading Animations
+ * 
+ * Playful loading animations with tax-related themes for the Levy Calculation System.
+ * These animations provide visual feedback during loading and processing operations.
+ */
+
+/* Base Loading Container */
+.levy-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin: 1rem auto;
+  max-width: 400px;
+  text-align: center;
+}
+
+/* Loading Animation - General */
+.levy-loading-animation {
+  margin-bottom: 1.5rem;
+  height: 120px;
+  width: 120px;
+  position: relative;
+}
+
+/* Loading Text */
+.levy-loading-text {
+  font-size: 1.1rem;
+  color: #3F51B5;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  animation: pulse-text 1.5s ease-in-out infinite;
+}
+
+/* Loading Subtext */
+.levy-loading-subtext {
+  font-size: 0.9rem;
+  color: #78909C;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+/* Animation for Pulsating Text */
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Blinking Dots for Loading */
+.loading-dots:after {
+  content: '.';
+  animation: dots 1.5s steps(5, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60% { content: '...'; }
+  80%, 100% { content: ''; }
+}
+
+/* Overlay for Full-Screen Loading */
+.levy-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.85);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  transition: all 0.3s ease-in-out;
+}
+
+/* Progress Bar Animation */
+.levy-progress-bar {
+  height: 4px;
+  background-color: #E8EAF6;
+  border-radius: 2px;
+  width: 100%;
+  max-width: 300px;
+  margin: 1rem auto;
+  overflow: hidden;
+  position: relative;
+}
+
+.levy-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background-color: #3F51B5;
+  border-radius: 2px;
+  animation: progress 2s ease-in-out infinite;
+}
+
+@keyframes progress {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+
+/* Specific Loading Animations */
+
+/* Dollar Bill Animation Container */
+.loading-dollar-bill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tax Calculator Animation Container */
+.loading-tax-calculator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Property Tax Animation Container */
+.loading-property-tax {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Coins Animation Container */
+.loading-coins {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tax Form Animation Container */
+.loading-tax-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading Variations */
+.levy-loading-sm {
+  transform: scale(0.7);
+}
+
+.levy-loading-lg {
+  transform: scale(1.2);
+}
+
+/* Themed Containers */
+.levy-loading-primary {
+  background-color: rgba(63, 81, 181, 0.1);
+}
+
+.levy-loading-success {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.levy-loading-info {
+  background-color: rgba(3, 169, 244, 0.1);
+}
+
+.levy-loading-warning {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+/* Loading Widget For Small Areas */
+.levy-loading-widget {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  margin: 0.5rem auto;
+}
+
+/* Custom Loading Messages for Different Actions */
+.loading-message {
+  animation: message-change 10s linear infinite;
+}
+
+@keyframes message-change {
+  0%, 20% { content: "Crunching the numbers..."; }
+  25%, 45% { content: "Calculating tax rates..."; }
+  50%, 70% { content: "Analyzing district data..."; }
+  75%, 95% { content: "Almost there..."; }
+  100% { content: "Crunching the numbers..."; }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+  .levy-loading-container {
+    padding: 1.5rem;
+    max-width: 300px;
+  }
+  
+  .levy-loading-animation {
+    height: 100px;
+    width: 100px;
+  }
+  
+  .levy-loading-text {
+    font-size: 1rem;
+  }
+  
+  .levy-loading-subtext {
+    font-size: 0.8rem;
+  }
+}

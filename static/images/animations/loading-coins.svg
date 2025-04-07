@@ -1,0 +1,42 @@
+<svg width="120" height="60" viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .coin {
+      animation: coin-spin 2.5s linear infinite;
+      transform-origin: center;
+    }
+    .coin1 { animation-delay: 0s; }
+    .coin2 { animation-delay: 0.5s; }
+    .coin3 { animation-delay: 1s; }
+    .coin4 { animation-delay: 1.5s; }
+    .coin5 { animation-delay: 2s; }
+    
+    @keyframes coin-spin {
+      0% { transform: scale(1); }
+      20% { transform: scale(1.05) rotateY(0deg); }
+      50% { transform: scale(0.2) rotateY(90deg); }
+      80% { transform: scale(1.05) rotateY(180deg); }
+      100% { transform: scale(1) rotateY(180deg); }
+    }
+  </style>
+  
+  <!-- Coins -->
+  <g class="coin coin1" transform="translate(24, 30)">
+    <circle cx="0" cy="0" r="10" fill="#FFD54F" stroke="#FFB300" stroke-width="1" />
+    <text x="0" y="4" font-family="Arial" font-size="10" fill="#FFA000" text-anchor="middle">$</text>
+  </g>
+  
+  <g class="coin coin2" transform="translate(48, 30)">
+    <circle cx="0" cy="0" r="10" fill="#FFD54F" stroke="#FFB300" stroke-width="1" />
+    <text x="0" y="4" font-family="Arial" font-size="10" fill="#FFA000" text-anchor="middle">$</text>
+  </g>
+  
+  <g class="coin coin3" transform="translate(72, 30)">
+    <circle cx="0" cy="0" r="10" fill="#FFD54F" stroke="#FFB300" stroke-width="1" />
+    <text x="0" y="4" font-family="Arial" font-size="10" fill="#FFA000" text-anchor="middle">$</text>
+  </g>
+  
+  <g class="coin coin4" transform="translate(96, 30)">
+    <circle cx="0" cy="0" r="10" fill="#FFD54F" stroke="#FFB300" stroke-width="1" />
+    <text x="0" y="4" font-family="Arial" font-size="10" fill="#FFA000" text-anchor="middle">$</text>
+  </g>
+</svg>

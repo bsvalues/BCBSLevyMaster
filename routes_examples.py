@@ -18,3 +18,8 @@ def forms_demo():
 def cards_demo():
     """Demo page for Keras-style carousel cards."""
     return render_template('examples/cards_demo.html')
+
+@examples_bp.route('/loading-animations')
+def loading_animations_demo():
+    """Demo page for tax-themed loading animations."""
+    return render_template('examples/loading_animations.html')
