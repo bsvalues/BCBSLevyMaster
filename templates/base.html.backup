@@ -316,6 +316,52 @@
                                     <i class="bi bi-building me-2"></i>Budget Impact Visualization
                                 </a>
                             </li>
+                                <a class="dropdown-item" href="{{ url_for('levy_audit.index') }}">
+                                    <i class="bi bi-shield-check me-2"></i>Levy Audit
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('tax_strategy.index') }}">
+                                    <i class="bi bi-diagram-3 me-2"></i>Tax Strategy Decision Tree
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('tax_strategy.index') }}">
+                                    <i class="bi bi-diagram-3 me-2"></i>Tax Strategy Decision Tree
+                                </a>
+                            </li>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="analysisDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-graph-up me-1"></i>Analysis
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="analysisDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('forecasting.forecast') }}">
+                                    <i class="bi bi-graph-up-arrow me-2"></i>Forecasting
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('historical_analysis.historical_analysis') }}">
+                                    <i class="bi bi-clock-history me-2"></i>Historical Analysis
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('historical_analysis.compliance') }}">
+                                    <i class="bi bi-check-circle me-2"></i>Compliance Check
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('levy_calculator.impact_calculator') }}">
+                                    <i class="bi bi-cash-coin me-2"></i>Bill Impact Calculator
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('budget_impact.index') }}">
+                                    <i class="bi bi-building me-2"></i>Budget Impact Visualization
+                                </a>
+                            </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('levy_audit.index') }}">

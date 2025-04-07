@@ -20,7 +20,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/micro_interactions.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/carousel-cards.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/carousel-cards.css') }}">
     
     <!-- Micro-interactions CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/micro-interactions.css') }}">
@@ -278,6 +277,11 @@
                                     <i class="bi bi-shield-check me-2"></i>Levy Audit
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('tax_strategy.index') }}">
+                                    <i class="bi bi-diagram-3 me-2"></i>Tax Strategy Decision Tree
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
@@ -286,97 +290,97 @@
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
                             <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="bi bi-file-earmark-bar-graph me-2"></i>Levy Summary
+                                <a class="dropdown-item" href="{{ url_for('reports.district_summary') }}">
+                                    <i class="bi bi-file-earmark-bar-graph me-2"></i>District Summary
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="bi bi-file-earmark-check me-2"></i>Compliance Report
+                                <a class="dropdown-item" href="{{ url_for('reports.tax_code_analysis') }}">
+                                    <i class="bi bi-file-earmark-text me-2"></i>Tax Code Analysis
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="bi bi-file-earmark-diff me-2"></i>Year-over-Year Comparison
+                                <a class="dropdown-item" href="{{ url_for('reports.trend_report') }}">
+                                    <i class="bi bi-arrow-up-right me-2"></i>Trend Report
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('reports.audit_trail') }}">
-                                    <i class="bi bi-clock-history me-2"></i>Audit Trail
+                                <a class="dropdown-item" href="{{ url_for('reports.comparative_analysis') }}">
+                                    <i class="bi bi-bar-chart me-2"></i>Comparative Analysis
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('reports.user_activity') }}">
+                                    <i class="bi bi-person-lines-fill me-2"></i>User Activity
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('user_audit.index') }}">
+                                    <i class="bi bi-clipboard-check me-2"></i>User Audit Log
                                 </a>
                             </li>
                         </ul>
                     </li>
-                    {% if current_user.is_admin %}
+                    
+                    {% if current_user.is_administrator %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear me-1"></i>Admin
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="adminDropdown">
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.users') }}">
+                                <a class="dropdown-item" href="{{ url_for('admin.user_management') }}">
                                     <i class="bi bi-people me-2"></i>User Management
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.system_settings') }}">
-                                    <i class="bi bi-sliders me-2"></i>System Settings
+                                <a class="dropdown-item" href="{{ url_for('admin.settings') }}">
+                                    <i class="bi bi-sliders me-2"></i>Settings
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('admin.audit_log') }}">
-                                    <i class="bi bi-list-check me-2"></i>Audit Logs
+                                <a class="dropdown-item" href="{{ url_for('admin.logs') }}">
+                                    <i class="bi bi-journal-text me-2"></i>System Logs
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.backup') }}">
+                                    <i class="bi bi-cloud-arrow-up me-2"></i>Database Backup
                                 </a>
                             </li>
                         </ul>
                     </li>
                     {% endif %}
-                    {% if config.get('ENABLE_MCP') %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="mcpDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-cpu me-1"></i>MCP
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="mcpDropdown">
-                            <li>
-                                <a class="dropdown-item {% if request.endpoint == 'mcp.insights' %}active{% endif %}" href="{{ url_for('mcp.insights') }}">
-                                    <i class="bi bi-lightbulb me-2"></i>AI Insights
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item {% if request.endpoint == 'mcp.api_status' %}active{% endif %}" href="{{ url_for('mcp.api_status') }}">
-                                    <i class="bi bi-activity me-2"></i>API Status
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item {% if request.endpoint == 'mcp.api_analytics' %}active{% endif %}" href="{{ url_for('mcp.api_analytics') }}">
-                                    <i class="bi bi-bar-chart me-2"></i>API Analytics
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    {% endif %}
+                    
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'glossary.glossary' %}active{% endif %}" href="{{ url_for('glossary.glossary') }}">
-                            <i class="bi bi-book me-1"></i>Glossary
+                        <a href="#" class="nav-link" id="helpMenuToggle">
+                            <i class="bi bi-question-circle me-1"></i>Help
                         </a>
                     </li>
-                    {% if current_user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
                         </a>
-                        <ul class="dropdown-menu" aria-labelledby="userDropdown">
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
                                     <i class="bi bi-person me-2"></i>Profile
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
-                                    <i class="bi bi-key me-2"></i>Change Password
+                                <a class="dropdown-item" href="{{ url_for('glossary.index') }}">
+                                    <i class="bi bi-journal-bookmark me-2"></i>Glossary
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('tours.index') }}">
+                                    <i class="bi bi-info-circle me-2"></i>Guided Tours
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
@@ -389,8 +393,13 @@
                     </li>
                     {% else %}
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'auth.login' %}active{% endif %}" href="{{ url_for('auth.login') }}">
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">
                             <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.register') }}">
+                            <i class="bi bi-person-plus me-1"></i>Register
                         </a>
                     </li>
                     {% endif %}
@@ -399,153 +408,129 @@
         </div>
     </nav>
 
-    <!-- Optional Page Header with Benton County Styling -->
-    {% block page_header %}
-    <div class="app-header-bg">
-        <div class="container py-3">
-            <div class="row align-items-center">
-                <div class="col-lg-8">
-                    <h1 class="h2 mb-2">{% block page_title %}Benton County Property Tax System{% endblock %}</h1>
-                    <p class="lead mb-0 text-light">{% block page_subtitle %}Comprehensive property tax levy calculation and management{% endblock %}</p>
+    <!-- Side Help Menu -->
+    <div class="help-menu" id="helpMenu">
+        <div class="help-menu-header">
+            <h5>Help Center</h5>
+            <button class="btn-close" id="helpMenuClose"></button>
+        </div>
+        <div class="help-menu-body">
+            <div class="help-section">
+                <h6>Quick Start Guides</h6>
+                <ul class="list-unstyled">
+                    <li><a href="#"><i class="bi bi-file-earmark-text me-2"></i>Getting Started</a></li>
+                    <li><a href="#"><i class="bi bi-calculator me-2"></i>Levy Calculator Guide</a></li>
+                    <li><a href="#"><i class="bi bi-graph-up me-2"></i>Analysis Tools</a></li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h6>Video Tutorials</h6>
+                <ul class="list-unstyled">
+                    <li><a href="#"><i class="bi bi-play-circle me-2"></i>Intro to LevyMaster</a></li>
+                    <li><a href="#"><i class="bi bi-play-circle me-2"></i>Data Import Tutorial</a></li>
+                    <li><a href="#"><i class="bi bi-play-circle me-2"></i>Advanced Reports</a></li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h6>FAQ</h6>
+                <div class="accordion" id="helpAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingOne">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                How do I import tax data?
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                Navigate to Data > Import Data and follow the on-screen instructions to upload your CSV, Excel, or XML data files.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingTwo">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                Can I export my calculated results?
+                            </button>
+                        </h2>
+                        <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                Yes! After running calculations, click the Export button to download results in CSV, Excel, or PDF formats.
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                    {% block header_actions %}{% endblock %}
-                </div>
+            </div>
+            <div class="help-section">
+                <h6>Contact Support</h6>
+                <p>Need more help? Our support team is available Monday-Friday, 9am-5pm.</p>
+                <a href="mailto:support@levymaster.com" class="btn btn-outline-primary btn-sm"><i class="bi bi-envelope me-2"></i>Email Support</a>
             </div>
         </div>
     </div>
-    {% endblock %}
 
-    <!-- Main Content -->
-    <main class="container py-4">
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
+    <!-- Page Content -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="row">
-            <div class="col">
+            <div class="container mt-4">
                 {% for category, message in messages %}
-                <div class="alert alert-{{ category if category not in ['message', 'info'] else 'primary' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             </div>
-        </div>
         {% endif %}
-        {% endwith %}
+    {% endwith %}
 
-        <!-- Page Content -->
-        {% block content %}{% endblock %}
-    </main>
+    {% block content %}{% endblock %}
 
     <!-- Footer -->
-    <footer class="mt-auto" style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);">
-        <!-- Top wave divider -->
-        <div class="wave-divider">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" preserveAspectRatio="none" style="width: 100%; height: 40px; display: block;">
-                <path fill="#3DA5BD" fill-opacity="0.1" d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"></path>
-                <path fill="#3DA5BD" fill-opacity="0.2" d="M0,96L60,90.7C120,85,240,75,360,74.7C480,75,600,85,720,90.7C840,96,960,96,1080,90.7C1200,85,1320,75,1380,69.3L1440,64L1440,120L1380,120C1320,120,1200,120,1080,120C960,120,840,120,720,120C600,120,480,120,360,120C240,120,120,120,60,120L0,120Z"></path>
-            </svg>
-        </div>
-        
-        <!-- Footer Content -->
-        <div class="py-5">
-            <div class="container">
-                <div class="row g-4">
-                    <div class="col-lg-4 col-md-6">
-                        <div class="d-flex align-items-center mb-4">
-                            <img src="{{ url_for('static', filename='images/benton-county-logo.png') }}" alt="Benton County Logo" height="50" class="me-3">
-                            <div>
-                                <h5 class="mb-0 fw-bold text-primary">Benton County</h5>
-                                <span class="text-muted">Washington | Est. 1905</span>
-                            </div>
-                        </div>
-                        <p class="text-muted mb-4">Providing accurate and transparent property tax assessment services to Benton County residents.</p>
-                        <p class="text-muted small">&copy; {{ current_year }} Benton County Assessor's Office</p>
-                    </div>
-                    
-                    <div class="col-lg-2 col-md-6">
-                        <h6 class="fw-bold mb-3 text-primary">Tax Tools</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><a href="{{ url_for('levy_calculator.calculator') }}" class="text-decoration-none text-muted">Levy Calculator</a></li>
-                            <li class="mb-2"><a href="{{ url_for('forecasting.forecast') }}" class="text-decoration-none text-muted">Forecasting</a></li>
-                            <li class="mb-2"><a href="{{ url_for('levy_calculator.impact_calculator') }}" class="text-decoration-none text-muted">Impact Calculator</a></li>
-                            <li class="mb-2"><a href="{{ url_for('glossary.glossary') }}" class="text-decoration-none text-muted">Glossary</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="col-lg-2 col-md-6">
-                        <h6 class="fw-bold mb-3 text-primary">Quick Links</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><a href="{{ url_for('dashboard.index') }}" class="text-decoration-none text-muted">Dashboard</a></li>
-                            <li class="mb-2"><a href="{{ url_for('data_management.list_tax_districts') }}" class="text-decoration-none text-muted">Tax Districts</a></li>
-                            <li class="mb-2"><a href="{{ url_for('data_management.list_tax_codes') }}" class="text-decoration-none text-muted">Tax Codes</a></li>
-                            <li class="mb-2"><a href="{{ url_for('historical_analysis.historical_analysis') }}" class="text-decoration-none text-muted">Historical Analysis</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="col-lg-4 col-md-6">
-                        <h6 class="fw-bold mb-3 text-primary">Contact Information</h6>
-                        <ul class="list-unstyled mb-4">
-                            <li class="d-flex mb-3">
-                                <i class="bi bi-geo-alt-fill text-primary me-2 mt-1"></i>
-                                <span class="text-muted">5600 W. Canal Drive<br>Kennewick, WA 99336</span>
-                            </li>
-                            <li class="d-flex mb-3">
-                                <i class="bi bi-telephone-fill text-primary me-2 mt-1"></i>
-                                <span class="text-muted">(509) 736-3080</span>
-                            </li>
-                            <li class="d-flex mb-3">
-                                <i class="bi bi-envelope-fill text-primary me-2 mt-1"></i>
-                                <span class="text-muted">assessor@co.benton.wa.us</span>
-                            </li>
-                        </ul>
-                        <a href="https://www.co.benton.wa.us/" class="btn btn-outline-primary btn-sm rounded-pill" target="_blank">
-                            <i class="bi bi-globe me-1"></i> Visit County Website
-                        </a>
-                    </div>
+    <footer class="footer bg-light mt-5 py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5>Benton County Levy Calculator</h5>
+                    <p class="text-muted">A sophisticated property tax levy analysis and management system.</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{{ url_for('public.about') }}">About</a></li>
+                        <li><a href="{{ url_for('public.contact') }}">Contact</a></li>
+                        <li><a href="{{ url_for('glossary.index') }}">Glossary</a></li>
+                        <li><a href="{{ url_for('public.privacy') }}">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5>Contact</h5>
+                    <address>
+                        <p class="mb-1"><i class="bi bi-geo-alt me-2"></i>7122 W. Okanogan Pl. Bldg A</p>
+                        <p class="mb-1">Kennewick, WA 99336</p>
+                        <p class="mb-1"><i class="bi bi-telephone me-2"></i>(509) 786-5600</p>
+                        <p class="mb-1"><i class="bi bi-envelope me-2"></i>support@levymaster.com</p>
+                    </address>
                 </div>
             </div>
-        </div>
-        
-        <!-- Bottom Copyright Bar -->
-        <div class="border-top py-3" style="background-color: rgba(248, 250, 252, 0.8);">
-            <div class="container">
-                <div class="row align-items-center">
-                    <div class="col-md-6 text-center text-md-start">
-                        <small class="text-muted">LevyMaster v1.0 | Benton County Property Tax Calculator</small>
-                    </div>
-                    <div class="col-md-6 text-center text-md-end">
-                        <small class="text-muted">Current Assessment Year: {{ current_year }}</small>
-                    </div>
+            <div class="row mt-3">
+                <div class="col-12 text-center">
+                    <p class="text-muted mb-0">&copy; {{ current_year }} Benton County. All rights reserved.</p>
                 </div>
             </div>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
+    <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/keras-carousel.js') }}"></script>
+    
+    <!-- IntroJS for guided tours -->
+    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0"></script>
     
     <!-- Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
-    
-    <!-- Intro.js for guided tours -->
-    <!-- Use CDN version of introjs to rule out any issues with the local file -->
-    <script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/intro.min.js"></script>
-    
-    <!-- Tour system - note: order matters! tour_initializer.js must be loaded before guided_tour.js -->
-    <script src="{{ url_for('static', filename='js/tour_initializer.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/guided_tour.js') }}"></script>
-    
-    <!-- Help Menu System -->
-    <!-- Form Micro-Interactions -->
-    <!-- Loading Animations JS -->
-    <script src="{{ url_for('static', filename='js/animations/loading-animations.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/form-micro-interactions.js') }}"></script>
+    <!-- Base JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/animations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/help_menu.js') }}"></script>
     
     {% block extra_js %}{% endblock %}
