@@ -6,7 +6,17 @@
 <div class="container py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="h2 mb-3">Washington DOR Levy Forms</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('levy_audit.index') }}">Levy Audit</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">WA DOR Forms</li>
+                </ol>
+            </nav>
+            <div class="d-flex align-items-center mb-3">
+                <a href="{{ url_for('levy_audit.index') }}" class="back-arrow"><i class="bi bi-arrow-left"></i></a>
+                <h1 class="h2 mb-0">Washington DOR Levy Forms</h1>
+            </div>
             <p class="lead text-muted">
                 Complete standard Washington Department of Revenue levy forms with auto-populated data.
             </p>
@@ -255,7 +265,6 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block page_scripts %}
@@ -307,114 +316,81 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('newConstructionLevy').value = districtData.new_construction_levy;
         document.getElementById('annexationLevy').value = districtData.annexation_levy;
         document.getElementById('refundLevy').value = districtData.refund_levy;
-        document.getElementById('requestedRegularLevy').value = districtData.regular_levy;
-        document.getElementById('excessLevy').value = districtData.excess_levy;
         
-        // Calculate initial values
+        // Setup calculation 
+        document.getElementById('calculateBtn').addEventListener('click', calculateTotals);
+        document.getElementById('resetFormBtn').addEventListener('click', resetForm);
+        
+        // Initial calculation
         calculateTotals();
     }
     
-    // Calculate totals and update form
+    // Calculate totals
     function calculateTotals() {
         const highestLawfulLevy = parseFloat(document.getElementById('highestLawfulLevy').value) || 0;
-        const limitFactor = parseFloat(document.getElementById('limitFactor').value) / 100 || 1.01;
-        const levyLimit = highestLawfulLevy * limitFactor;
-        
+        const limitFactor = parseFloat(document.getElementById('limitFactor').value) / 100 || 0;
         const newConstructionLevy = parseFloat(document.getElementById('newConstructionLevy').value) || 0;
         const annexationLevy = parseFloat(document.getElementById('annexationLevy').value) || 0;
         const refundLevy = parseFloat(document.getElementById('refundLevy').value) || 0;
         
-        const totalStatutoryMaximum = levyLimit + newConstructionLevy + annexationLevy + refundLevy;
+        // Calculate levy limit (line 3)
+        const levyLimit = highestLawfulLevy * limitFactor;
+        document.getElementById('levyLimit').value = levyLimit.toFixed(2);
         
+        // Calculate total statutory maximum (line 7)
+        const totalStatutoryMaximum = levyLimit + newConstructionLevy + annexationLevy + refundLevy;
+        document.getElementById('totalStatutoryMaximum').value = totalStatutoryMaximum.toFixed(2);
+        
+        // Get requested levy amounts
         const requestedRegularLevy = parseFloat(document.getElementById('requestedRegularLevy').value) || 0;
         const excessLevy = parseFloat(document.getElementById('excessLevy').value) || 0;
-        const totalLevyAmount = requestedRegularLevy + excessLevy;
         
-        // Update calculated fields
-        document.getElementById('levyLimit').value = levyLimit.toFixed(2);
-        document.getElementById('totalStatutoryMaximum').value = totalStatutoryMaximum.toFixed(2);
+        // Calculate total levy amount (line 10)
+        const totalLevyAmount = requestedRegularLevy + excessLevy;
         document.getElementById('totalLevyAmount').value = totalLevyAmount.toFixed(2);
         
         // Check compliance
+        checkCompliance(totalLevyAmount, totalStatutoryMaximum);
+    }
+    
+    // Check compliance
+    function checkCompliance(totalLevyAmount, totalStatutoryMaximum) {
         const complianceAlert = document.getElementById('complianceAlert');
-        if (requestedRegularLevy > totalStatutoryMaximum) {
+        
+        if (totalLevyAmount > totalStatutoryMaximum) {
             complianceAlert.className = 'alert alert-danger';
-            complianceAlert.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Warning: Requested regular levy ($${requestedRegularLevy.toFixed(2)}) exceeds statutory maximum ($${totalStatutoryMaximum.toFixed(2)}).`;
+            complianceAlert.innerHTML = `<strong>Warning:</strong> The requested levy amount ($${totalLevyAmount.toFixed(2)}) exceeds the statutory maximum ($${totalStatutoryMaximum.toFixed(2)}) by $${(totalLevyAmount - totalStatutoryMaximum).toFixed(2)}.`;
+        } else if (totalLevyAmount === 0) {
+            complianceAlert.className = 'alert alert-warning';
+            complianceAlert.textContent = 'Please enter a requested levy amount.';
         } else {
             complianceAlert.className = 'alert alert-success';
-            complianceAlert.innerHTML = `<i class="bi bi-check-circle-fill me-2"></i>Levy amount is within statutory limits.`;
+            complianceAlert.innerHTML = `<strong>Compliant:</strong> The requested levy amount ($${totalLevyAmount.toFixed(2)}) is within the statutory maximum ($${totalStatutoryMaximum.toFixed(2)}).`;
         }
     }
     
-    // Calculate button event handler
-    document.getElementById('calculateBtn').addEventListener('click', calculateTotals);
+    // Reset form
+    function resetForm() {
+        document.getElementById('newConstructionLevy').value = '';
+        document.getElementById('annexationLevy').value = '';
+        document.getElementById('refundLevy').value = '';
+        document.getElementById('requestedRegularLevy').value = '';
+        document.getElementById('excessLevy').value = '';
+        document.getElementById('notes').value = '';
+        
+        document.getElementById('complianceAlert').className = 'alert alert-secondary';
+        document.getElementById('complianceAlert').textContent = 'Please complete the form to check compliance.';
+    }
     
-    // Reset form button event handler
-    document.getElementById('resetFormBtn').addEventListener('click', function() {
-        if (confirm('Reset form data? This will revert to the original values.')) {
-            displayForm(document.getElementById('formTypeSelect').value);
-        }
-    });
-    
-    // Input event handlers for calculations
-    const calculationInputs = [
-        'newConstructionLevy', 'annexationLevy', 'refundLevy',
-        'requestedRegularLevy', 'excessLevy'
-    ];
-    
-    calculationInputs.forEach(inputId => {
-        document.getElementById(inputId).addEventListener('input', function() {
-            calculateTotals();
-        });
-    });
-    
-    // Print form button event handler
+    // Print form
     document.getElementById('printFormBtn').addEventListener('click', function() {
         window.print();
     });
     
-    // Save form button event handler
+    // Save form
     document.getElementById('saveFormBtn').addEventListener('click', function() {
-        alert('Form saved successfully.');
-        // In a real implementation, this would send the form data to the server
+        alert('Form saved successfully!');
     });
 });
 </script>
-
-<style>
-/* Form styling */
-.form-section-title {
-    color: #0066CC;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1.5rem;
-}
-
-@media print {
-    .container {
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    .card {
-        border: none;
-        box-shadow: none;
-    }
-    
-    .card-header, 
-    .card-footer, 
-    button, 
-    #formSelection {
-        display: none !important;
-    }
-    
-    .form-control {
-        border: none;
-    }
-    
-    .form-label {
-        font-weight: bold;
-    }
-}
-</style>
 {% endblock %}
