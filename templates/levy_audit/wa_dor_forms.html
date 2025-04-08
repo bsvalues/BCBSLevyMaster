@@ -285,9 +285,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Fetch district data for the selected year
-        fetch(`/levy-audit/district-data/${districtId}/${year}`)
-            .then(response => response.json())
-            .then(data => {
+        fetch(`/levy-audit/district-data/${districtId}/${year}`).then(response => { console.log("Response status:", response.status); return response.json(); })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => { console.log("Received data:", data);
+                console.log('Received data:', data);
                 if (data.status === 'success') {
                     districtData = data;
                     displayForm(formType);
