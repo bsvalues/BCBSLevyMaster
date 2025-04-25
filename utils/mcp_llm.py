@@ -24,6 +24,8 @@ from utils.mcp_agents import Agent, AgentPhase
 class LLMProvider(Enum):
     OPENAI = "openai"  # OpenAI API (GPT models)
     ANTHROPIC = "anthropic"  # Anthropic API (Claude models)
+    PERPLEXITY = "perplexity"  # Perplexity AI API
+    GEMINI = "gemini"  # Google Gemini API
     OLLAMA = "ollama"  # Local Ollama integration
     MOCK = "mock"  # Mock provider for testing without API dependency
 
@@ -45,32 +47,21 @@ class MCPLLMService:
         if not self.api_key and provider != LLMProvider.MOCK and provider != LLMProvider.OLLAMA:
             logging.warning(f"No API key provided for {provider.value}. Only mock operations will be available.")
             
-    def generate_text(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> str:
+    def generate_content(self, content_blocks: list, options: dict = None):
         """
-        Generate text using the LLM.
-        
-        Args:
-            prompt: The text prompt to send to the LLM
-            options: Additional generation options
-            
-        Returns:
-            The generated text
+        Default implementation for generate_content. Returns a mock MCPMessage with the input blocks.
+        Override in subclasses for real LLM integration.
         """
-        raise NotImplementedError("Subclasses must implement generate_text")
-        
-    def generate_content(self, content_blocks: List[ContentBlock], options: Optional[Dict[str, Any]] = None) -> MCPMessage:
+        from .mcp_message import MCPMessage
+        return MCPMessage(content_blocks=content_blocks)
+
+    def generate_text(self, prompt: str, options: dict = None) -> str:
         """
-        Generate content using the LLM following MCP standards.
-        
-        Args:
-            content_blocks: The content blocks to process
-            options: Additional generation options
-            
-        Returns:
-            An MCPMessage containing the generated content
+        Default implementation for generate_text. Returns a mock response.
+        Override in subclasses for real LLM integration.
         """
-        raise NotImplementedError("Subclasses must implement generate_content")
-        
+        return f"[MOCK LLM RESPONSE] {prompt[:100]}..."
+
     def invoke_function(self, function_name: str, parameters: Dict[str, Any]) -> Any:
         """
         Invoke a registered function through LLM reasoning.
@@ -433,6 +424,61 @@ class AnthropicService(MCPLLMService):
         except Exception as e:
             raise LLMServiceError(f"Anthropic API error: {str(e)}")
 
+class PerplexityService(MCPLLMService):
+    """
+    Perplexity AI LLM service implementation following MCP standards.
+    """
+    def __init__(self, model_name: str = "pplx-70b-online", api_key: Optional[str] = None):
+        super().__init__(LLMProvider.PERPLEXITY, model_name, api_key)
+        self.endpoint = os.environ.get("PERPLEXITY_API_URL", "https://api.perplexity.ai/v1/completions")
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+    def generate_text(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> str:
+        import requests
+        payload = {
+            "model": self.model_name,
+            "prompt": prompt,
+            "max_tokens": options.get("max_tokens", 1024) if options else 1024,
+            "temperature": options.get("temperature", 0.7) if options else 0.7
+        }
+        resp = requests.post(self.endpoint, headers=self.headers, json=payload)
+        if resp.status_code == 200:
+            result = resp.json()
+            # This assumes Perplexity returns {"choices": [{"text": ...}]}
+            return result.get("choices", [{}])[0].get("text", "")
+        else:
+            raise LLMServiceError(f"Perplexity API error: {resp.status_code} {resp.text}")
+            
+    def generate_content(self, content_blocks: List[Any], options: Optional[Dict[str, Any]] = None):
+        prompt = "\n".join([str(cb) for cb in content_blocks])
+        return self.generate_text(prompt, options)
+
+class GeminiService(MCPLLMService):
+    """
+    Google Gemini (Generative AI) LLM service implementation following MCP standards.
+    """
+    def __init__(self, model_name: str = "gemini-pro", api_key: Optional[str] = None):
+        super().__init__(LLMProvider.GEMINI, model_name, api_key)
+        try:
+            import google.generativeai as genai
+            self.client = genai.GenerativeModel(model_name)
+        except ImportError:
+            logging.error("Google Generative AI SDK not installed. Please install with 'pip install google-generativeai'")
+            self.client = None
+            
+    def generate_text(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> str:
+        if not self.client:
+            raise LLMServiceError("Gemini SDK not available.")
+        response = self.client.generate_content(prompt)
+        return response.text if hasattr(response, 'text') else str(response)
+        
+    def generate_content(self, content_blocks: List[Any], options: Optional[Dict[str, Any]] = None):
+        prompt = "\n".join([str(cb) for cb in content_blocks])
+        return self.generate_text(prompt, options)
+
 class OllamaService(MCPLLMService):
     """
     Ollama LLM service implementation following MCP standards.
@@ -725,6 +771,18 @@ def create_llm_service(provider_name: str = None, model_name: str = None, api_ke
             except Exception as e:
                 logging.error(f"Failed to initialize Anthropic service: {str(e)}")
                 
+        elif provider_name.lower() == "perplexity":
+            try:
+                return PerplexityService(model_name or "pplx-70b-online", api_key)
+            except Exception as e:
+                logging.error(f"Failed to initialize Perplexity service: {str(e)}")
+                
+        elif provider_name.lower() == "gemini":
+            try:
+                return GeminiService(model_name or "gemini-pro", api_key)
+            except Exception as e:
+                logging.error(f"Failed to initialize Gemini service: {str(e)}")
+                
         elif provider_name.lower() == "ollama":
             try:
                 return OllamaService(model_name or "llama2")
@@ -746,7 +804,21 @@ def create_llm_service(provider_name: str = None, model_name: str = None, api_ke
         except Exception as e:
             logging.warning(f"Failed to initialize Anthropic service: {str(e)}")
             
-    # 3. Local Ollama (if installed)
+    # 3. Perplexity (if API key is available)
+    if os.environ.get("PERPLEXITY_API_KEY") or api_key:
+        try:
+            return PerplexityService(model_name or "pplx-70b-online", api_key or os.environ.get("PERPLEXITY_API_KEY"))
+        except Exception as e:
+            logging.warning(f"Failed to initialize Perplexity service: {str(e)}")
+            
+    # 4. Gemini (if API key is available)
+    if os.environ.get("GEMINI_API_KEY") or api_key:
+        try:
+            return GeminiService(model_name or "gemini-pro", api_key or os.environ.get("GEMINI_API_KEY"))
+        except Exception as e:
+            logging.warning(f"Failed to initialize Gemini service: {str(e)}")
+            
+    # 5. Local Ollama (if installed)
     try:
         import requests
         requests.get("http://localhost:11434/api/version")
@@ -754,7 +826,7 @@ def create_llm_service(provider_name: str = None, model_name: str = None, api_ke
     except Exception as e:
         logging.warning(f"Failed to initialize Ollama service: {str(e)}")
             
-    # 4. Fallback to mock
+    # 6. Fallback to mock
     logging.warning("No LLM service available, using mock service")
     return MockLLMService()
 

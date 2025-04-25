@@ -6,6 +6,7 @@ using historical data and various statistical models, including AI-enhanced fore
 """
 import json
 import logging
+import os
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
@@ -13,7 +14,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from sqlalchemy import func
 import numpy as np
 
-from models import TaxCode, TaxCodeHistoricalRate, TaxDistrict
+from models import TaxCode, TaxCodeHistoricalRate, TaxDistrict, SystemSetting
 from app import db
 from utils.forecasting_utils import (
     generate_forecast_for_tax_code,
@@ -214,11 +215,15 @@ def forecast():
     
     # Generate the forecast
     try:
+        setting = SystemSetting.query.filter_by(key="ai_provider").first()
+        current_ai_provider = setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+        
         result = generate_forecast_for_tax_code(
             tax_code_id=tax_code_id,
             years_to_forecast=years_to_forecast,
             confidence_level=confidence_level,
-            preferred_model=preferred_model
+            preferred_model=preferred_model,
+            ai_provider=current_ai_provider
         )
         
         # Prepare chart data
@@ -388,33 +393,30 @@ def generate_ai_forecast():
         levy_amounts = [rate.levy_amount for rate in historical_rates if rate.levy_amount is not None]
         
         # Use AI to select the best forecasting model
+        setting = SystemSetting.query.filter_by(key="ai_provider").first()
+        current_ai_provider = setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+        
         data = {
             'years': historical_years,
             'rates': historical_rates_values,
             'assessed_values': assessed_values if assessed_values else None,
             'levy_amounts': levy_amounts if levy_amounts else None
         }
-        
-        # Select model using AI
-        selected_model = ai_forecast_model_selector(data)
-        
+        # Select model using AI (now multi-provider)
+        selected_model = ai_forecast_model_selector(data, ai_provider=current_ai_provider)
         # Fit the model and generate forecast
         selected_model.fit()
-        
         # Generate future years
         last_year = historical_years[-1]
         forecast_years = [last_year + i + 1 for i in range(years_ahead)]
-        
         # Apply scenario adjustment to the forecast
         scenario_adjustment = 1.0  # Baseline scenario
         if scenario == 'optimistic':
             scenario_adjustment = 0.85  # More favorable rates (lower)
         elif scenario == 'pessimistic':
             scenario_adjustment = 1.15  # Less favorable rates (higher)
-        
         # Generate point forecasts with scenario adjustment
         forecast_rates = [selected_model.predict(year) * scenario_adjustment for year in forecast_years]
-        
         # Calculate confidence intervals (95% by default)
         historical_std = np.std(historical_rates_values)
         z_score = 1.96  # for 95% confidence
@@ -427,13 +429,13 @@ def generate_ai_forecast():
             lower = max(0, rate - margin)
             upper = rate + margin
             confidence_intervals.append([lower, upper])
-        
-        # Optional: Use AI to detect anomalies in the historical data
+        # Optional: Use AI to detect anomalies in the historical data (now multi-provider)
         anomalies = detect_anomalies_with_ai(
             years=historical_years,
-            rates=historical_rates_values
+            rates=historical_rates_values,
+            tax_code=tax_code,
+            ai_provider=current_ai_provider
         )
-        
         # Prepare response data
         response_data = {
             'tax_code': tax_code,
@@ -473,6 +475,9 @@ def generate_ai_explanation():
             return jsonify({'error': 'Missing required parameters.'}), 400
         
         # Generate explanation and recommendations
+        setting = SystemSetting.query.filter_by(key="ai_provider").first()
+        current_ai_provider = setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+        
         explanation = generate_forecast_explanation(
             tax_code=tax_code,
             historical_years=historical_years,
@@ -480,7 +485,8 @@ def generate_ai_explanation():
             forecast_years=forecast_years,
             forecast_rates=forecast_rates,
             best_model=model_name,
-            anomalies=anomalies
+            anomalies=anomalies,
+            ai_provider=current_ai_provider
         )
         
         recommendations = generate_forecast_recommendations(
@@ -541,7 +547,10 @@ def execute_ai_comprehensive_analysis():
         
         # Get advanced analysis agent
         try:
-            advanced_agent = get_advanced_analysis_agent()
+            setting = SystemSetting.query.filter_by(key="ai_provider").first()
+            current_ai_provider = setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+            
+            advanced_agent = get_advanced_analysis_agent(ai_provider=current_ai_provider)
         except Exception as e:
             logger.error(f"Error initializing advanced analysis agent: {str(e)}")
             return jsonify({'error': 'Could not initialize AI analysis agent.'}), 500

@@ -16,7 +16,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from app import db
 from models import (
     User, TaxDistrict, TaxCode, Property, ImportLog, 
-    ExportLog, TaxCodeHistoricalRate
+    ExportLog, TaxCodeHistoricalRate, SystemSetting, AIAnalysisRequest
 )
 
 # Create blueprint
@@ -96,16 +96,20 @@ def dashboard():
     except:
         disk_usage = "Unknown"
     
+    # --- AI Provider Selection Logic ---
+    from utils.mcp_llm import LLMProvider
+    from models import SystemSetting
+    # Try to get provider from persistent settings
+    setting = SystemSetting.query.filter_by(key="ai_provider").first()
+    current_ai_provider = setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+    ai_providers = [
+        {"id": p.value, "name": p.name.replace("_", " ").title()} for p in LLMProvider if p != LLMProvider.MOCK
+    ]
+    current_ai_provider_name = next((p["name"] for p in ai_providers if p["id"] == current_ai_provider), "Openai")
     # Example AI insights (to be replaced with actual data in future)
+    from models import AIAnalysisRequest
     ai_insights = [
-        {
-            "title": "Levy Rate Trends",
-            "description": "Most tax districts show stable levy rates compared to previous year with a slight average increase of 0.5%."
-        },
-        {
-            "title": "Compliance Alert",
-            "description": "Three tax districts are approaching their statutory levy limits and should be monitored."
-        }
+        req.prompt for req in AIAnalysisRequest.query.order_by(AIAnalysisRequest.id.desc()).limit(5)
     ]
     
     return render_template(
@@ -116,8 +120,32 @@ def dashboard():
         recent_imports=recent_imports,
         total_assessed_value=total_assessed_value,
         disk_usage=disk_usage,
+        ai_providers=ai_providers,
+        current_ai_provider=current_ai_provider,
+        current_ai_provider_name=current_ai_provider_name,
         ai_insights=ai_insights
     )
+
+
+@admin_bp.route('/set_ai_provider', methods=['POST'])
+def set_ai_provider():
+    from models import SystemSetting
+    provider = request.form.get('ai_provider')
+    if provider:
+        # Persist to DB
+        setting = SystemSetting.query.filter_by(key="ai_provider").first()
+        if setting:
+            setting.value = provider
+        else:
+            setting = SystemSetting(key="ai_provider", value=provider, description="Current LLM provider for analytics/forecasting")
+            db.session.add(setting)
+        db.session.commit()
+        # Update env for current session
+        os.environ['AI_PROVIDER'] = provider
+        flash(f"AI provider set to {provider}", "success")
+    else:
+        flash("No AI provider selected.", "danger")
+    return redirect(url_for('admin.dashboard'))
 
 
 @admin_bp.route('/status')

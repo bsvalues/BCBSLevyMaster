@@ -664,3 +664,20 @@ def seed_historical_rates(base_year: int = 2024, num_years: int = 5) -> Tuple[bo
         error_message = f"Failed to seed historical rates: {str(e)}"
         logger.error(error_message)
         return False, error_message
+
+def get_historical_data(district_id, year=None):
+    """
+    Retrieve historical levy data for a district (mock implementation).
+    Args:
+        district_id: The district ID
+        year: Optional year filter
+    Returns:
+        Dict with 'years' and 'rates'
+    """
+    # Placeholder/mock data for demonstration
+    import numpy as np
+    years = np.arange(2015, 2024).tolist()
+    rates = np.random.uniform(1.5, 3.0, size=len(years)).tolist()
+    if year:
+        return {'years': [year], 'rates': [rates[-1]]}
+    return {'years': years, 'rates': rates}

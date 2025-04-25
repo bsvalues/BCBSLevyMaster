@@ -55,3 +55,85 @@
 .back-arrow:hover {
     transform: translateX(-3px);
 }
+
+/* === UI/UX Polish & Accessibility Enhancements === */
+
+/* Add focus outlines for accessibility */
+:focus {
+    outline: 2px solid var(--primary-color, #3DA5BD) !important;
+    outline-offset: 2px;
+}
+
+/* Improve button hover/focus states */
+.btn-primary:focus, .btn-primary:hover {
+    background-color: #3187a4;
+    border-color: #3187a4;
+}
+.btn-outline-secondary:focus, .btn-outline-secondary:hover {
+    background-color: #f1f5f9;
+    color: #3DA5BD;
+}
+
+/* Card hover effect for interactivity */
+.card:hover, .card:focus-within {
+    box-shadow: 0 6px 24px rgba(61,165,189,0.12), 0 1.5px 4.5px rgba(61,165,189,0.10);
+    transform: translateY(-2px) scale(1.01);
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+/* Loading spinner overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(255,255,255,0.7);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* Tooltip styling */
+[data-bs-toggle="tooltip"] {
+    cursor: pointer;
+}
+
+/* Responsive table improvements */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Accessible hidden text (for screen readers) */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+}
+
+/* Modern, clean modal style */
+.modal-content {
+    border-radius: 1rem;
+    box-shadow: 0 10px 32px rgba(61,165,189,0.15);
+}
+
+/* Navbar active link styling */
+.nav-link.active {
+    font-weight: 600;
+    color: #3DA5BD !important;
+    border-bottom: 2px solid #3DA5BD;
+}
+
+/* Animation for micro-interactions */
+@keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.07); }
+    100% { transform: scale(1); }
+}
+.animate-pop {
+    animation: pop 0.25s;
+}
+
+/* End UI/UX Polish */

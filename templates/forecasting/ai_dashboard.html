@@ -64,16 +64,29 @@
     .api-status.inactive {
         background-color: #dc3545;
     }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 1.5rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>AI-Enhanced Forecasting</h1>
+        <h1>AI-Enhanced Forecasting <i class="bi bi-stars text-primary" data-bs-toggle="tooltip" title="Get AI-powered levy rate predictions and scenario analysis."></i></h1>
         <div>
             <a href="{{ url_for('forecasting.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-2"></i>Back to Forecasting
+                <i class="bi bi-arrow-left"></i> Back
             </a>
         </div>
     </div>
@@ -82,10 +95,15 @@
         <div class="col-md-3">
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">Configure Forecast</h5>
+                    <h5 class="mb-0">Configure Forecast <i class="bi bi-gear" data-bs-toggle="tooltip" title="Select your parameters and scenario."></i></h5>
                 </div>
                 <div class="card-body">
-                    <form id="forecastForm" class="needs-validation" novalidate>
+                    <form id="forecastForm" autocomplete="off">
+                        <!-- Loading spinner overlay -->
+                        <div class="loading-overlay" id="forecastLoading" style="display: none;">
+                            <div class="spinner-border text-primary" role="status" aria-label="Loading forecast..."></div>
+                            <span class="ms-2">Loading forecast...</span>
+                        </div>
                         <div class="mb-3">
                             <label for="taxCodeSelect" class="form-label">Tax Code</label>
                             <select class="form-select" id="taxCodeSelect" name="tax_code" required aria-describedby="taxCodeFeedback">
@@ -97,11 +115,6 @@
                             <div class="invalid-feedback" id="taxCodeFeedback">
                                 Please select a tax code to analyze
                             </div>
-                                <option value="">Select a tax code</option>
-                                {% for tax_code in tax_codes %}
-                                <option value="{{ tax_code.code }}">{{ tax_code.code }} - {{ tax_code.description }} ({{ tax_code.history_count }} years)</option>
-                                {% endfor %}
-                            </select>
                         </div>
 
                         <div class="mb-3">
@@ -137,6 +150,21 @@
                                 </div>
                             </div>
                             <input type="hidden" name="scenario" id="scenarioInput" value="optimistic">
+                        </div>
+
+                        <div class="mb-4">
+                            <form method="post" action="{{ url_for('admin.set_ai_provider') }}" class="mb-3">
+                                <label for="ai_provider" class="form-label">AI Provider</label>
+                                <select id="ai_provider" name="ai_provider" class="form-select mb-2" onchange="this.form.submit()">
+                                    {% for provider in ai_providers %}
+                                        <option value="{{ provider.id }}" {% if provider.id == current_ai_provider %}selected{% endif %}>{{ provider.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Choose the AI provider for analytics and forecasting.</small>
+                            </form>
+                            <div class="mb-2">
+                                <strong>Current Provider:</strong> {{ current_ai_provider_name }}
+                            </div>
                         </div>
 
                         <div class="d-grid">

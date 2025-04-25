@@ -64,6 +64,15 @@
     </ul>
 </div>
 
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Reports <i class="bi bi-bar-chart-line text-primary" data-bs-toggle="tooltip" title="View and export levy calculation and audit reports."></i></h1>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
 {% if report_type == 'tax_roll' %}
 <!-- Tax Roll Content -->
 <div class="row">
@@ -141,8 +150,8 @@
 <div class="row">
     <div class="col-12">
         <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">Statutory Compliance Report</h5>
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">Report List <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip" title="All available levy and audit reports."></i></h5>
             </div>
             <div class="card-body">
                 <div class="alert alert-info mb-4">
@@ -527,4 +536,14 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+        new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
 {% endblock %}

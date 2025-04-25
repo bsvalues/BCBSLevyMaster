@@ -1,7 +1,7 @@
 """
 AI-enhanced forecasting utilities for the Levy Calculation Application.
 
-This module provides functions that use Claude API to generate explanations
+This module provides functions that use multi-provider LLM integration to generate explanations
 and recommendations for forecast results, as well as AI-enhanced model selection
 and anomaly detection.
 """
@@ -11,7 +11,8 @@ import numpy as np
 import pandas as pd
 import logging
 from typing import List, Dict, Any, Optional, Union, Tuple
-import anthropic
+import importlib
+from utils.mcp_llm import create_llm_service
 from scipy import stats
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -27,6 +28,12 @@ from utils.forecasting_utils import (
     AIEnhancedForecast
 )
 
+from models import SystemSetting
+
+def get_active_ai_provider():
+    setting = SystemSetting.query.filter_by(key="ai_provider").first()
+    return setting.value if setting else os.environ.get("AI_PROVIDER", "openai")
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -38,88 +45,26 @@ def generate_forecast_explanation(tax_code: str,
                                best_model: str,
                                anomalies: List[Dict[str, Any]]) -> str:
     """
-    Generate an AI-enhanced explanation of the forecast.
-    
-    Args:
-        tax_code: The tax code being forecasted
-        historical_years: List of historical years
-        historical_rates: List of historical rates
-        forecast_years: List of years in the forecast
-        forecast_rates: List of forecasted rates
-        best_model: Name of the best performing model
-        anomalies: List of detected anomalies
-        
-    Returns:
-        Explanation string
+    Generate an AI-enhanced explanation of the forecast using any available LLM provider.
     """
-    # Check if Claude API is available
-    anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not anthropic_key:
-        logger.warning("ANTHROPIC_API_KEY environment variable not set")
-        return "AI-enhanced explanation not available (API key not configured)."
-    
-    client = anthropic.Anthropic(api_key=anthropic_key)
-    
-    # Format historical data
-    historical_data = "\n".join([f"Year {year}: Rate {rate:.4f}" 
-                              for year, rate in zip(historical_years, historical_rates)])
-    
-    # Format forecast data
-    forecast_data = "\n".join([f"Year {year}: Rate {rate:.4f}" 
-                            for year, rate in zip(forecast_years, forecast_rates)])
-    
-    # Format anomalies
-    anomalies_text = ""
-    if anomalies:
-        anomalies_text = "Detected anomalies:\n"
-        for anomaly in anomalies:
-            anomalies_text += f"- Year {anomaly['year']}: Rate {anomaly['rate']:.4f} "
-            anomalies_text += f"(Severity: {anomaly['severity']:.2f}) - {anomaly['description']}\n"
-    else:
-        anomalies_text = "No anomalies detected in the historical data."
-    
-    # Create prompt for Claude
-    prompt = f"""
-    <context>
-    You are an expert property tax analyst tasked with explaining a tax levy rate forecast for tax code {tax_code}.
-    
-    Historical tax levy rates:
-    {historical_data}
-    
-    Forecast tax levy rates (using {best_model} model):
-    {forecast_data}
-    
-    {anomalies_text}
-    
-    Please provide a clear, concise explanation of the forecast that:
-    1. Interprets the historical trend
-    2. Explains why the {best_model} model was the best choice
-    3. Discusses any anomalies and their potential impact
-    4. Identifies economic or policy factors that might be influencing the rates
-    5. Evaluates whether the forecast seems reasonable
-    
-    Provide your explanation in 3-5 paragraphs of professional but accessible language.
-    </context>
-    """
-    
     try:
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",  # The newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
-            max_tokens=1000,
-            temperature=0.3,
-            system="You are a property tax and economic forecasting expert speaking to an audience of county assessors and public finance administrators. Be clear, precise, and focus on actionable insights.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        # Extract explanation from Claude's response
-        explanation = response.content[0].text.strip()
+        llm = create_llm_service(provider_name=get_active_ai_provider())
+        prompt = f"""
+        Tax Code: {tax_code}
+        Historical Years: {historical_years}
+        Historical Rates: {historical_rates}
+        Forecast Years: {forecast_years}
+        Forecast Rates: {forecast_rates}
+        Best Model: {best_model}
+        Anomalies: {anomalies}
+
+        Please provide a concise, plain-English explanation of the forecast, highlighting trends, confidence, and any anomalies detected. Include actionable insights if appropriate.
+        """
+        explanation = llm.generate_text(prompt)
         return explanation
-    
     except Exception as e:
         logger.error(f"Error generating forecast explanation: {str(e)}")
-        return f"An error occurred while generating the explanation: {str(e)}"
+        return f"AI-enhanced explanation not available: {str(e)}"
 
 
 def ai_forecast_model_selector(data: Dict[str, Any]) -> BaseForecast:
@@ -143,7 +88,7 @@ def ai_forecast_model_selector(data: Dict[str, Any]) -> BaseForecast:
     # Analyze data characteristics
     characteristics = analyze_time_series(years, rates)
     
-    # Use Claude to analyze data characteristics if available
+    # Use LLM to analyze data characteristics if available
     ai_model_recommendation = get_ai_model_recommendation(characteristics, data)
     
     if ai_model_recommendation:
@@ -292,192 +237,58 @@ def rule_based_model_selection(characteristics: Dict[str, Any]) -> str:
 
 def get_ai_model_recommendation(characteristics: Dict[str, Any], data: Dict[str, Any]) -> Optional[str]:
     """
-    Use Claude API to recommend the best forecasting model.
-    
-    Args:
-        characteristics: Dictionary of time series characteristics
-        data: Original data dictionary with years and rates
-        
-    Returns:
-        String name of the recommended model or None if AI is unavailable
+    Use the best available LLM provider to recommend the best forecasting model.
     """
-    # Check if Claude API is available
-    anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not anthropic_key:
-        logger.warning("ANTHROPIC_API_KEY environment variable not set")
-        return None
-    
     try:
-        client = anthropic.Anthropic(api_key=anthropic_key)
-        
-        # Format time series data
-        years = data['years']
-        rates = data['rates']
-        data_points = "\n".join([f"Year {year}: Rate {rate:.4f}" for year, rate in zip(years, rates)])
-        
-        # Format characteristics for Claude
-        chars_text = "\n".join([f"{key}: {value}" for key, value in characteristics.items()])
-        
-        # Create prompt for Claude
+        llm = create_llm_service(provider_name=get_active_ai_provider())
         prompt = f"""
-        <context>
-        You are an expert statistician specializing in time series analysis and forecasting.
-        
-        You need to recommend the best forecasting model for this property tax levy rate data:
-        
-        Data points:
-        {data_points}
-        
-        Statistical characteristics:
-        {chars_text}
-        
-        Based on the data characteristics, which of these models would be most appropriate:
-        1. Linear model - for simple linear trends
-        2. Exponential model - for exponential growth or decline patterns
-        3. ARIMA model - for complex patterns with autocorrelation or seasonality
-        
-        Please analyze the data characteristics carefully and recommend a single model by name: "linear", "exponential", or "arima".
-        
-        Your entire response should be just one word: the name of the most appropriate model.
-        </context>
+        Given the following time series characteristics and data, recommend the best forecasting model (linear, exponential, ARIMA, or AI-enhanced):
+        Characteristics: {characteristics}
+        Data: {data}
+        Respond only with the model name.
         """
-        
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=50,
-            temperature=0.0,
-            system="You are a time series forecasting expert. Always respond with only a single word model name from the allowed options: linear, exponential, or arima. No other text.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        # Extract model recommendation from Claude's response
-        model_name = response.content[0].text.strip().lower()
-        
-        # Validate response
-        if model_name in ["linear", "exponential", "arima"]:
+        response = llm.generate_text(prompt)
+        model_name = response.strip().lower()
+        if model_name in ["linear", "exponential", "arima", "ai-enhanced"]:
             return model_name
         else:
-            logger.warning(f"Unexpected model recommendation from Claude: {model_name}")
+            logger.warning(f"Unexpected model recommendation from LLM: {model_name}")
             return None
-        
     except Exception as e:
-        logger.error(f"Error getting AI model recommendation: {str(e)}")
+        logger.error(f"Error getting model recommendation from LLM: {str(e)}")
         return None
 
 
 def detect_anomalies_with_ai(years: List[int], rates: List[float], tax_code: str) -> List[Dict[str, Any]]:
     """
-    Use AI to detect and explain anomalies in the historical tax rate data.
-    
-    Args:
-        years: List of years
-        rates: List of tax rates
-        tax_code: The tax code being analyzed
-        
-    Returns:
-        List of dictionaries containing anomaly information with AI-generated explanations
+    Use any available LLM provider to detect and explain anomalies in the historical tax rate data.
     """
-    # First, detect statistical anomalies
     from utils.forecasting_utils import detect_anomalies
     statistical_anomalies = detect_anomalies(
-        np.array(years), 
-        np.array(rates), 
-        method='zscore', 
-        threshold=2.0
+        np.array(years), np.array(rates)
     )
-    
-    # If no anomalies or less than 3 data points, return statistical anomalies as is
-    if len(years) < 3 or not statistical_anomalies:
-        return statistical_anomalies
-    
-    # Check if Claude API is available
-    anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not anthropic_key:
-        logger.warning("ANTHROPIC_API_KEY environment variable not set")
-        return statistical_anomalies
-    
     try:
-        client = anthropic.Anthropic(api_key=anthropic_key)
-        
-        # Format time series data
-        data_points = "\n".join([f"Year {year}: Rate {rate:.4f}" for year, rate in zip(years, rates)])
-        
-        # Format identified anomalies
-        anomalies_text = "Detected statistical anomalies:\n"
-        for anomaly in statistical_anomalies:
-            anomalies_text += f"- Year {anomaly['year']}: Rate {anomaly['rate']:.4f} (Severity: {anomaly['severity']:.2f})\n"
-        
-        # Create prompt for Claude
-        prompt = f"""
-        <context>
-        You are an expert property tax analyst examining tax levy rate anomalies for tax code {tax_code}.
-        
-        Historical tax levy rates:
-        {data_points}
-        
-        {anomalies_text}
-        
-        For each of the anomalies detected by the statistical algorithm, provide:
-        1. A concise explanation of why this data point might be anomalous
-        2. Potential economic, policy, or administrative factors that could explain the anomaly
-        3. An assessment of whether the anomaly represents a data error or a legitimate change
-        
-        Answer in this format for each anomaly:
-        Year [year]: [1-2 sentence explanation], [severity classification: "low", "medium", or "high"]
-        </context>
-        """
-        
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1000,
-            temperature=0.3,
-            system="You are a property tax analyst providing concise, expert explanations of anomalies in tax rate data. Focus on plausible economic and policy explanations.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        # Extract explanations from Claude's response
-        text = response.content[0].text.strip()
-        
-        # Match explanations to anomalies using regex
-        import re
+        llm = create_llm_service(provider_name=get_active_ai_provider())
         enhanced_anomalies = []
-        
         for anomaly in statistical_anomalies:
-            year = anomaly['year']
-            
-            # Try to find the explanation for this year
-            pattern = rf"Year {year}:\s*(.*?)(?:,\s*|$)(low|medium|high)"
-            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-            
-            if match:
-                explanation = match.group(1).strip()
-                severity = match.group(2).lower()
-                
-                # Create enhanced anomaly
-                enhanced_anomaly = anomaly.copy()
-                enhanced_anomaly['explanation'] = explanation
-                enhanced_anomaly['severity'] = severity
-                enhanced_anomalies.append(enhanced_anomaly)
-            else:
-                # If no match, keep the original anomaly
-                anomaly['explanation'] = "Statistical anomaly detected"
-                anomaly['severity'] = "medium"  # Default severity
-                enhanced_anomalies.append(anomaly)
-        
+            prompt = f"""
+            Tax Code: {tax_code}
+            Year: {anomaly['year']}
+            Rate: {anomaly['rate']}
+            Description: {anomaly['description']}
+            Please explain why this data point may be an anomaly and rate its severity (low, medium, high).
+            """
+            explanation = llm.generate_text(prompt)
+            anomaly['explanation'] = explanation
+            anomaly['severity'] = "medium"  # Default, can be improved by parsing LLM output
+            enhanced_anomalies.append(anomaly)
         return enhanced_anomalies
-        
     except Exception as e:
-        logger.error(f"Error enhancing anomalies with AI: {str(e)}")
-        
+        logger.error(f"Error enhancing anomalies with LLM: {str(e)}")
         # Return the original statistical anomalies with generic explanations
         for anomaly in statistical_anomalies:
             anomaly['explanation'] = "Statistical anomaly detected"
-            anomaly['severity'] = "medium"  # Default severity
-            
+            anomaly['severity'] = "medium"
         return statistical_anomalies
 
 
@@ -499,91 +310,18 @@ def generate_forecast_recommendations(tax_code: str,
     Returns:
         List of recommendation strings
     """
-    # Check if Claude API is available
-    anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-    if not anthropic_key:
-        logger.warning("ANTHROPIC_API_KEY environment variable not set")
-        return ["AI-enhanced recommendations not available (API key not configured)."]
-    
-    client = anthropic.Anthropic(api_key=anthropic_key)
-    
-    # Calculate year-over-year changes
-    historical_changes = []
-    for i in range(1, len(historical_rates)):
-        pct_change = ((historical_rates[i] - historical_rates[i-1]) / historical_rates[i-1]) * 100
-        historical_changes.append(pct_change)
-    
-    forecast_changes = []
-    for i in range(1, len(forecast_rates)):
-        pct_change = ((forecast_rates[i] - forecast_rates[i-1]) / forecast_rates[i-1]) * 100
-        forecast_changes.append(pct_change)
-    
-    # Calculate avg change in historical vs forecasted
-    avg_historical_change = sum(historical_changes) / len(historical_changes) if historical_changes else 0
-    avg_forecast_change = sum(forecast_changes) / len(forecast_changes) if forecast_changes else 0
-    
-    # Format data for Claude
-    historical_data = "\n".join([f"Previous year {current_year - len(historical_rates) + i + 1}: Rate {rate:.4f}" 
-                              for i, rate in enumerate(historical_rates)])
-    
-    forecast_data = "\n".join([f"Future year {year}: Rate {rate:.4f} (Change: {change:.2f}%)" 
-                            for year, rate, change in zip(forecast_years[1:], forecast_rates[1:], forecast_changes)])
-    
-    # Create prompt for Claude
-    prompt = f"""
-    <context>
-    You are an expert property tax consultant analyzing tax levy rate forecasts for tax code {tax_code}.
-    
-    Current year: {current_year}
-    Current rate: {historical_rates[-1]:.4f}
-    
-    Historical rates:
-    {historical_data}
-    Average historical change: {avg_historical_change:.2f}%
-    
-    Forecast rates:
-    Future year {forecast_years[0]}: Rate {forecast_rates[0]:.4f}
-    {forecast_data}
-    Average forecast change: {avg_forecast_change:.2f}%
-    
-    Based on this information, provide 3-5 specific, actionable recommendations for managing this tax code's levy rates.
-    Focus on strategic financial planning, compliance with statutory limits, and balancing revenue needs with taxpayer impact.
-    
-    Format your response as a numbered list of recommendations, with each recommendation being 1-2 sentences.
-    </context>
-    """
-    
     try:
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",  # The newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
-            max_tokens=800,
-            temperature=0.3,
-            system="You are a property tax consultant providing actionable recommendations for county tax administrators. Be specific, clear, and practical. Focus on implementation over theory.",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
-        
-        # Extract recommendations from Claude's response
-        text = response.content[0].text.strip()
-        
-        # Split into recommendations - assuming they're numbered
-        import re
-        recommendations = []
-        
-        if text:
-            # Try to match numbered items with regex
-            matches = re.findall(r'\d+\.\s+(.*?)(?=\n\d+\.|\Z)', text, re.DOTALL)
-            
-            if matches:
-                recommendations = [match.strip() for match in matches]
-            else:
-                # If regex fails, just split by newlines and clean up
-                recommendations = [line.strip() for line in text.split('\n') 
-                                 if line.strip() and not line.strip().isdigit()]
-        
-        return recommendations
-    
+        llm = create_llm_service(provider_name=get_active_ai_provider())
+        prompt = f"""
+        Tax Code: {tax_code}
+        Historical Rates: {historical_rates}
+        Forecast Rates: {forecast_rates}
+        Current Year: {current_year}
+        Forecast Years: {forecast_years}
+        Please provide 3-5 actionable recommendations for managing this tax code's levy rates, focusing on strategic financial planning, compliance with statutory limits, and balancing revenue needs with taxpayer impact.
+        """
+        recommendations = llm.generate_text(prompt)
+        return recommendations.split('\n')
     except Exception as e:
         logger.error(f"Error generating forecast recommendations: {str(e)}")
         return [f"An error occurred while generating recommendations: {str(e)}"]

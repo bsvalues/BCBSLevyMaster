@@ -210,6 +210,21 @@
                             <input type="hidden" name="analysis_type" id="analysisTypeInput" value="comprehensive">
                         </div>
 
+                        <div class="mb-4">
+                            <form method="post" action="{{ url_for('admin.set_ai_provider') }}" class="mb-3">
+                                <label for="ai_provider" class="form-label">AI Provider</label>
+                                <select id="ai_provider" name="ai_provider" class="form-select mb-2" onchange="this.form.submit()">
+                                    {% for provider in ai_providers %}
+                                        <option value="{{ provider.id }}" {% if provider.id == current_ai_provider %}selected{% endif %}>{{ provider.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Choose the AI provider for analytics and forecasting.</small>
+                            </form>
+                            <div class="mb-2">
+                                <strong>Current Provider:</strong> {{ current_ai_provider_name }}
+                            </div>
+                        </div>
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary" id="analyzeBtn">
                                 <i class="bi bi-cpu me-2"></i>Execute Analysis

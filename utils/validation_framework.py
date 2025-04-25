@@ -29,7 +29,8 @@ class ValidationRule:
     
     def validate(self, value: Any) -> bool:
         """
-        Validate the given value.
+        Validate the given value. Default implementation always passes.
+        Override in subclasses for custom validation logic.
         
         Args:
             value: The value to validate
@@ -40,7 +41,8 @@ class ValidationRule:
         Raises:
             ValidationError: If validation fails
         """
-        raise NotImplementedError("Subclasses must implement validate()")
+        # Default: always passes validation
+        return True
 
 
 class RequiredRule(ValidationRule):

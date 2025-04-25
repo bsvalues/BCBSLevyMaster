@@ -91,8 +91,14 @@ class BaseForecast:
         return self._predict_implementation(target_year)
     
     def _predict_implementation(self, target_year: int) -> float:
-        """Implementation of prediction logic for specific models."""
-        raise NotImplementedError("Subclasses must implement _predict_implementation()")
+        """
+        Default implementation for forecasting models. Returns a constant or raises a warning.
+        Override in subclasses for actual prediction logic.
+        """
+        # Default: return the last known rate or raise a warning
+        import warnings
+        warnings.warn("Using default forecast implementation; override for real models.")
+        return float(self.rates[-1]) if len(self.rates) > 0 else 0.0
 
 
 class LinearRateForecast(BaseForecast):

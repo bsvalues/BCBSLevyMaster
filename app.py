@@ -100,6 +100,25 @@ def create_app(config_name=None):
     # Configure logging
     configure_logging(app)
     
+    # --- Swagger/OpenAPI Integration ---
+    from flasgger import Swagger
+    swagger_config = {
+        'headers': [],
+        'specs': [
+            {
+                'endpoint': 'apispec_1',
+                'route': '/apispec_1.json',
+                'rule_filter': lambda rule: True,  # all endpoints
+                'model_filter': lambda tag: True,  # all models
+            }
+        ],
+        'static_url_path': '/flasgger_static',
+        'swagger_ui': True,
+        'specs_route': '/docs/'
+    }
+    Swagger(app, config=swagger_config)
+    # --- End Swagger/OpenAPI Integration ---
+    
     return app
 
 

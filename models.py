@@ -536,41 +536,16 @@ class AnalysisResult(AuditMixin, db.Model):
 
 class SystemSetting(db.Model):
     """
-    System-wide configuration settings.
+    Persistent system-wide key-value settings (for admin config, provider selection, etc).
     """
     __tablename__ = 'system_setting'
-    
-    id = Column(Integer, primary_key=True)
-    key = Column(String(128), nullable=False, unique=True)
-    value = Column(Text)
-    value_type = Column(String(32), default='string')  # string, int, float, boolean, json
-    description = Column(Text)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    updated_by_id = Column(Integer, ForeignKey('user.id'))
-    
-    # Relationships
-    updated_by = relationship('User', foreign_keys=[updated_by_id])
-    
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    value = db.Column(db.String(256), nullable=False)
+    description = db.Column(db.Text)
+
     def __repr__(self):
-        return f'<SystemSetting {self.key}>'
-    
-    @property
-    def typed_value(self):
-        """Return the value converted to its proper type."""
-        if self.value is None:
-            return None
-        
-        if self.value_type == 'int':
-            return int(self.value)
-        elif self.value_type == 'float':
-            return float(self.value)
-        elif self.value_type == 'boolean':
-            return self.value.lower() in ('true', '1', 'yes')
-        elif self.value_type == 'json':
-            import json
-            return json.loads(self.value)
-        else:  # Default to string
-            return self.value
+        return f'<SystemSetting {self.key}={self.value}>'
 
 
 class AIAnalysisRequest(AuditMixin, db.Model):
